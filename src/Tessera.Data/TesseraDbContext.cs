@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Tessera.Core.Channels;
 using Tessera.Core.Spaces;
 using DomainUser = Tessera.Core.Users.User;
 using ChannelIdentity = Tessera.Core.Users.ChannelIdentity;
@@ -19,6 +20,8 @@ public sealed class TesseraDbContext(DbContextOptions<TesseraDbContext> options)
     public DbSet<Membership> Memberships => Set<Membership>();
 
     public DbSet<MembershipPermission> MembershipPermissions => Set<MembershipPermission>();
+
+    public DbSet<ProcessedMessage> ProcessedMessages => Set<ProcessedMessage>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
