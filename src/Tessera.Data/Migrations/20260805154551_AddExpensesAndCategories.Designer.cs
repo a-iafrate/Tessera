@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Tessera.Data;
 
@@ -11,9 +12,11 @@ using Tessera.Data;
 namespace Tessera.Data.Migrations
 {
     [DbContext(typeof(TesseraDbContext))]
-    partial class TesseraDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260805154551_AddExpensesAndCategories")]
+    partial class AddExpensesAndCategories
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -258,25 +261,6 @@ namespace Tessera.Data.Migrations
                     b.HasIndex("SpaceId", "Date");
 
                     b.ToTable("Expenses");
-                });
-
-            modelBuilder.Entity("Tessera.Core.Expenses.MerchantCategoryMapping", b =>
-                {
-                    b.Property<Guid>("SpaceId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("MerchantNormalized")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<Guid>("CategoryId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("ConfirmationCount")
-                        .HasColumnType("int");
-
-                    b.HasKey("SpaceId", "MerchantNormalized");
-
-                    b.ToTable("MerchantCategoryMappings");
                 });
 
             modelBuilder.Entity("Tessera.Core.Shopping.ShoppingItem", b =>

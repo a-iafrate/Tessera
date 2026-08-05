@@ -91,4 +91,52 @@
   <data name="Link.Invalid" xml:space="preserve">
     <value>Questo link non è valido o è scaduto. Generane uno nuovo dalla console.</value>
   </data>
+  <data name="Category.Groceries" xml:space="preserve">
+    <value>Spesa alimentare</value>
+  </data>
+  <data name="Category.Transport" xml:space="preserve">
+    <value>Trasporti</value>
+  </data>
+  <data name="Category.Utilities" xml:space="preserve">
+    <value>Utenze</value>
+  </data>
+  <data name="Category.Entertainment" xml:space="preserve">
+    <value>Svago</value>
+  </data>
+  <data name="Category.Health" xml:space="preserve">
+    <value>Salute</value>
+  </data>
+  <data name="Category.Other" xml:space="preserve">
+    <value>Altro</value>
+  </data>
+  <data name="Expenses.Recorded" xml:space="preserve">
+    <value>Registrata {0}</value>
+  </data>
+  <data name="Expenses.RecordedWithCategory" xml:space="preserve">
+    <value>Registrata {0} per {1}</value>
+  </data>
+  <data name="Expenses.InvalidAmount" xml:space="preserve">
+    <value>Non ho capito l'importo "{0}"</value>
+  </data>
+  <data name="Expenses.MonthlyTotal" xml:space="preserve">
+    <value>In {0} hai speso {1}</value>
+  </data>
+  <data name="Expenses.CategoryTotal" xml:space="preserve">
+    <value>Hai speso {0} per {1} questo mese</value>
+  </data>
+  <data name="Expenses.CategoryNotFound" xml:space="preserve">
+    <value>Non conosco una categoria chiamata "{0}"</value>
+  </data>
+  <data name="Expenses.RecordedWithMerchant" xml:space="preserve">
+    <value>Registrata {0} da {1}</value>
+  </data>
+  <data name="Expenses.RecordedWithMerchantAndCategory" xml:space="preserve">
+    <value>Registrata {0} da {1} ({2})</value>
+  </data>
+  <data name="Expenses.AskCategoryForMerchant" xml:space="preserve">
+    <value>Che categoria è {0}?</value>
+  </data>
+  <data name="Expenses.CategorySaved" xml:space="preserve">
+    <value>Fatto — da ora {0} sarà categorizzato come {1}</value>
+  </data>
 </root>

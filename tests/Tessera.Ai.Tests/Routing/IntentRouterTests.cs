@@ -22,6 +22,12 @@ public class IntentRouterTests
         { "it", "svuota la lista", "shopping.clear" },
         { "it", "svuota la lista!", "shopping.clear" },
         { "it", "quanto ho speso a gennaio", "expenses.query" },
+        { "it", "ho speso 15 euro", "expenses.add" },
+        { "it", "spesa di 20,50 euro per la benzina", "expenses.add" },
+        { "it", "registra una spesa di 30 euro", "expenses.add" },
+        { "it", "spesa di 20 euro da Esselunga", "expenses.add" },
+        { "it", "quanto ho speso in benzina", "expenses.query.category" },
+        { "it", "quanto ho speso per la spesa alimentare?", "expenses.query.category" },
 
         // italiano — devono cadere a L3
         { "it", "ricordati che serve il pane", null },
@@ -38,6 +44,12 @@ public class IntentRouterTests
         { "en", "clear the list", "shopping.clear" },
         { "en", "clear the list!", "shopping.clear" },
         { "en", "how much did I spend in January", "expenses.query" },
+        { "en", "spent 20 euros", "expenses.add" },
+        { "en", "record an expense of 15 for groceries", "expenses.add" },
+        { "en", "log 30", "expenses.add" },
+        { "en", "spent 20 at Tesco", "expenses.add" },
+        { "en", "how much did I spend on groceries", "expenses.query.category" },
+        { "en", "how much did I spend on groceries?", "expenses.query.category" },
 
         // inglese — L3
         { "en", "we're out of detergent", null },
@@ -81,6 +93,67 @@ public class IntentRouterTests
         var match = router.TryRoute(input, "en");
 
         Assert.Equal(expectedSlot, match?.Slots["item"]);
+    }
+
+    [Fact]
+    public void TryRoute_estrae_importo_e_categoria_in_italiano()
+    {
+        var router = new IntentRouter(Matchers.All);
+
+        var match = router.TryRoute("spesa di 20,50 euro per la benzina", "it");
+
+        Assert.Equal("expenses.add", match?.Intent);
+        Assert.Equal("20,50", match?.Slots["amount"]);
+        Assert.Equal("la benzina", match?.Slots["category"]);
+    }
+
+    [Fact]
+    public void TryRoute_estrae_importo_senza_categoria_in_italiano()
+    {
+        var router = new IntentRouter(Matchers.All);
+
+        var match = router.TryRoute("ho speso 15 euro", "it");
+
+        Assert.Equal("expenses.add", match?.Intent);
+        Assert.Equal("15", match?.Slots["amount"]);
+        Assert.False(match?.Slots.ContainsKey("category"));
+    }
+
+    [Fact]
+    public void TryRoute_estrae_importo_con_punto_decimale_in_inglese()
+    {
+        var router = new IntentRouter(Matchers.All);
+
+        var match = router.TryRoute("record an expense of 15.50 for groceries", "en");
+
+        Assert.Equal("expenses.add", match?.Intent);
+        Assert.Equal("15.50", match?.Slots["amount"]);
+        Assert.Equal("groceries", match?.Slots["category"]);
+    }
+
+    [Fact]
+    public void TryRoute_estrae_merchant_senza_categoria_in_italiano()
+    {
+        var router = new IntentRouter(Matchers.All);
+
+        var match = router.TryRoute("spesa di 20 euro da Esselunga", "it");
+
+        Assert.Equal("expenses.add", match?.Intent);
+        Assert.Equal("20", match?.Slots["amount"]);
+        Assert.Equal("Esselunga", match?.Slots["merchant"]);
+        Assert.False(match?.Slots.ContainsKey("category"));
+    }
+
+    [Fact]
+    public void TryRoute_estrae_merchant_senza_categoria_in_inglese()
+    {
+        var router = new IntentRouter(Matchers.All);
+
+        var match = router.TryRoute("spent 20 at Tesco", "en");
+
+        Assert.Equal("expenses.add", match?.Intent);
+        Assert.Equal("Tesco", match?.Slots["merchant"]);
+        Assert.False(match?.Slots.ContainsKey("category"));
     }
 
     [Fact]

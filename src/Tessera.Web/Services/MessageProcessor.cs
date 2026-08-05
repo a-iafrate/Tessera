@@ -3,7 +3,9 @@ using Microsoft.Extensions.Localization;
 using Tessera.Ai.Routing;
 using Tessera.Core.Abstractions;
 using Tessera.Core.Channels;
+using Tessera.Core.Expenses;
 using Tessera.Core.Resources;
+using Tessera.Core.Users;
 using Tessera.Data;
 
 namespace Tessera.Web.Services;
@@ -78,12 +80,13 @@ public sealed class MessageProcessor(
 
         var address = new ChannelAddress(message.ChannelName, message.ExternalChatId);
         var shopping = scope.ServiceProvider.GetRequiredService<ShoppingListService>();
+        var expenses = scope.ServiceProvider.GetRequiredService<ExpenseService>();
 
         if (message.CallbackData is { } callbackData)
         {
             // L1 (docs/05-ottimizzazioni.md): an inline-keyboard tap is already a
             // structured action — it never goes through the intent matcher.
-            await HandleCallbackAsync(shopping, address, spaceId, user.Id, callbackData, ct);
+            await HandleCallbackAsync(shopping, expenses, address, spaceId, user.Id, callbackData, ct);
             return;
         }
 
@@ -109,6 +112,12 @@ public sealed class MessageProcessor(
                 "shopping.check" => await HandleCheckAsync(shopping, spaceId, user.Id, match.Slots["item"], ct),
                 "shopping.remove" => await HandleRemoveAsync(shopping, spaceId, user.Id, match.Slots["item"], ct),
                 "shopping.clear" => await HandleClearAsync(shopping, spaceId, user.Id, ct),
+                "expenses.add" => await HandleExpenseAddAsync(
+                    expenses, address, spaceId, user, culture, match.Slots["amount"],
+                    match.Slots.GetValueOrDefault("category"), match.Slots.GetValueOrDefault("merchant"), ct),
+                "expenses.query" => await HandleExpensesQueryAsync(expenses, spaceId, user, culture, ct),
+                "expenses.query.category" => await HandleExpensesQueryByCategoryAsync(
+                    expenses, spaceId, user, culture, match.Slots["category"], ct),
                 _ => null,
             };
         }
@@ -120,14 +129,27 @@ public sealed class MessageProcessor(
     }
 
     private async Task HandleCallbackAsync(
-        ShoppingListService shopping, ChannelAddress address, Guid spaceId, Guid userId, string callbackData, CancellationToken ct)
+        ShoppingListService shopping, ExpenseService expenses, ChannelAddress address,
+        Guid spaceId, Guid userId, string callbackData, CancellationToken ct)
     {
-        var parts = callbackData.Split(':', 2);
-        if (parts.Length != 2 || parts[0] != "shopping.check" || !Guid.TryParse(parts[1], out var itemId))
+        var parts = callbackData.Split(':');
+
+        if (parts.Length == 2 && parts[0] == "shopping.check" && Guid.TryParse(parts[1], out var itemId))
         {
+            await HandleShoppingCheckCallbackAsync(shopping, address, spaceId, userId, itemId, ct);
             return;
         }
 
+        if (parts.Length == 3 && parts[0] == "expcat"
+            && Guid.TryParse(parts[1], out var expenseId) && int.TryParse(parts[2], out var categoryIndex))
+        {
+            await HandleExpenseCategorizeCallbackAsync(expenses, address, spaceId, expenseId, categoryIndex, ct);
+        }
+    }
+
+    private async Task HandleShoppingCheckCallbackAsync(
+        ShoppingListService shopping, ChannelAddress address, Guid spaceId, Guid userId, Guid itemId, CancellationToken ct)
+    {
         var item = await shopping.CheckItemByIdAsync(spaceId, userId, itemId, ct);
         if (item is null)
         {
@@ -138,6 +160,33 @@ public sealed class MessageProcessor(
         }
 
         await channel.SendTextAsync(address, localizer["Shopping.ItemChecked", item.RawText], ct);
+    }
+
+    private async Task HandleExpenseCategorizeCallbackAsync(
+        ExpenseService expenses, ChannelAddress address, Guid spaceId, Guid expenseId, int categoryIndex, CancellationToken ct)
+    {
+        var categories = await expenses.GetCategoriesAsync(spaceId, ct);
+        if (categoryIndex < 0 || categoryIndex >= categories.Count)
+        {
+            return;
+        }
+        var category = categories[categoryIndex];
+
+        var expense = await expenses.SetCategoryAsync(spaceId, expenseId, category.Id, ct);
+        if (expense is null)
+        {
+            // Stale button: the expense no longer exists, or already got a category
+            // from another tap. Nothing to report.
+            return;
+        }
+
+        if (expense.Merchant is not null)
+        {
+            await expenses.LearnMerchantCategoryAsync(spaceId, expense.Merchant, category.Id, ct);
+        }
+
+        await channel.SendTextAsync(
+            address, localizer["Expenses.CategorySaved", expense.Merchant ?? "", GetCategoryDisplayName(category)], ct);
     }
 
     private async Task HandleLinkAsync(AsyncServiceScope scope, InboundMessage message, string token, CancellationToken ct)
@@ -222,5 +271,127 @@ public sealed class MessageProcessor(
     {
         await shopping.ClearAsync(spaceId, userId, ct);
         return localizer["Shopping.ListCleared"];
+    }
+
+    private async Task<string> HandleExpenseAddAsync(
+        ExpenseService expenses, ChannelAddress address, Guid spaceId, User user, CultureInfo culture,
+        string amountText, string? categoryText, string? merchantText, CancellationToken ct)
+    {
+        // Ambiguous forms ("1,5" in en, "1.500" in it) deserve a confirmation keyboard
+        // rather than a guess (docs/09-localizzazione.md) — not built yet; ordinary
+        // amounts in the user's own culture parse correctly today.
+        if (!decimal.TryParse(amountText, NumberStyles.Number, culture, out var amount))
+        {
+            return localizer["Expenses.InvalidAmount", amountText];
+        }
+
+        var today = GetUserToday(user);
+
+        // An explicit category always wins — there is nothing to resolve or learn.
+        if (categoryText is not null)
+        {
+            var category = await ResolveCategoryAsync(expenses, spaceId, categoryText, ct);
+            var expense = await expenses.RecordAsync(spaceId, user.Id, amount, category?.Id, merchant: null, today, ct);
+            var formatted = MoneyFormatter.Format(expense.Amount, expense.Currency, culture.Name);
+            return category is null
+                ? localizer["Expenses.Recorded", formatted]
+                : localizer["Expenses.RecordedWithCategory", formatted, GetCategoryDisplayName(category)];
+        }
+
+        // No merchant either: nothing to categorize, nothing to learn from.
+        if (merchantText is null)
+        {
+            var expense = await expenses.RecordAsync(spaceId, user.Id, amount, categoryId: null, merchant: null, today, ct);
+            return localizer["Expenses.Recorded", MoneyFormatter.Format(expense.Amount, expense.Currency, culture.Name)];
+        }
+
+        // Categorization strategy, in order of precedence (docs/02-modello-dati.md):
+        // 1. learned merchant → category mapping, applied silently;
+        // 4. unknown merchant → ask once via inline keyboard, and the answer feeds back
+        //    into the mapping so this merchant is never asked about again.
+        var learnedCategory = await expenses.FindMerchantCategoryAsync(spaceId, merchantText, ct);
+        var recorded = await expenses.RecordAsync(spaceId, user.Id, amount, learnedCategory?.Id, merchantText, today, ct);
+        var recordedFormatted = MoneyFormatter.Format(recorded.Amount, recorded.Currency, culture.Name);
+
+        if (learnedCategory is not null)
+        {
+            return localizer["Expenses.RecordedWithMerchantAndCategory",
+                recordedFormatted, merchantText, GetCategoryDisplayName(learnedCategory)];
+        }
+
+        await SendCategoryPickerAsync(expenses, address, spaceId, recorded.Id, merchantText, ct);
+        return localizer["Expenses.RecordedWithMerchant", recordedFormatted, merchantText];
+    }
+
+    private async Task SendCategoryPickerAsync(
+        ExpenseService expenses, ChannelAddress address, Guid spaceId, Guid expenseId, string merchant, CancellationToken ct)
+    {
+        var categories = await expenses.GetCategoriesAsync(spaceId, ct);
+        var choices = categories
+            .Select((category, index) => new Choice(GetCategoryDisplayName(category), $"expcat:{expenseId}:{index}"))
+            .ToList();
+
+        await channel.SendChoicesAsync(address, localizer["Expenses.AskCategoryForMerchant", merchant], choices, ct);
+    }
+
+    private async Task<string> HandleExpensesQueryAsync(
+        ExpenseService expenses, Guid spaceId, User user, CultureInfo culture, CancellationToken ct)
+    {
+        // Specific months ("a gennaio") aren't parsed yet — date phrases go to the LLM
+        // fallback (docs/05-ottimizzazioni.md), which isn't wired up. This always answers
+        // for the current month and says so explicitly, rather than guessing wrong.
+        var today = GetUserToday(user);
+        var (total, currency) = await expenses.GetMonthlyTotalAsync(spaceId, user.Id, today.Year, today.Month, ct);
+
+        var monthName = culture.DateTimeFormat.GetMonthName(today.Month);
+        var formatted = MoneyFormatter.Format(total, currency, culture.Name);
+        return localizer["Expenses.MonthlyTotal", monthName, formatted];
+    }
+
+    private async Task<string> HandleExpensesQueryByCategoryAsync(
+        ExpenseService expenses, Guid spaceId, User user, CultureInfo culture, string categoryText, CancellationToken ct)
+    {
+        var category = await ResolveCategoryAsync(expenses, spaceId, categoryText, ct);
+        if (category is null)
+        {
+            return localizer["Expenses.CategoryNotFound", categoryText];
+        }
+
+        var today = GetUserToday(user);
+        var (total, currency) = await expenses.GetCategoryTotalAsync(spaceId, user.Id, category.Id, today.Year, today.Month, ct);
+
+        var formatted = MoneyFormatter.Format(total, currency, culture.Name);
+        return localizer["Expenses.CategoryTotal", formatted, GetCategoryDisplayName(category)];
+    }
+
+    private async Task<Category?> ResolveCategoryAsync(ExpenseService expenses, Guid spaceId, string text, CancellationToken ct)
+    {
+        var categories = await expenses.GetCategoriesAsync(spaceId, ct);
+        var target = text.Trim().ToLowerInvariant();
+
+        foreach (var category in categories)
+        {
+            var displayName = GetCategoryDisplayName(category).ToLowerInvariant();
+            if (displayName.Contains(target) || target.Contains(displayName))
+            {
+                return category;
+            }
+        }
+
+        return null;
+    }
+
+    // System categories are resource keys and localize; user categories are free text
+    // and never translate (docs/09-localizzazione.md) — never mixed on the same row.
+    private string GetCategoryDisplayName(Category category) =>
+        category.ResourceKey is not null ? localizer[category.ResourceKey] : category.Name ?? "";
+
+    private static DateOnly GetUserToday(User user)
+    {
+        var timeZone = user.TimeZoneId is null
+            ? TimeZoneInfo.Utc
+            : TimeZoneInfo.FindSystemTimeZoneById(user.TimeZoneId);
+        var localNow = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, timeZone);
+        return DateOnly.FromDateTime(localNow.DateTime);
     }
 }

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Tessera.Core.Channels;
+using Tessera.Core.Expenses;
 using Tessera.Core.Shopping;
 using Tessera.Core.Spaces;
 using DomainUser = Tessera.Core.Users.User;
@@ -30,6 +31,12 @@ public sealed class TesseraDbContext(DbContextOptions<TesseraDbContext> options)
     public DbSet<ShoppingItem> ShoppingItems => Set<ShoppingItem>();
 
     public DbSet<LinkToken> LinkTokens => Set<LinkToken>();
+
+    public DbSet<Expense> Expenses => Set<Expense>();
+
+    public DbSet<Category> Categories => Set<Category>();
+
+    public DbSet<MerchantCategoryMapping> MerchantCategoryMappings => Set<MerchantCategoryMapping>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

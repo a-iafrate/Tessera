@@ -91,4 +91,52 @@
   <data name="Link.Invalid" xml:space="preserve">
     <value>This link is invalid or has expired. Generate a new one from the console.</value>
   </data>
+  <data name="Category.Groceries" xml:space="preserve">
+    <value>Groceries</value>
+  </data>
+  <data name="Category.Transport" xml:space="preserve">
+    <value>Transport</value>
+  </data>
+  <data name="Category.Utilities" xml:space="preserve">
+    <value>Utilities</value>
+  </data>
+  <data name="Category.Entertainment" xml:space="preserve">
+    <value>Entertainment</value>
+  </data>
+  <data name="Category.Health" xml:space="preserve">
+    <value>Health</value>
+  </data>
+  <data name="Category.Other" xml:space="preserve">
+    <value>Other</value>
+  </data>
+  <data name="Expenses.Recorded" xml:space="preserve">
+    <value>Recorded {0}</value>
+  </data>
+  <data name="Expenses.RecordedWithCategory" xml:space="preserve">
+    <value>Recorded {0} for {1}</value>
+  </data>
+  <data name="Expenses.InvalidAmount" xml:space="preserve">
+    <value>I couldn't read "{0}" as an amount</value>
+  </data>
+  <data name="Expenses.MonthlyTotal" xml:space="preserve">
+    <value>In {0} you spent {1}</value>
+  </data>
+  <data name="Expenses.CategoryTotal" xml:space="preserve">
+    <value>You spent {0} on {1} this month</value>
+  </data>
+  <data name="Expenses.CategoryNotFound" xml:space="preserve">
+    <value>I don't know a category called "{0}"</value>
+  </data>
+  <data name="Expenses.RecordedWithMerchant" xml:space="preserve">
+    <value>Recorded {0} at {1}</value>
+  </data>
+  <data name="Expenses.RecordedWithMerchantAndCategory" xml:space="preserve">
+    <value>Recorded {0} at {1} ({2})</value>
+  </data>
+  <data name="Expenses.AskCategoryForMerchant" xml:space="preserve">
+    <value>What category is {0} in?</value>
+  </data>
+  <data name="Expenses.CategorySaved" xml:space="preserve">
+    <value>Got it — {0} will be categorized as {1} from now on</value>
+  </data>
 </root>

@@ -9,12 +9,16 @@ public static class Matchers
         new ItShoppingCheckMatcher(),
         new ItShoppingRemoveMatcher(),
         new ItShoppingClearMatcher(),
+        new ItExpenseAddMatcher(),
+        new ItExpensesQueryByCategoryMatcher(),
         new ItExpensesQueryMatcher(),
         new EnShoppingAddMatcher(),
         new EnShoppingShowMatcher(),
         new EnShoppingCheckMatcher(),
         new EnShoppingRemoveMatcher(),
         new EnShoppingClearMatcher(),
+        new EnExpenseAddMatcher(),
+        new EnExpensesQueryByCategoryMatcher(),
         new EnExpensesQueryMatcher(),
     ];
 }
