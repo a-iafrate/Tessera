@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Telegram.Bot;
 using Tessera.Channels;
+using Tessera.Core.Abstractions;
 using Tessera.Core.Channels;
 using Tessera.Data;
 using Tessera.Web.Components;
@@ -53,6 +54,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddDefaultTokenProviders();
 
 builder.Services.AddScoped<UserProvisioningService>();
+builder.Services.AddScoped<IChannelIdentityRepository, ChannelIdentityRepository>();
 
 // The bot pipeline is only wired up once a bot token is configured, so the console works
 // standalone during development before a Telegram bot exists (dotnet user-secrets set
