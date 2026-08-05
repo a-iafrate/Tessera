@@ -7,9 +7,8 @@ using Tessera.Core.Spaces;
 namespace Tessera.Data;
 
 // Every query filters by SpaceId — never by UserId — per the sharing model in
-// docs/02-modello-dati.md. Matching an item by name is a rough stand-in for the inline
-// keyboard (a separate, later checklist item): it works today because there is no way
-// yet to pick an item by id from the chat.
+// docs/02-modello-dati.md. CheckItemAsync/RemoveItemAsync match by (fuzzy) name for plain
+// text commands; CheckItemByIdAsync is the exact-match path used by the inline keyboard.
 public sealed class ShoppingListService(TesseraDbContext db, IAccessPolicy accessPolicy)
 {
     private static readonly Regex LeadingArticle = new(
@@ -45,6 +44,25 @@ public sealed class ShoppingListService(TesseraDbContext db, IAccessPolicy acces
             .Where(x => x.ShoppingListId == list.Id && !x.IsChecked && x.NormalizedName.Contains(target))
             .OrderBy(x => x.AddedAt)
             .FirstOrDefaultAsync(ct);
+        if (item is null)
+        {
+            return null;
+        }
+
+        item.IsChecked = true;
+        item.CheckedByUserId = userId;
+        item.CheckedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return item;
+    }
+
+    public async Task<ShoppingItem?> CheckItemByIdAsync(Guid spaceId, Guid userId, Guid itemId, CancellationToken ct)
+    {
+        await EnsureAccessAsync(spaceId, userId, AccessLevel.Write, ct);
+        var list = await GetOrCreateListAsync(spaceId, ct);
+
+        var item = await db.ShoppingItems
+            .FirstOrDefaultAsync(x => x.Id == itemId && x.ShoppingListId == list.Id && !x.IsChecked, ct);
         if (item is null)
         {
             return null;

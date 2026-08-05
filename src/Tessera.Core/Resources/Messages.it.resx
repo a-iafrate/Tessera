@@ -85,4 +85,10 @@
   <data name="Errors.NotUnderstood" xml:space="preserve">
     <value>Non ho capito. Prova /help</value>
   </data>
+  <data name="Link.Success" xml:space="preserve">
+    <value>Collegato come {0}</value>
+  </data>
+  <data name="Link.Invalid" xml:space="preserve">
+    <value>Questo link non è valido o è scaduto. Generane uno nuovo dalla console.</value>
+  </data>
 </root>

@@ -9,7 +9,7 @@ public sealed class EnShoppingClearMatcher : IIntentMatcher
     public string Culture => "en";
 
     private static readonly Regex Pattern = new(
-        @"^\s*(clear|empty)\s+the\s+list\s*$",
+        @"^\s*(clear|empty)\s+the\s+list\s*[?!.]*$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     public IntentMatch? TryMatch(string text)

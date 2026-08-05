@@ -9,7 +9,7 @@ public sealed class ItShoppingClearMatcher : IIntentMatcher
     public string Culture => "it";
 
     private static readonly Regex Pattern = new(
-        @"^\s*(svuota|vuota|cancella)\s+la\s+lista\s*$",
+        @"^\s*(svuota|vuota|cancella)\s+la\s+lista\s*[?!.]*$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     public IntentMatch? TryMatch(string text)

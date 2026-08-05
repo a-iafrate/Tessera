@@ -6,6 +6,7 @@ using Tessera.Core.Shopping;
 using Tessera.Core.Spaces;
 using DomainUser = Tessera.Core.Users.User;
 using ChannelIdentity = Tessera.Core.Users.ChannelIdentity;
+using LinkToken = Tessera.Core.Users.LinkToken;
 
 namespace Tessera.Data;
 
@@ -27,6 +28,8 @@ public sealed class TesseraDbContext(DbContextOptions<TesseraDbContext> options)
     public DbSet<ShoppingList> ShoppingLists => Set<ShoppingList>();
 
     public DbSet<ShoppingItem> ShoppingItems => Set<ShoppingItem>();
+
+    public DbSet<LinkToken> LinkTokens => Set<LinkToken>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

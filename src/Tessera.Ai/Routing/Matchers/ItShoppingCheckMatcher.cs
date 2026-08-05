@@ -9,7 +9,7 @@ public sealed class ItShoppingCheckMatcher : IIntentMatcher
     public string Culture => "it";
 
     private static readonly Regex Pattern = new(
-        @"^\s*spunta\s+(?<item>.+?)(\s+(dalla|nella)\s+lista.*)?$",
+        @"^\s*spunta\s+(?<item>.+?)(\s+(dalla|nella)\s+lista.*)?[?!.]*$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     public IntentMatch? TryMatch(string text)

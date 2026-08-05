@@ -1,0 +1,43 @@
+@page "/link/telegram"
+@attribute [Authorize]
+
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Tessera.Data
+
+@inject LinkService LinkService
+@inject IConfiguration Configuration
+
+<PageTitle>Collega Telegram</PageTitle>
+
+<h1>Collega Telegram</h1>
+
+@if (deepLink is null)
+{
+    <p>Genera un link per collegare la tua chat Telegram a questo account.</p>
+    <button class="btn btn-primary" @onclick="GenerateLinkAsync">Genera link</button>
+}
+else
+{
+    <p>Apri questo link da Telegram per completare il collegamento (valido 10 minuti):</p>
+    <p><a href="@deepLink" target="_blank">@deepLink</a></p>
+    <button class="btn btn-link" @onclick="GenerateLinkAsync">Genera un nuovo link</button>
+}
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private string? deepLink;
+
+    private async Task GenerateLinkAsync()
+    {
+        var authState = await AuthenticationStateTask!;
+        var userId = Guid.Parse(authState.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var token = await LinkService.CreateTokenAsync(userId, "telegram", CancellationToken.None);
+        var botUsername = Configuration["Telegram:BotUsername"];
+        deepLink = $"https://t.me/{botUsername}?start={token.Token}";
+    }
+}

@@ -9,7 +9,7 @@ public sealed class EnShoppingRemoveMatcher : IIntentMatcher
     public string Culture => "en";
 
     private static readonly Regex Pattern = new(
-        @"^\s*(remove|delete)\s+(?<item>.+?)(\s+(from|on)\s+the\s+list.*)?$",
+        @"^\s*(remove|delete)\s+(?<item>.+?)(\s+(from|on)\s+the\s+list.*)?[?!.]*$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     public IntentMatch? TryMatch(string text)

@@ -9,7 +9,7 @@ public sealed class EnShoppingCheckMatcher : IIntentMatcher
     public string Culture => "en";
 
     private static readonly Regex Pattern = new(
-        @"^\s*check(\s+off)?\s+(?<item>.+?)(\s+(from|on)\s+the\s+list.*)?$",
+        @"^\s*check(\s+off)?\s+(?<item>.+?)(\s+(from|on)\s+the\s+list.*)?[?!.]*$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     public IntentMatch? TryMatch(string text)
