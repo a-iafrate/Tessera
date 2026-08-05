@@ -2,9 +2,12 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Telegram.Bot;
+using Tessera.Ai.Routing;
+using Tessera.Ai.Routing.Matchers;
 using Tessera.Channels;
 using Tessera.Core.Abstractions;
 using Tessera.Core.Channels;
+using Tessera.Core.Spaces;
 using Tessera.Data;
 using Tessera.Web.Components;
 using Tessera.Web.Components.Account;
@@ -53,8 +56,14 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddSignInManager()
     .AddDefaultTokenProviders();
 
+builder.Services.AddLocalization();
+
 builder.Services.AddScoped<UserProvisioningService>();
 builder.Services.AddScoped<IChannelIdentityRepository, ChannelIdentityRepository>();
+builder.Services.AddScoped<IMembershipRepository, MembershipRepository>();
+builder.Services.AddScoped<IAccessPolicy, AccessPolicy>();
+builder.Services.AddScoped<ShoppingListService>();
+builder.Services.AddSingleton(new IntentRouter(Matchers.All));
 
 // The bot pipeline is only wired up once a bot token is configured, so the console works
 // standalone during development before a Telegram bot exists (dotnet user-secrets set
@@ -66,7 +75,17 @@ if (telegramEnabled)
     builder.Services.AddSingleton<ITelegramBotClient>(_ => new TelegramBotClient(telegramBotToken!));
     builder.Services.AddSingleton<IChannel, TelegramChannel>();
     builder.Services.AddSingleton<MessageQueue>();
+    builder.Services.AddScoped<TelegramUpdateIngestor>();
     builder.Services.AddHostedService<MessageProcessor>();
+
+    // Long polling instead of the webhook while developing locally — no ngrok tunnel to
+    // manage, and the debugger attaches normally (docs/08-setup-sviluppo.md). Use a
+    // separate BotFather bot for this: sharing a token with the deployed webhook means
+    // one of the two silently stops receiving updates.
+    if (builder.Environment.IsDevelopment())
+    {
+        builder.Services.AddHostedService<TelegramPollingReceiver>();
+    }
 }
 
 var app = builder.Build();

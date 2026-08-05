@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Tessera.Core.Channels;
+using Tessera.Core.Shopping;
 using Tessera.Core.Spaces;
 using DomainUser = Tessera.Core.Users.User;
 using ChannelIdentity = Tessera.Core.Users.ChannelIdentity;
@@ -22,6 +23,10 @@ public sealed class TesseraDbContext(DbContextOptions<TesseraDbContext> options)
     public DbSet<MembershipPermission> MembershipPermissions => Set<MembershipPermission>();
 
     public DbSet<ProcessedMessage> ProcessedMessages => Set<ProcessedMessage>();
+
+    public DbSet<ShoppingList> ShoppingLists => Set<ShoppingList>();
+
+    public DbSet<ShoppingItem> ShoppingItems => Set<ShoppingItem>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

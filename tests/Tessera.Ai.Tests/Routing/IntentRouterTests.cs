@@ -15,6 +15,10 @@ public class IntentRouterTests
         { "it", "metti 2 litri di latte nella lista", "shopping.add" },
         { "it", "segna pane", "shopping.add" },
         { "it", "cosa c'è in lista", "shopping.show" },
+        { "it", "spunta il latte", "shopping.check" },
+        { "it", "rimuovi il pane", "shopping.remove" },
+        { "it", "togli il pane dalla lista", "shopping.remove" },
+        { "it", "svuota la lista", "shopping.clear" },
         { "it", "quanto ho speso a gennaio", "expenses.query" },
 
         // italiano — devono cadere a L3
@@ -25,6 +29,10 @@ public class IntentRouterTests
         // inglese — L2
         { "en", "add milk", "shopping.add" },
         { "en", "put bread on the list", "shopping.add" },
+        { "en", "show me the list", "shopping.show" },
+        { "en", "check off milk", "shopping.check" },
+        { "en", "remove bread", "shopping.remove" },
+        { "en", "clear the list", "shopping.clear" },
         { "en", "how much did I spend in January", "expenses.query" },
 
         // inglese — L3
