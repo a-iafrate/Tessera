@@ -1,7 +1,22 @@
-﻿@page "/"
+@page "/"
+@using Microsoft.AspNetCore.Components.Authorization
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Tessera</PageTitle>
 
-<h1>Hello, world!</h1>
-
-Welcome to your new app.
+<AuthorizeView>
+    <Authorized>
+        <h1>Tessera</h1>
+        <p>Sei connesso come <strong>@context.User.Identity?.Name</strong>.</p>
+        <form action="Account/Logout" method="post">
+            <AntiforgeryToken />
+            <input type="hidden" name="returnUrl" value="" />
+            <button type="submit" class="btn btn-link">Log out</button>
+        </form>
+    </Authorized>
+    <NotAuthorized>
+        <h1>Tessera</h1>
+        <p>Il tuo assistente condiviso per lista della spesa, spese e promemoria.</p>
+        <a href="Account/Login" class="btn btn-primary">Log in</a>
+        <a href="Account/Register" class="btn btn-secondary">Register</a>
+    </NotAuthorized>
+</AuthorizeView>

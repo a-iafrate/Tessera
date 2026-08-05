@@ -17,5 +17,11 @@ csharp_style_prefer_primary_constructors = true:suggestion
 csharp_prefer_simple_using_statement = true:suggestion
 csharp_style_expression_bodied_methods = when_on_single_line:suggestion
 dotnet_style_prefer_collection_expression = true:suggestion
-dotnet_style_require_accessibility_modifiers = always:warning
+dotnet_style_require_accessibility_modifiers = for_non_interface_members:warning
 dotnet_sort_system_directives_first = true
+
+# EF Core scaffolds migrations with block-scoped namespaces; treat them as generated,
+# not hand-written, code and exempt them from our style rules.
+[**/Migrations/*.cs]
+generated_code = true
+csharp_style_namespace_declarations = block_scoped:silent

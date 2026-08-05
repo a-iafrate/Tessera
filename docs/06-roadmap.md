@@ -76,7 +76,7 @@ Pesa più di qualsiasi funzione aggiuntiva: è ciò che determina se qualcuno us
 ### Console web
 
 - [ ] Blazor Web App, render server interattivo
-- [ ] Registrazione e login (ASP.NET Identity o Entra External ID)
+- [ ] Registrazione e login con **ASP.NET Core Identity** (email/password); provider social (Google, Microsoft) aggiunti in fase successiva senza ridisegno — vedi [01-architettura.md](01-architettura.md)
 - [ ] Creazione e gestione spazi
 - [ ] Invito membri con preset di permessi
 - [ ] Ruolo `Admin` **per spazio**, non globale: nessun amministratore di sistema che veda i dati altrui

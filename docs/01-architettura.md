@@ -159,12 +159,32 @@ Nell'MVP è un `BackgroundService` con un timer nella stessa app. Con più istan
 
 | Superficie | Meccanismo |
 |---|---|
-| Console web | Cookie auth (ASP.NET Identity o Entra External ID) |
+| Console web | Cookie auth (**ASP.NET Core Identity**) |
 | `/hooks/telegram` | `AllowAnonymous` + header `X-Telegram-Bot-Api-Secret-Token` |
 | `/hooks/whatsapp` | `AllowAnonymous` + HMAC SHA-256 su `X-Hub-Signature-256` |
 | Pagine pubbliche | Anonime (homepage, privacy, termini) |
 
 I webhook **non devono** passare per il cookie della console: non hanno un utente loggato. Sono due endpoint filter, non due applicazioni.
+
+### Perché ASP.NET Core Identity e non Entra External ID
+
+Decisione presa: **ASP.NET Core Identity**, non Entra External ID.
+
+Il requisito di prodotto è login con email/password fin dal giorno uno, con provider social (Google, Microsoft) aggiunti in una fase successiva senza richiedere un ridisegno. Identity copre esattamente questo: gli account locali (`AspNetUsers`) e i login esterni (`AspNetUserLogins`) condividono lo stesso utente fin dallo schema — aggiungere un provider social più avanti è configurazione (`AddGoogle`, `AddMicrosoftAccount` in `Program.cs` più una pagina di callback), non una migrazione dei dati.
+
+Entra External ID farebbe la stessa cosa, ma delegando l'intera identità a un tenant Azure esterno fin dalla Fase 1 — in contrasto con il principio "zero OAuth in Fase 1" della roadmap (vedi [06-roadmap.md](06-roadmap.md)), e con un costo/complessità di setup non giustificato per un MVP a singolo sviluppatore.
+
+**Da non confondere con altri due flussi OAuth-simili già nello schema** (vedi [02-modello-dati.md](02-modello-dati.md)):
+
+| Flusso | Scopo | Entità |
+|---|---|---|
+| Login social (Identity, futuro) | Autenticarsi in console | `AspNetUserLogins` (di Identity) |
+| `LinkedAccount` | Accesso al Calendario (Fase 2) | `LinkedAccount` |
+| `ChannelIdentity` | Collegare Telegram/WhatsApp | `ChannelIdentity` |
+
+Un utente che fa login con Google **non** ha per ciò autorizzato l'accesso al suo Google Calendar: sono consensi distinti, con scope distinti, anche se il provider è lo stesso.
+
+L'account tecnico di Identity (`ApplicationUser`, in `Tessera.Data`) resta separato dall'entità di dominio `User` (in `Tessera.Core`, senza dipendenze da Identity): stesso `Guid Id`, creati insieme alla registrazione, ma `Tessera.Core` non referenzia mai tipi di Identity — vedi la regola "zero dipendenze da infrastruttura" più sopra.
 
 ## Deploy su Azure
 

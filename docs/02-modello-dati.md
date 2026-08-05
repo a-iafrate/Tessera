@@ -56,11 +56,28 @@ public class LinkedAccount          // "questo utente ha collegato Google"
 
 **Tre concetti distinti che è facile confondere:**
 
-1. **Account console** (`User.Email` + password/social) — chi si logga sul web
+1. **Account console** (`ApplicationUser`, Identity — vedi sotto) — chi si logga sul web
 2. **Identità di canale** (`ChannelIdentity`) — quale chat_id corrisponde a quell'utente
 3. **Account collegato** (`LinkedAccount`) — quali servizi esterni ha autorizzato
 
 Un utente può loggarsi sulla console con Google e *non* aver autorizzato Google Calendar. Sono flussi OAuth diversi con scope diversi. Tenerli separati nello schema evita un rimaneggiamento certo.
+
+### Account console: `ApplicationUser` vs `User`
+
+Login con email/password fin dal giorno uno, provider social (Google, Microsoft) aggiunti in fase successiva — decisione e motivazione in [01-architettura.md](01-architettura.md). Meccanismo: **ASP.NET Core Identity**, non un campo password su `User`.
+
+Questo introduce una seconda entità, tenuta deliberatamente separata dal dominio:
+
+```csharp
+// Tessera.Data — infrastruttura, gestita da ASP.NET Core Identity
+public class ApplicationUser : IdentityUser<Guid>
+{
+    // PasswordHash, SecurityStamp, ecc. ereditati da IdentityUser<Guid>
+    // I login social futuri vivono in AspNetUserLogins, nessuna modifica a questa classe
+}
+```
+
+`ApplicationUser` e `User` (dominio, sopra) condividono lo stesso `Guid Id`, creati insieme in un'unica operazione alla registrazione — insieme allo spazio "Personale", per la regola di "condivisibile per costruzione" descritta più sotto. `Tessera.Core` non referenzia mai `ApplicationUser` né alcun tipo di Identity: la logica di dominio conosce solo `User`. La risoluzione fra i due (in login, in ogni query che parte da `HttpContext.User`) è responsabilità di `Tessera.Web`, mai di `Tessera.Core`.
 
 Nota su `LinkedAccount`: nel database sta solo il **nome del segreto**, mai il refresh token. Vedi [07-compliance.md](07-compliance.md).
 
