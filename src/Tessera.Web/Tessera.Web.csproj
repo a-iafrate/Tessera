@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Tessera.Core\Tessera.Core.csproj" />
+    <ProjectReference Include="..\Tessera.Data\Tessera.Data.csproj" />
+    <ProjectReference Include="..\Tessera.Channels\Tessera.Channels.csproj" />
+    <ProjectReference Include="..\Tessera.Integrations\Tessera.Integrations.csproj" />
+    <ProjectReference Include="..\Tessera.Ai\Tessera.Ai.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+  </PropertyGroup>
+
+</Project>
