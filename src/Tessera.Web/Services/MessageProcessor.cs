@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Threading.RateLimiting;
 using Microsoft.Extensions.Localization;
 using Tessera.Ai.Commands;
 using Tessera.Ai.Routing;
@@ -19,6 +20,7 @@ public sealed class MessageProcessor(
     IServiceScopeFactory scopeFactory,
     IntentRouter router,
     IChannel channel,
+    PartitionedRateLimiter<string> rateLimiter,
     IStringLocalizer<Messages> localizer,
     ILogger<MessageProcessor> logger) : BackgroundService
 {
@@ -41,6 +43,18 @@ public sealed class MessageProcessor(
 
     private async Task ProcessAsync(InboundMessage message, CancellationToken ct)
     {
+        // Economic safety net, not a feature (docs/07-compliance.md): a loop bug or a bad-
+        // faith user must not translate into unlimited DB/LLM cost. Keyed on the raw channel
+        // identity, before any DB lookup, so it also caps an unlinked user hammering /start.
+        if (message.ExternalUserId is { } externalUserId
+            && !rateLimiter.AttemptAcquire($"{message.ChannelName}:{externalUserId}").IsAcquired)
+        {
+            logger.LogWarning(
+                "Rate limit exceeded for {ChannelName} identity {ExternalUserId} — message dropped",
+                message.ChannelName, externalUserId);
+            return;
+        }
+
         await using var scope = scopeFactory.CreateAsyncScope();
         var identities = scope.ServiceProvider.GetRequiredService<IChannelIdentityRepository>();
 
@@ -73,6 +87,17 @@ public sealed class MessageProcessor(
             "Received {ChannelName} message from {DisplayName} (culture {Culture}): {Text}",
             message.ChannelName, user.DisplayName ?? user.Email, culture.Name, message.Text);
 
+        var address = new ChannelAddress(message.ChannelName, message.ExternalChatId);
+
+        // The identity is already linked — a stale/reused /start deep link (e.g. tapped
+        // again, or from a different environment sharing the same database) must not fall
+        // through to the intent router and come back as the generic "I didn't get that".
+        if (message.Text is not null && message.Text.StartsWith("/start", StringComparison.OrdinalIgnoreCase))
+        {
+            await channel.SendTextAsync(address, localizer["Link.AlreadyLinked", user.DisplayName ?? user.Email], ct);
+            return;
+        }
+
         // Full disambiguation chain (docs/02-modello-dati.md) isn't built yet — the
         // personal space created at registration is the only one a user has today.
         if (user.DefaultSpaceId is not { } spaceId)
@@ -80,7 +105,6 @@ public sealed class MessageProcessor(
             return;
         }
 
-        var address = new ChannelAddress(message.ChannelName, message.ExternalChatId);
         var shopping = scope.ServiceProvider.GetRequiredService<ShoppingListService>();
         var expenses = scope.ServiceProvider.GetRequiredService<ExpenseService>();
         var reminders = scope.ServiceProvider.GetRequiredService<ReminderService>();

@@ -91,6 +91,9 @@
   <data name="Link.Invalid" xml:space="preserve">
     <value>Questo link non è valido o è scaduto. Generane uno nuovo dalla console.</value>
   </data>
+  <data name="Link.AlreadyLinked" xml:space="preserve">
+    <value>Sei già collegato come {0}</value>
+  </data>
   <data name="Category.Groceries" xml:space="preserve">
     <value>Spesa alimentare</value>
   </data>

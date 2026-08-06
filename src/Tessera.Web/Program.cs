@@ -1,4 +1,6 @@
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Telegram.Bot;
@@ -15,6 +17,13 @@ using Tessera.Web.Endpoints;
 using Tessera.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// KnownProxies/KnownNetworks stay empty on purpose: Azure App Service's front-end isn't a
+// fixed, listable IP, and it's the only thing that can reach the app's network path here.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+});
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -58,6 +67,16 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 
 builder.Services.AddLocalization();
 
+// Economic safety net (docs/07-compliance.md): caps DB/LLM cost from a loop bug or a
+// bad-faith user, per raw channel identity — not HTTP middleware, since the identity comes
+// from the webhook payload, not a header (see MessageProcessor.ProcessAsync).
+builder.Services.AddSingleton(PartitionedRateLimiter.Create<string, string>(key =>
+    RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
+    {
+        PermitLimit = 60,
+        Window = TimeSpan.FromHours(1),
+    })));
+
 builder.Services.AddScoped<UserProvisioningService>();
 builder.Services.AddScoped<IChannelIdentityRepository, ChannelIdentityRepository>();
 builder.Services.AddScoped<IMembershipRepository, MembershipRepository>();
@@ -100,6 +119,12 @@ if (!telegramEnabled)
 {
     app.Logger.LogWarning("Telegram:BotToken is not configured — the bot pipeline is disabled.");
 }
+
+// Azure App Service (Windows/IIS) terminates TLS at its front-end and forwards requests as
+// plain HTTP with X-Forwarded-Proto — without this, HttpContext.Request.IsHttps is wrong
+// inside the app, which silently confuses cookies, antiforgery and the SignalR circuit
+// negotiation. Must run before UseHttpsRedirection/UseAuthentication.
+app.UseForwardedHeaders();
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

@@ -9,13 +9,26 @@
     <link rel="stylesheet" href="@Assets["app.css"]" />
     <link rel="stylesheet" href="@Assets["Tessera.Web.styles.css"]" />
     <ImportMap />
-    <HeadOutlet @rendermode="InteractiveServer" />
+    <HeadOutlet @rendermode="PageRenderMode" />
 </head>
 
 <body>
-    <Routes @rendermode="InteractiveServer" />
+    <Routes @rendermode="PageRenderMode" />
     <ReconnectModal />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>
 
 </html>
+
+@code {
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    // Identity's Account pages are [ExcludeFromInteractiveRouting] (docs: they need the
+    // real HttpContext to set auth cookies, which isn't available over a SignalR circuit).
+    // Forcing InteractiveServer unconditionally here would make the interactive router
+    // unable to find them at all once the circuit takes over — rendering NotFound instead
+    // of the actual page. AcceptsInteractiveRouting() is what makes the exclusion meaningful.
+    private IComponentRenderMode? PageRenderMode =>
+        HttpContext.AcceptsInteractiveRouting() ? InteractiveServer : null;
+}
