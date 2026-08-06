@@ -94,6 +94,9 @@
   <data name="Link.AlreadyLinked" xml:space="preserve">
     <value>You're already linked as {0}</value>
   </data>
+  <data name="Link.NotLinkedYet" xml:space="preserve">
+    <value>You're not linked yet. Open the console and click "Link Telegram" to get a link.</value>
+  </data>
   <data name="Category.Groceries" xml:space="preserve">
     <value>Groceries</value>
   </data>
@@ -144,6 +147,9 @@
   </data>
   <data name="Expenses.ConfirmAmount" xml:space="preserve">
     <value>Which amount did you mean?</value>
+  </data>
+  <data name="Expenses.Usage" xml:space="preserve">
+    <value>Try: /expense 20 groceries, or just describe it naturally, e.g. "20 at the supermarket".</value>
   </data>
   <data name="Reminders.CreatedOnce" xml:space="preserve">
     <value>Reminder set for {0}</value>
@@ -249,5 +255,35 @@
   </data>
   <data name="RecurringExpenses.ReminderDue" xml:space="preserve">
     <value>Reminder: {0} (about {1}) should be due today</value>
+  </data>
+  <data name="Language.Current" xml:space="preserve">
+    <value>Current language: {0}. Try: /language it or /language en</value>
+  </data>
+  <data name="Language.Usage" xml:space="preserve">
+    <value>Try: /language it or /language en</value>
+  </data>
+  <data name="Language.Changed" xml:space="preserve">
+    <value>Language changed</value>
+  </data>
+  <data name="Commands.List.Description" xml:space="preserve">
+    <value>Show the shopping list</value>
+  </data>
+  <data name="Commands.Expense.Description" xml:space="preserve">
+    <value>Record an expense</value>
+  </data>
+  <data name="Commands.Remind.Description" xml:space="preserve">
+    <value>Reminders</value>
+  </data>
+  <data name="Commands.Month.Description" xml:space="preserve">
+    <value>Monthly summary</value>
+  </data>
+  <data name="Commands.Link.Description" xml:space="preserve">
+    <value>Link your account</value>
+  </data>
+  <data name="Commands.Language.Description" xml:space="preserve">
+    <value>Change language</value>
+  </data>
+  <data name="Commands.Help.Description" xml:space="preserve">
+    <value>Help</value>
   </data>
 </root>

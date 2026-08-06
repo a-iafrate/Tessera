@@ -1,14 +1,18 @@
+using System.Globalization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using Telegram.Bot;
+using Telegram.Bot.Types;
 using Tessera.Ai.Routing;
 using Tessera.Ai.Routing.Matchers;
 using Tessera.Channels;
 using Tessera.Core.Abstractions;
 using Tessera.Core.Channels;
+using Tessera.Core.Resources;
 using Tessera.Core.Spaces;
 using Tessera.Data;
 using Tessera.Web.Components;
@@ -127,6 +131,33 @@ var app = builder.Build();
 if (!telegramEnabled)
 {
     app.Logger.LogWarning("Telegram:BotToken is not configured — the bot pipeline is disabled.");
+}
+else
+{
+    // Command names are canonical English and identical across languages — only the menu
+    // descriptions are localized (docs/09-localizzazione.md: a mixed-language group must see
+    // the same command names, or a command copied between members stops working).
+    await using var commandsScope = app.Services.CreateAsyncScope();
+    var botClient = commandsScope.ServiceProvider.GetRequiredService<ITelegramBotClient>();
+    var commandsLocalizer = commandsScope.ServiceProvider.GetRequiredService<IStringLocalizer<Messages>>();
+
+    BotCommand[] BuildCommands(string cultureName)
+    {
+        CultureInfo.CurrentUICulture = new CultureInfo(cultureName);
+        return
+        [
+            new("list", commandsLocalizer["Commands.List.Description"]),
+            new("expense", commandsLocalizer["Commands.Expense.Description"]),
+            new("remind", commandsLocalizer["Commands.Remind.Description"]),
+            new("month", commandsLocalizer["Commands.Month.Description"]),
+            new("link", commandsLocalizer["Commands.Link.Description"]),
+            new("language", commandsLocalizer["Commands.Language.Description"]),
+            new("help", commandsLocalizer["Commands.Help.Description"]),
+        ];
+    }
+
+    await botClient.SetMyCommands(BuildCommands("en"));
+    await botClient.SetMyCommands(BuildCommands("it"), languageCode: "it");
 }
 
 // Azure App Service (Windows/IIS) terminates TLS at its front-end and forwards requests as

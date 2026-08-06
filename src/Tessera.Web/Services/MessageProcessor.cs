@@ -24,6 +24,28 @@ public sealed class MessageProcessor(
     IStringLocalizer<Messages> localizer,
     ILogger<MessageProcessor> logger) : BackgroundService
 {
+    // Command names are canonical English and never shown localized in the menu — these are
+    // the router-accepted shortcuts for users who type from habit (docs/09-localizzazione.md,
+    // docs/03-integrazioni.md). Kept in sync with Program.cs's setMyCommands registration.
+    private static readonly Dictionary<string, string> CommandAliases = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["/lista"] = "/list",
+        ["/spesa"] = "/expense",
+        ["/mese"] = "/month",
+        ["/collega"] = "/link",
+        ["/lingua"] = "/language",
+        ["/aiuto"] = "/help",
+    };
+
+    private static string ResolveCommandAlias(string text)
+    {
+        var spaceIndex = text.IndexOf(' ');
+        var firstWord = spaceIndex < 0 ? text : text[..spaceIndex];
+        return CommandAliases.TryGetValue(firstWord, out var canonical)
+            ? spaceIndex < 0 ? canonical : canonical + text[spaceIndex..]
+            : text;
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         await foreach (var message in queue.ReadAllAsync(stoppingToken))
@@ -77,6 +99,16 @@ public sealed class MessageProcessor(
                 return;
             }
 
+            // No token to consume yet — point at the console rather than staying silent,
+            // since /link is a discoverable menu entry (docs/03-integrazioni.md).
+            if (message.ExternalUserId is not null && message.Text is { } linkText
+                && ResolveCommandAlias(linkText).StartsWith("/link", StringComparison.OrdinalIgnoreCase))
+            {
+                var unlinkedAddress = new ChannelAddress(message.ChannelName, message.ExternalChatId);
+                await channel.SendTextAsync(unlinkedAddress, localizer["Link.NotLinkedYet"], ct);
+                return;
+            }
+
             logger.LogInformation(
                 "Unlinked {ChannelName} identity {ExternalUserId} in chat {ExternalChatId} — culture defaulted to {Culture}: {Text}",
                 message.ChannelName, message.ExternalUserId, message.ExternalChatId, culture.Name, message.Text);
@@ -89,10 +121,18 @@ public sealed class MessageProcessor(
 
         var address = new ChannelAddress(message.ChannelName, message.ExternalChatId);
 
+        // Italian aliases resolve to the canonical English command before any dispatch below
+        // — the menu only ever shows the English name (docs/09-localizzazione.md), but a
+        // user typing "/lista" from habit still gets the right handler.
+        var text = message.Text is null ? null : ResolveCommandAlias(message.Text);
+
         // The identity is already linked — a stale/reused /start deep link (e.g. tapped
-        // again, or from a different environment sharing the same database) must not fall
-        // through to the intent router and come back as the generic "I didn't get that".
-        if (message.Text is not null && message.Text.StartsWith("/start", StringComparison.OrdinalIgnoreCase))
+        // again, or from a different environment sharing the same database), or a bare
+        // /link typed out of habit, must not fall through to the intent router and come
+        // back as the generic "I didn't get that".
+        if (text is not null
+            && (text.StartsWith("/start", StringComparison.OrdinalIgnoreCase)
+                || text.StartsWith("/link", StringComparison.OrdinalIgnoreCase)))
         {
             await channel.SendTextAsync(address, localizer["Link.AlreadyLinked", user.DisplayName ?? user.Email], ct);
             return;
@@ -120,17 +160,17 @@ public sealed class MessageProcessor(
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(message.Text))
+        if (string.IsNullOrWhiteSpace(text))
         {
             return;
         }
 
         // /remind is a native command (L1), not routed through the intent matcher — its
         // trivial date/frequency forms are fully deterministic (docs/05-ottimizzazioni.md).
-        if (message.Text.StartsWith("/remind", StringComparison.OrdinalIgnoreCase))
+        if (text.StartsWith("/remind", StringComparison.OrdinalIgnoreCase))
         {
             var remindReply = await HandleRemindCommandAsync(
-                reminders, address, spaceId, user, culture, message.Text["/remind".Length..], ct);
+                reminders, address, spaceId, user, culture, text["/remind".Length..], ct);
             if (remindReply is not null)
             {
                 await channel.SendTextAsync(address, remindReply, ct);
@@ -140,10 +180,10 @@ public sealed class MessageProcessor(
 
         // /recurring is a native command (L1), mirroring /remind — the same trivial,
         // deterministic forms apply (docs/05-ottimizzazioni.md).
-        if (message.Text.StartsWith("/recurring", StringComparison.OrdinalIgnoreCase))
+        if (text.StartsWith("/recurring", StringComparison.OrdinalIgnoreCase))
         {
             var recurringReply = await HandleRecurringCommandAsync(
-                recurringExpenses, spaceId, user, culture, message.Text["/recurring".Length..], ct);
+                recurringExpenses, spaceId, user, culture, text["/recurring".Length..], ct);
             if (recurringReply is not null)
             {
                 await channel.SendTextAsync(address, recurringReply, ct);
@@ -152,10 +192,10 @@ public sealed class MessageProcessor(
         }
 
         // /budget is a native command (L1), mirroring /remind and /recurring.
-        if (message.Text.StartsWith("/budget", StringComparison.OrdinalIgnoreCase))
+        if (text.StartsWith("/budget", StringComparison.OrdinalIgnoreCase))
         {
             var budgetReply = await HandleBudgetCommandAsync(
-                expenses, budgets, spaceId, user, culture, message.Text["/budget".Length..], ct);
+                expenses, budgets, spaceId, user, culture, text["/budget".Length..], ct);
             if (budgetReply is not null)
             {
                 await channel.SendTextAsync(address, budgetReply, ct);
@@ -166,14 +206,57 @@ public sealed class MessageProcessor(
         // /digest triggers the daily digest on demand — the proactive, once-a-day send
         // arrives with IScheduledJob (docs/06-roadmap.md); this builds the same composed
         // content ahead of that, so it can be tested end-to-end before the worker exists.
-        if (message.Text.StartsWith("/digest", StringComparison.OrdinalIgnoreCase))
+        if (text.StartsWith("/digest", StringComparison.OrdinalIgnoreCase))
         {
             var digestReply = await HandleDigestCommandAsync(digest, expenses, spaceId, user, culture, ct);
             await channel.SendTextAsync(address, digestReply, ct);
             return;
         }
 
-        var match = router.TryRoute(message.Text, culture.Name);
+        // The canonical menu commands (docs/09-localizzazione.md) — trivial, deterministic,
+        // never routed through the intent matcher.
+        if (text.StartsWith("/list", StringComparison.OrdinalIgnoreCase))
+        {
+            var listReply = await HandleShowAsync(shopping, address, spaceId, user.Id, ct);
+            if (listReply is not null)
+            {
+                await channel.SendTextAsync(address, listReply, ct);
+            }
+            return;
+        }
+
+        if (text.StartsWith("/expense", StringComparison.OrdinalIgnoreCase))
+        {
+            var expenseReply = await HandleExpenseCommandAsync(
+                expenses, budgets, address, spaceId, user, culture, text["/expense".Length..], ct);
+            if (expenseReply is not null)
+            {
+                await channel.SendTextAsync(address, expenseReply, ct);
+            }
+            return;
+        }
+
+        if (text.StartsWith("/month", StringComparison.OrdinalIgnoreCase))
+        {
+            var monthReply = await HandleExpensesQueryAsync(expenses, spaceId, user, culture, ct);
+            await channel.SendTextAsync(address, monthReply, ct);
+            return;
+        }
+
+        if (text.StartsWith("/language", StringComparison.OrdinalIgnoreCase))
+        {
+            var languageReply = await HandleLanguageCommandAsync(scope, user, culture, text["/language".Length..], ct);
+            await channel.SendTextAsync(address, languageReply, ct);
+            return;
+        }
+
+        if (text.StartsWith("/help", StringComparison.OrdinalIgnoreCase))
+        {
+            await channel.SendTextAsync(address, HandleHelpCommand(), ct);
+            return;
+        }
+
+        var match = router.TryRoute(text, culture.Name);
 
         string? reply;
         if (match is null)
@@ -410,6 +493,22 @@ public sealed class MessageProcessor(
 
         return await RecordExpenseAndReplyAsync(
             expenses, budgets, address, spaceId, user, culture, amount, categoryText, merchantText, ct);
+    }
+
+    // The trivial form of the /expense menu command — amount plus an optional free-text
+    // category, no merchant slot (that's the natural-language path's job).
+    private async Task<string?> HandleExpenseCommandAsync(
+        ExpenseService expenses, BudgetService budgets, ChannelAddress address, Guid spaceId, User user, CultureInfo culture,
+        string argsText, CancellationToken ct)
+    {
+        var command = ExpenseCommandParser.Parse(argsText);
+        if (command is null)
+        {
+            return localizer["Expenses.Usage"];
+        }
+
+        return await HandleExpenseAddAsync(
+            expenses, budgets, address, spaceId, user, culture, command.AmountText, command.CategoryText, merchantText: null, ct);
     }
 
     private async Task HandleExpenseConfirmCallbackAsync(
@@ -826,4 +925,42 @@ public sealed class MessageProcessor(
 
         return DigestFormatter.Format(daily, categories, currency, timeZone, culture, localizer);
     }
+
+    // The fix for whoever got the wrong default culture (docs/09-localizzazione.md) — no
+    // args shows the current one, "it"/"en" switches it, anything else is a usage hint.
+    private async Task<string> HandleLanguageCommandAsync(
+        AsyncServiceScope scope, User user, CultureInfo culture, string argsText, CancellationToken ct)
+    {
+        var requested = argsText.Trim().ToLowerInvariant();
+        if (requested.Length == 0)
+        {
+            return localizer["Language.Current", culture.Name];
+        }
+
+        if (requested is not ("it" or "en"))
+        {
+            return localizer["Language.Usage"];
+        }
+
+        var provisioning = scope.ServiceProvider.GetRequiredService<UserProvisioningService>();
+        await provisioning.SetPreferredCultureAsync(user.Id, requested, ct);
+
+        var newCulture = new CultureInfo(requested);
+        CultureInfo.CurrentCulture = newCulture;
+        CultureInfo.CurrentUICulture = newCulture;
+
+        return localizer["Language.Changed"];
+    }
+
+    // Same descriptions registered with Telegram's setMyCommands (Program.cs) — one source
+    // of truth, so the menu and /help can't drift apart (docs/09-localizzazione.md).
+    private string HandleHelpCommand() => string.Join('\n', [
+        $"/list — {localizer["Commands.List.Description"]}",
+        $"/expense — {localizer["Commands.Expense.Description"]}",
+        $"/remind — {localizer["Commands.Remind.Description"]}",
+        $"/month — {localizer["Commands.Month.Description"]}",
+        $"/link — {localizer["Commands.Link.Description"]}",
+        $"/language — {localizer["Commands.Language.Description"]}",
+        $"/help — {localizer["Commands.Help.Description"]}",
+    ]);
 }
