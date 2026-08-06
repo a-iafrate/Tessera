@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Tessera.Data;
 
@@ -11,9 +12,11 @@ using Tessera.Data;
 namespace Tessera.Data.Migrations
 {
     [DbContext(typeof(TesseraDbContext))]
-    partial class TesseraDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260805162759_AddReminders")]
+    partial class AddReminders
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -169,37 +172,6 @@ namespace Tessera.Data.Migrations
                     b.ToTable("ProcessedMessages");
                 });
 
-            modelBuilder.Entity("Tessera.Core.Expenses.Budget", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("AlertThresholdPercent")
-                        .HasColumnType("int");
-
-                    b.Property<Guid?>("CategoryId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateOnly?>("LastAlertedFor")
-                        .HasColumnType("date");
-
-                    b.Property<decimal>("MonthlyLimit")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<Guid>("SpaceId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SpaceId", "CategoryId")
-                        .IsUnique()
-                        .HasFilter("[CategoryId] IS NOT NULL");
-
-                    b.ToTable("Budgets");
-                });
-
             modelBuilder.Entity("Tessera.Core.Expenses.Category", b =>
                 {
                     b.Property<Guid>("Id")
@@ -342,46 +314,6 @@ namespace Tessera.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("PendingExpenseConfirmations");
-                });
-
-            modelBuilder.Entity("Tessera.Core.Expenses.RecurringExpense", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<bool>("AutoRegister")
-                        .HasColumnType("bit");
-
-                    b.Property<Guid?>("CategoryId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Currency")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateOnly?>("EndsOn")
-                        .HasColumnType("date");
-
-                    b.Property<DateOnly?>("LastGeneratedFor")
-                        .HasColumnType("date");
-
-                    b.Property<Guid>("SpaceId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SpaceId", "LastGeneratedFor");
-
-                    b.ToTable("RecurringExpenses");
                 });
 
             modelBuilder.Entity("Tessera.Core.Reminders.Reminder", b =>
@@ -781,37 +713,6 @@ namespace Tessera.Data.Migrations
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("Tessera.Core.Expenses.RecurringExpense", b =>
-                {
-                    b.OwnsOne("Tessera.Core.Reminders.RecurrenceRule", "Recurrence", b1 =>
-                        {
-                            b1.Property<Guid>("RecurringExpenseId")
-                                .HasColumnType("uniqueidentifier");
-
-                            b1.Property<int?>("DayOfMonth")
-                                .HasColumnType("int");
-
-                            b1.PrimitiveCollection<string>("DaysOfWeek")
-                                .HasColumnType("nvarchar(max)");
-
-                            b1.Property<int>("Frequency")
-                                .HasColumnType("int");
-
-                            b1.Property<int>("Interval")
-                                .HasColumnType("int");
-
-                            b1.HasKey("RecurringExpenseId");
-
-                            b1.ToTable("RecurringExpenses");
-
-                            b1.WithOwner()
-                                .HasForeignKey("RecurringExpenseId");
-                        });
-
-                    b.Navigation("Recurrence")
                         .IsRequired();
                 });
 

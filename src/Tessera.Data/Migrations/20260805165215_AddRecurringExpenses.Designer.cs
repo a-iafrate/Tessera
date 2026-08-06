@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Tessera.Data;
 
@@ -11,9 +12,11 @@ using Tessera.Data;
 namespace Tessera.Data.Migrations
 {
     [DbContext(typeof(TesseraDbContext))]
-    partial class TesseraDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260805165215_AddRecurringExpenses")]
+    partial class AddRecurringExpenses
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -167,37 +170,6 @@ namespace Tessera.Data.Migrations
                     b.HasKey("ChannelName", "ProviderMessageId");
 
                     b.ToTable("ProcessedMessages");
-                });
-
-            modelBuilder.Entity("Tessera.Core.Expenses.Budget", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("AlertThresholdPercent")
-                        .HasColumnType("int");
-
-                    b.Property<Guid?>("CategoryId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateOnly?>("LastAlertedFor")
-                        .HasColumnType("date");
-
-                    b.Property<decimal>("MonthlyLimit")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<Guid>("SpaceId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SpaceId", "CategoryId")
-                        .IsUnique()
-                        .HasFilter("[CategoryId] IS NOT NULL");
-
-                    b.ToTable("Budgets");
                 });
 
             modelBuilder.Entity("Tessera.Core.Expenses.Category", b =>

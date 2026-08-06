@@ -1,9 +1,11 @@
 using System.Globalization;
 using Microsoft.Extensions.Localization;
+using Tessera.Ai.Commands;
 using Tessera.Ai.Routing;
 using Tessera.Core.Abstractions;
 using Tessera.Core.Channels;
 using Tessera.Core.Expenses;
+using Tessera.Core.Reminders;
 using Tessera.Core.Resources;
 using Tessera.Core.Users;
 using Tessera.Data;
@@ -81,17 +83,58 @@ public sealed class MessageProcessor(
         var address = new ChannelAddress(message.ChannelName, message.ExternalChatId);
         var shopping = scope.ServiceProvider.GetRequiredService<ShoppingListService>();
         var expenses = scope.ServiceProvider.GetRequiredService<ExpenseService>();
+        var reminders = scope.ServiceProvider.GetRequiredService<ReminderService>();
+        var recurringExpenses = scope.ServiceProvider.GetRequiredService<RecurringExpenseService>();
+        var budgets = scope.ServiceProvider.GetRequiredService<BudgetService>();
 
         if (message.CallbackData is { } callbackData)
         {
             // L1 (docs/05-ottimizzazioni.md): an inline-keyboard tap is already a
             // structured action — it never goes through the intent matcher.
-            await HandleCallbackAsync(shopping, expenses, address, spaceId, user.Id, callbackData, ct);
+            await HandleCallbackAsync(shopping, expenses, reminders, budgets, address, spaceId, user, culture, callbackData, ct);
             return;
         }
 
         if (string.IsNullOrWhiteSpace(message.Text))
         {
+            return;
+        }
+
+        // /remind is a native command (L1), not routed through the intent matcher — its
+        // trivial date/frequency forms are fully deterministic (docs/05-ottimizzazioni.md).
+        if (message.Text.StartsWith("/remind", StringComparison.OrdinalIgnoreCase))
+        {
+            var remindReply = await HandleRemindCommandAsync(
+                reminders, address, spaceId, user, culture, message.Text["/remind".Length..], ct);
+            if (remindReply is not null)
+            {
+                await channel.SendTextAsync(address, remindReply, ct);
+            }
+            return;
+        }
+
+        // /recurring is a native command (L1), mirroring /remind — the same trivial,
+        // deterministic forms apply (docs/05-ottimizzazioni.md).
+        if (message.Text.StartsWith("/recurring", StringComparison.OrdinalIgnoreCase))
+        {
+            var recurringReply = await HandleRecurringCommandAsync(
+                recurringExpenses, spaceId, user, culture, message.Text["/recurring".Length..], ct);
+            if (recurringReply is not null)
+            {
+                await channel.SendTextAsync(address, recurringReply, ct);
+            }
+            return;
+        }
+
+        // /budget is a native command (L1), mirroring /remind and /recurring.
+        if (message.Text.StartsWith("/budget", StringComparison.OrdinalIgnoreCase))
+        {
+            var budgetReply = await HandleBudgetCommandAsync(
+                expenses, budgets, spaceId, user, culture, message.Text["/budget".Length..], ct);
+            if (budgetReply is not null)
+            {
+                await channel.SendTextAsync(address, budgetReply, ct);
+            }
             return;
         }
 
@@ -113,11 +156,15 @@ public sealed class MessageProcessor(
                 "shopping.remove" => await HandleRemoveAsync(shopping, spaceId, user.Id, match.Slots["item"], ct),
                 "shopping.clear" => await HandleClearAsync(shopping, spaceId, user.Id, ct),
                 "expenses.add" => await HandleExpenseAddAsync(
-                    expenses, address, spaceId, user, culture, match.Slots["amount"],
+                    expenses, budgets, address, spaceId, user, culture, match.Slots["amount"],
                     match.Slots.GetValueOrDefault("category"), match.Slots.GetValueOrDefault("merchant"), ct),
                 "expenses.query" => await HandleExpensesQueryAsync(expenses, spaceId, user, culture, ct),
                 "expenses.query.category" => await HandleExpensesQueryByCategoryAsync(
                     expenses, spaceId, user, culture, match.Slots["category"], ct),
+                // Recognized as a reminder attempt, but the date itself still needs L3
+                // (docs/05-ottimizzazioni.md) — point at the syntax that works today
+                // instead of the generic "I didn't get that".
+                "reminders.natural" => localizer["Reminders.Usage"],
                 _ => null,
             };
         }
@@ -129,14 +176,14 @@ public sealed class MessageProcessor(
     }
 
     private async Task HandleCallbackAsync(
-        ShoppingListService shopping, ExpenseService expenses, ChannelAddress address,
-        Guid spaceId, Guid userId, string callbackData, CancellationToken ct)
+        ShoppingListService shopping, ExpenseService expenses, ReminderService reminders, BudgetService budgets,
+        ChannelAddress address, Guid spaceId, User user, CultureInfo culture, string callbackData, CancellationToken ct)
     {
         var parts = callbackData.Split(':');
 
         if (parts.Length == 2 && parts[0] == "shopping.check" && Guid.TryParse(parts[1], out var itemId))
         {
-            await HandleShoppingCheckCallbackAsync(shopping, address, spaceId, userId, itemId, ct);
+            await HandleShoppingCheckCallbackAsync(shopping, address, spaceId, user.Id, itemId, ct);
             return;
         }
 
@@ -144,7 +191,32 @@ public sealed class MessageProcessor(
             && Guid.TryParse(parts[1], out var expenseId) && int.TryParse(parts[2], out var categoryIndex))
         {
             await HandleExpenseCategorizeCallbackAsync(expenses, address, spaceId, expenseId, categoryIndex, ct);
+            return;
         }
+
+        if (parts.Length == 3 && parts[0] == "expconfirm" && Guid.TryParse(parts[1], out var pendingId))
+        {
+            await HandleExpenseConfirmCallbackAsync(expenses, budgets, address, spaceId, user, culture, pendingId, parts[2], ct);
+            return;
+        }
+
+        if (parts.Length == 2 && parts[0] == "remind.complete" && Guid.TryParse(parts[1], out var reminderId))
+        {
+            await HandleReminderCompleteCallbackAsync(reminders, address, spaceId, user.Id, reminderId, ct);
+        }
+    }
+
+    private async Task HandleReminderCompleteCallbackAsync(
+        ReminderService reminders, ChannelAddress address, Guid spaceId, Guid userId, Guid reminderId, CancellationToken ct)
+    {
+        var reminder = await reminders.CompleteAsync(spaceId, userId, reminderId, ct);
+        if (reminder is null)
+        {
+            // Already completed by a concurrent tap, or gone — the button is stale.
+            return;
+        }
+
+        await channel.SendTextAsync(address, localizer["Reminders.Completed", reminder.Text], ct);
     }
 
     private async Task HandleShoppingCheckCallbackAsync(
@@ -273,18 +345,64 @@ public sealed class MessageProcessor(
         return localizer["Shopping.ListCleared"];
     }
 
-    private async Task<string> HandleExpenseAddAsync(
-        ExpenseService expenses, ChannelAddress address, Guid spaceId, User user, CultureInfo culture,
+    private async Task<string?> HandleExpenseAddAsync(
+        ExpenseService expenses, BudgetService budgets, ChannelAddress address, Guid spaceId, User user, CultureInfo culture,
         string amountText, string? categoryText, string? merchantText, CancellationToken ct)
     {
-        // Ambiguous forms ("1,5" in en, "1.500" in it) deserve a confirmation keyboard
-        // rather than a guess (docs/09-localizzazione.md) — not built yet; ordinary
-        // amounts in the user's own culture parse correctly today.
         if (!decimal.TryParse(amountText, NumberStyles.Number, culture, out var amount))
         {
             return localizer["Expenses.InvalidAmount", amountText];
         }
 
+        // "1,5" in en, "1.500" in it: decimal.TryParse accepts these without error, but
+        // picks a value that could be off by a factor of 10-100 — worth a tap to confirm
+        // rather than a silent guess (docs/09-localizzazione.md).
+        if (AmountAmbiguity.IsAmbiguous(amountText, culture))
+        {
+            var (asGrouped, asDecimal) = AmountAmbiguity.GetCandidates(amountText, culture);
+            var pending = await expenses.CreatePendingConfirmationAsync(
+                spaceId, user.Id, asGrouped, asDecimal, categoryText, merchantText, ct);
+            var currency = await expenses.GetSpaceCurrencyAsync(spaceId, ct);
+
+            var choices = new[]
+            {
+                new Choice(MoneyFormatter.Format(asGrouped, currency, culture.Name), $"expconfirm:{pending.Id}:g"),
+                new Choice(MoneyFormatter.Format(asDecimal, currency, culture.Name), $"expconfirm:{pending.Id}:d"),
+            };
+            await channel.SendChoicesAsync(address, localizer["Expenses.ConfirmAmount"], choices, ct);
+            return null;
+        }
+
+        return await RecordExpenseAndReplyAsync(
+            expenses, budgets, address, spaceId, user, culture, amount, categoryText, merchantText, ct);
+    }
+
+    private async Task HandleExpenseConfirmCallbackAsync(
+        ExpenseService expenses, BudgetService budgets, ChannelAddress address, Guid spaceId, User user, CultureInfo culture,
+        Guid pendingId, string choice, CancellationToken ct)
+    {
+        var pending = await expenses.ConsumePendingConfirmationAsync(spaceId, pendingId, ct);
+        if (pending is null)
+        {
+            // Expired, or already resolved by a previous tap — the button is stale.
+            return;
+        }
+
+        var amount = choice == "g" ? pending.CandidateAsGrouped : pending.CandidateAsDecimal;
+        var reply = await RecordExpenseAndReplyAsync(
+            expenses, budgets, address, spaceId, user, culture, amount, pending.CategoryText, pending.MerchantText, ct);
+        if (reply is not null)
+        {
+            await channel.SendTextAsync(address, reply, ct);
+        }
+    }
+
+    // Shared by the direct (unambiguous) path and the post-confirmation path, so recording
+    // and the categorization precedence (docs/02-modello-dati.md) can't drift between them.
+    private async Task<string?> RecordExpenseAndReplyAsync(
+        ExpenseService expenses, BudgetService budgets, ChannelAddress address, Guid spaceId, User user, CultureInfo culture,
+        decimal amount, string? categoryText, string? merchantText, CancellationToken ct)
+    {
         var today = GetUserToday(user);
 
         // An explicit category always wins — there is nothing to resolve or learn.
@@ -293,16 +411,18 @@ public sealed class MessageProcessor(
             var category = await ResolveCategoryAsync(expenses, spaceId, categoryText, ct);
             var expense = await expenses.RecordAsync(spaceId, user.Id, amount, category?.Id, merchant: null, today, ct);
             var formatted = MoneyFormatter.Format(expense.Amount, expense.Currency, culture.Name);
-            return category is null
+            var reply = category is null
                 ? localizer["Expenses.Recorded", formatted]
                 : localizer["Expenses.RecordedWithCategory", formatted, GetCategoryDisplayName(category)];
+            return await AppendBudgetAlertsAsync(expenses, budgets, spaceId, user.Id, culture, expense, reply, ct);
         }
 
         // No merchant either: nothing to categorize, nothing to learn from.
         if (merchantText is null)
         {
             var expense = await expenses.RecordAsync(spaceId, user.Id, amount, categoryId: null, merchant: null, today, ct);
-            return localizer["Expenses.Recorded", MoneyFormatter.Format(expense.Amount, expense.Currency, culture.Name)];
+            var reply = localizer["Expenses.Recorded", MoneyFormatter.Format(expense.Amount, expense.Currency, culture.Name)];
+            return await AppendBudgetAlertsAsync(expenses, budgets, spaceId, user.Id, culture, expense, reply, ct);
         }
 
         // Categorization strategy, in order of precedence (docs/02-modello-dati.md):
@@ -315,12 +435,45 @@ public sealed class MessageProcessor(
 
         if (learnedCategory is not null)
         {
-            return localizer["Expenses.RecordedWithMerchantAndCategory",
+            var reply = localizer["Expenses.RecordedWithMerchantAndCategory",
                 recordedFormatted, merchantText, GetCategoryDisplayName(learnedCategory)];
+            return await AppendBudgetAlertsAsync(expenses, budgets, spaceId, user.Id, culture, recorded, reply, ct);
         }
 
         await SendCategoryPickerAsync(expenses, address, spaceId, recorded.Id, merchantText, ct);
-        return localizer["Expenses.RecordedWithMerchant", recordedFormatted, merchantText];
+        // No category yet — nothing to check against a per-category budget, only the overall one.
+        return await AppendBudgetAlertsAsync(expenses, budgets, spaceId, user.Id, culture, recorded,
+            localizer["Expenses.RecordedWithMerchant", recordedFormatted, merchantText], ct);
+    }
+
+    private async Task<string> AppendBudgetAlertsAsync(
+        ExpenseService expenses, BudgetService budgets, Guid spaceId, Guid userId, CultureInfo culture,
+        Expense expense, string reply, CancellationToken ct)
+    {
+        var alerts = await budgets.CheckThresholdsAsync(spaceId, userId, expense.CategoryId, expense.Date, ct);
+        if (alerts.Count == 0)
+        {
+            return reply;
+        }
+
+        var categories = await expenses.GetCategoriesAsync(spaceId, ct);
+        var lines = new List<string> { reply };
+        foreach (var alert in alerts)
+        {
+            var spentFormatted = MoneyFormatter.Format(alert.Spent, expense.Currency, culture.Name);
+            var limitFormatted = MoneyFormatter.Format(alert.Limit, expense.Currency, culture.Name);
+            if (alert.CategoryId is null)
+            {
+                lines.Add(localizer["Budget.AlertOverall", spentFormatted, limitFormatted]);
+                continue;
+            }
+
+            var category = categories.FirstOrDefault(c => c.Id == alert.CategoryId);
+            var categoryName = category is null ? "" : GetCategoryDisplayName(category);
+            lines.Add(localizer["Budget.AlertCategory", spentFormatted, limitFormatted, categoryName]);
+        }
+
+        return string.Join('\n', lines);
     }
 
     private async Task SendCategoryPickerAsync(
@@ -393,5 +546,243 @@ public sealed class MessageProcessor(
             : TimeZoneInfo.FindSystemTimeZoneById(user.TimeZoneId);
         var localNow = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, timeZone);
         return DateOnly.FromDateTime(localNow.DateTime);
+    }
+
+    private async Task<string?> HandleRemindCommandAsync(
+        ReminderService reminders, ChannelAddress address, Guid spaceId, User user, CultureInfo culture,
+        string argsText, CancellationToken ct)
+    {
+        var command = RemindCommandParser.Parse(argsText);
+        if (command is null)
+        {
+            // Not one of the trivial forms — natural language dates aren't parsed without
+            // an LLM fallback (docs/05-ottimizzazioni.md), so this is the honest answer.
+            return localizer["Reminders.Usage"];
+        }
+
+        var timeZoneId = user.TimeZoneId ?? "UTC";
+        var timeZone = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+
+        switch (command)
+        {
+            case RemindCommand.ListPending:
+                return await HandleRemindListAsync(reminders, address, spaceId, user.Id, timeZone, culture, ct);
+
+            case RemindCommand.CreateOnce once:
+            {
+                var localTime = once.Time ?? new TimeOnly(9, 0);
+                var localDateTime = once.Date.ToDateTime(localTime);
+                var dueAt = new DateTimeOffset(localDateTime, timeZone.GetUtcOffset(localDateTime));
+                if (dueAt < DateTimeOffset.UtcNow)
+                {
+                    // No year was given (or it's already past) — assume next year rather
+                    // than creating a reminder that is overdue the instant it's created.
+                    dueAt = dueAt.AddYears(1);
+                }
+
+                var reminder = await reminders.CreateOnceAsync(spaceId, user.Id, once.Text, dueAt, timeZoneId, ct);
+                return localizer["Reminders.CreatedOnce", FormatDueAt(reminder.DueAt, timeZone, culture)];
+            }
+
+            case RemindCommand.CreateRecurring recurring:
+            {
+                var todayLocal = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, timeZone).Date;
+                var localDateTime = todayLocal.Add(new TimeOnly(9, 0).ToTimeSpan());
+                var firstDueAt = new DateTimeOffset(localDateTime, timeZone.GetUtcOffset(localDateTime));
+                if (firstDueAt < DateTimeOffset.UtcNow)
+                {
+                    firstDueAt = AdvanceByFrequency(firstDueAt, recurring.Frequency);
+                }
+
+                var reminder = await reminders.CreateRecurringAsync(
+                    spaceId, user.Id, recurring.Text, firstDueAt, timeZoneId, recurring.Frequency, ct);
+                return localizer["Reminders.CreatedRecurring",
+                    GetFrequencyDisplayName(recurring.Frequency), FormatDueAt(reminder.DueAt, timeZone, culture)];
+            }
+
+            default:
+                return null;
+        }
+    }
+
+    private async Task<string?> HandleRemindListAsync(
+        ReminderService reminders, ChannelAddress address, Guid spaceId, Guid userId,
+        TimeZoneInfo timeZone, CultureInfo culture, CancellationToken ct)
+    {
+        var pending = await reminders.GetPendingAsync(spaceId, userId, ct);
+        if (pending.Count == 0)
+        {
+            return localizer["Reminders.ListEmpty"];
+        }
+
+        var lines = pending.Select(r =>
+            localizer["Reminders.ListItemLine", FormatDueAt(r.DueAt, timeZone, culture), r.Text].Value);
+        var text = string.Join('\n', lines);
+
+        // One "done" button per reminder — a tap is a callback_query, the same L1 pattern
+        // as checking off a shopping list item (docs/05-ottimizzazioni.md).
+        var choices = pending.Select(r => new Choice(r.Text, $"remind.complete:{r.Id}")).ToList();
+        await channel.SendChoicesAsync(address, text, choices, ct);
+        return null;
+    }
+
+    private string GetFrequencyDisplayName(RecurrenceFrequency frequency) => frequency switch
+    {
+        RecurrenceFrequency.Daily => localizer["Reminders.FrequencyDaily"],
+        RecurrenceFrequency.Weekly => localizer["Reminders.FrequencyWeekly"],
+        RecurrenceFrequency.Monthly => localizer["Reminders.FrequencyMonthly"],
+        _ => localizer["Reminders.FrequencyDaily"],
+    };
+
+    private static DateTimeOffset AdvanceByFrequency(DateTimeOffset dueAt, RecurrenceFrequency frequency) => frequency switch
+    {
+        RecurrenceFrequency.Daily => dueAt.AddDays(1),
+        RecurrenceFrequency.Weekly => dueAt.AddDays(7),
+        RecurrenceFrequency.Monthly => dueAt.AddMonths(1),
+        RecurrenceFrequency.Yearly => dueAt.AddYears(1),
+        _ => dueAt.AddDays(1),
+    };
+
+    // Long form (day + month name), not numeric — "15/09" reads as 15 September for an
+    // Italian user and September 15th for an American one; the day-first/month-first
+    // ambiguity disappears once the month is spelled out (docs/09-localizzazione.md).
+    private static string FormatDueAt(DateTimeOffset dueAt, TimeZoneInfo timeZone, CultureInfo culture)
+    {
+        var local = TimeZoneInfo.ConvertTime(dueAt, timeZone);
+        return local.ToString("d MMMM, HH:mm", culture);
+    }
+
+    private async Task<string?> HandleRecurringCommandAsync(
+        RecurringExpenseService recurringExpenses, Guid spaceId, User user, CultureInfo culture,
+        string argsText, CancellationToken ct)
+    {
+        var command = RecurringExpenseCommandParser.Parse(argsText);
+        if (command is null)
+        {
+            return localizer["RecurringExpenses.Usage"];
+        }
+
+        switch (command)
+        {
+            case RecurringExpenseCommand.ListActive:
+                return await HandleRecurringListAsync(recurringExpenses, spaceId, user.Id, culture, ct);
+
+            case RecurringExpenseCommand.Create create:
+            {
+                if (!decimal.TryParse(create.AmountText, NumberStyles.Number, culture, out var amount))
+                {
+                    return localizer["RecurringExpenses.InvalidAmount", create.AmountText];
+                }
+
+                var recurring = await recurringExpenses.CreateAsync(
+                    spaceId, user.Id, amount, create.Description, create.Frequency, create.AutoRegister, ct);
+                var formatted = MoneyFormatter.Format(recurring.Amount, recurring.Currency, culture.Name);
+                var frequencyName = GetFrequencyDisplayName(create.Frequency);
+                return create.AutoRegister
+                    ? localizer["RecurringExpenses.CreatedAutoRegister", recurring.Description, formatted, frequencyName]
+                    : localizer["RecurringExpenses.CreatedReminderOnly", recurring.Description, formatted, frequencyName];
+            }
+
+            default:
+                return null;
+        }
+    }
+
+    private async Task<string?> HandleRecurringListAsync(
+        RecurringExpenseService recurringExpenses, Guid spaceId, Guid userId, CultureInfo culture, CancellationToken ct)
+    {
+        var active = await recurringExpenses.GetActiveAsync(spaceId, userId, ct);
+        if (active.Count == 0)
+        {
+            return localizer["RecurringExpenses.ListEmpty"];
+        }
+
+        var lines = active.Select(x =>
+        {
+            var formatted = MoneyFormatter.Format(x.Amount, x.Currency, culture.Name);
+            var frequencyName = GetFrequencyDisplayName(x.Recurrence.Frequency);
+            return x.AutoRegister
+                ? localizer["RecurringExpenses.ListItemLineAuto", x.Description, formatted, frequencyName].Value
+                : localizer["RecurringExpenses.ListItemLineReminderOnly", x.Description, formatted, frequencyName].Value;
+        });
+        return string.Join('\n', lines);
+    }
+
+    private async Task<string?> HandleBudgetCommandAsync(
+        ExpenseService expenses, BudgetService budgets, Guid spaceId, User user, CultureInfo culture,
+        string argsText, CancellationToken ct)
+    {
+        var command = BudgetCommandParser.Parse(argsText);
+        if (command is null)
+        {
+            return localizer["Budget.Usage"];
+        }
+
+        switch (command)
+        {
+            case BudgetCommand.ListActive:
+                return await HandleBudgetListAsync(expenses, budgets, spaceId, user.Id, culture, ct);
+
+            case BudgetCommand.SetOverall setOverall:
+            {
+                if (!decimal.TryParse(setOverall.AmountText, NumberStyles.Number, culture, out var amount))
+                {
+                    return localizer["Budget.InvalidAmount", setOverall.AmountText];
+                }
+
+                var budget = await budgets.SetAsync(spaceId, user.Id, categoryId: null, amount, ct);
+                var currency = await expenses.GetSpaceCurrencyAsync(spaceId, ct);
+                return localizer["Budget.SetOverall", MoneyFormatter.Format(budget.MonthlyLimit, currency, culture.Name)];
+            }
+
+            case BudgetCommand.SetCategory setCategory:
+            {
+                if (!decimal.TryParse(setCategory.AmountText, NumberStyles.Number, culture, out var amount))
+                {
+                    return localizer["Budget.InvalidAmount", setCategory.AmountText];
+                }
+
+                var category = await ResolveCategoryAsync(expenses, spaceId, setCategory.CategoryText, ct);
+                if (category is null)
+                {
+                    return localizer["Expenses.CategoryNotFound", setCategory.CategoryText];
+                }
+
+                var budget = await budgets.SetAsync(spaceId, user.Id, category.Id, amount, ct);
+                var currency = await expenses.GetSpaceCurrencyAsync(spaceId, ct);
+                return localizer["Budget.SetCategory",
+                    GetCategoryDisplayName(category), MoneyFormatter.Format(budget.MonthlyLimit, currency, culture.Name)];
+            }
+
+            default:
+                return null;
+        }
+    }
+
+    private async Task<string> HandleBudgetListAsync(
+        ExpenseService expenses, BudgetService budgets, Guid spaceId, Guid userId, CultureInfo culture, CancellationToken ct)
+    {
+        var active = await budgets.GetActiveAsync(spaceId, userId, ct);
+        if (active.Count == 0)
+        {
+            return localizer["Budget.ListEmpty"];
+        }
+
+        var currency = await expenses.GetSpaceCurrencyAsync(spaceId, ct);
+        var categories = await expenses.GetCategoriesAsync(spaceId, ct);
+
+        var lines = active.Select(b =>
+        {
+            var limitFormatted = MoneyFormatter.Format(b.MonthlyLimit, currency, culture.Name);
+            if (b.CategoryId is null)
+            {
+                return localizer["Budget.ListItemLineOverall", limitFormatted].Value;
+            }
+
+            var category = categories.FirstOrDefault(c => c.Id == b.CategoryId);
+            var categoryName = category is null ? "" : GetCategoryDisplayName(category);
+            return localizer["Budget.ListItemLineCategory", categoryName, limitFormatted].Value;
+        });
+        return string.Join('\n', lines);
     }
 }

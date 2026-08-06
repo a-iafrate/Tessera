@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Tessera.Core.Channels;
 using Tessera.Core.Expenses;
+using Tessera.Core.Reminders;
 using Tessera.Core.Shopping;
 using Tessera.Core.Spaces;
 using DomainUser = Tessera.Core.Users.User;
@@ -37,6 +38,14 @@ public sealed class TesseraDbContext(DbContextOptions<TesseraDbContext> options)
     public DbSet<Category> Categories => Set<Category>();
 
     public DbSet<MerchantCategoryMapping> MerchantCategoryMappings => Set<MerchantCategoryMapping>();
+
+    public DbSet<PendingExpenseConfirmation> PendingExpenseConfirmations => Set<PendingExpenseConfirmation>();
+
+    public DbSet<Reminder> Reminders => Set<Reminder>();
+
+    public DbSet<RecurringExpense> RecurringExpenses => Set<RecurringExpense>();
+
+    public DbSet<Budget> Budgets => Set<Budget>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

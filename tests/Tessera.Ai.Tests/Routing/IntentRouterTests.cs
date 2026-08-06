@@ -28,9 +28,10 @@ public class IntentRouterTests
         { "it", "spesa di 20 euro da Esselunga", "expenses.add" },
         { "it", "quanto ho speso in benzina", "expenses.query.category" },
         { "it", "quanto ho speso per la spesa alimentare?", "expenses.query.category" },
+        { "it", "ricordami di comprare il latte domani", "reminders.natural" },
+        { "it", "ricordati che serve il pane", "reminders.natural" },
 
         // italiano — devono cadere a L3
-        { "it", "ricordati che serve il pane", null },
         { "it", "finito il detersivo", null },
         { "it", "sposta la riunione con Marco e avvisalo", null },
 
@@ -50,6 +51,8 @@ public class IntentRouterTests
         { "en", "spent 20 at Tesco", "expenses.add" },
         { "en", "how much did I spend on groceries", "expenses.query.category" },
         { "en", "how much did I spend on groceries?", "expenses.query.category" },
+        { "en", "remind me to buy milk tomorrow", "reminders.natural" },
+        { "en", "remind me that the rent is due", "reminders.natural" },
 
         // inglese — L3
         { "en", "we're out of detergent", null },

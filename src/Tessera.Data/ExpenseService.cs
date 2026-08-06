@@ -7,6 +7,12 @@ namespace Tessera.Data;
 
 public sealed class ExpenseService(TesseraDbContext db, IAccessPolicy accessPolicy)
 {
+    public async Task<string> GetSpaceCurrencyAsync(Guid spaceId, CancellationToken ct)
+    {
+        var space = await db.Spaces.AsNoTracking().FirstAsync(x => x.Id == spaceId, ct);
+        return space.Currency;
+    }
+
     public async Task<Expense> RecordAsync(
         Guid spaceId, Guid userId, decimal amount, Guid? categoryId, string? merchant, DateOnly date, CancellationToken ct)
     {
@@ -89,6 +95,46 @@ public sealed class ExpenseService(TesseraDbContext db, IAccessPolicy accessPoli
     }
 
     private static string Normalize(string merchant) => merchant.Trim().ToLowerInvariant();
+
+    // Bridges the ambiguous-amount confirmation across the inline-keyboard round trip —
+    // callback_data can't carry free-text category/merchant, so it lives here instead,
+    // referenced by a short id (docs/07-compliance.md's LinkToken TTL pattern).
+    public async Task<PendingExpenseConfirmation> CreatePendingConfirmationAsync(
+        Guid spaceId, Guid userId, decimal candidateAsGrouped, decimal candidateAsDecimal,
+        string? categoryText, string? merchantText, CancellationToken ct)
+    {
+        var pending = new PendingExpenseConfirmation
+        {
+            Id = Guid.NewGuid(),
+            SpaceId = spaceId,
+            UserId = userId,
+            CandidateAsGrouped = candidateAsGrouped,
+            CandidateAsDecimal = candidateAsDecimal,
+            CategoryText = categoryText,
+            MerchantText = merchantText,
+            ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(10),
+        };
+        db.PendingExpenseConfirmations.Add(pending);
+        await db.SaveChangesAsync(ct);
+        return pending;
+    }
+
+    // Null covers both failure cases (not found, expired) — the caller just re-asks the
+    // amount rather than trying to distinguish why.
+    public async Task<PendingExpenseConfirmation?> ConsumePendingConfirmationAsync(
+        Guid spaceId, Guid pendingId, CancellationToken ct)
+    {
+        var pending = await db.PendingExpenseConfirmations
+            .FirstOrDefaultAsync(x => x.Id == pendingId && x.SpaceId == spaceId, ct);
+        if (pending is null || pending.ExpiresAt < DateTimeOffset.UtcNow)
+        {
+            return null;
+        }
+
+        db.PendingExpenseConfirmations.Remove(pending);
+        await db.SaveChangesAsync(ct);
+        return pending;
+    }
 
     // Deterministic order: callers reference a category by its position in this list
     // (Telegram's callback_data is capped at 64 bytes — too little for two GUIDs — so the

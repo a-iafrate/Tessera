@@ -12,6 +12,7 @@ public static class Matchers
         new ItExpenseAddMatcher(),
         new ItExpensesQueryByCategoryMatcher(),
         new ItExpensesQueryMatcher(),
+        new ItReminderNaturalLanguageMatcher(),
         new EnShoppingAddMatcher(),
         new EnShoppingShowMatcher(),
         new EnShoppingCheckMatcher(),
@@ -20,5 +21,6 @@ public static class Matchers
         new EnExpenseAddMatcher(),
         new EnExpensesQueryByCategoryMatcher(),
         new EnExpensesQueryMatcher(),
+        new EnReminderNaturalLanguageMatcher(),
     ];
 }

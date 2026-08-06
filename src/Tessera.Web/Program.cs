@@ -65,6 +65,9 @@ builder.Services.AddScoped<IAccessPolicy, AccessPolicy>();
 builder.Services.AddScoped<ShoppingListService>();
 builder.Services.AddScoped<LinkService>();
 builder.Services.AddScoped<ExpenseService>();
+builder.Services.AddScoped<ReminderService>();
+builder.Services.AddScoped<RecurringExpenseService>();
+builder.Services.AddScoped<BudgetService>();
 builder.Services.AddSingleton(new IntentRouter(Matchers.All));
 
 // The bot pipeline is only wired up once a bot token is configured, so the console works

@@ -139,4 +139,82 @@
   <data name="Expenses.CategorySaved" xml:space="preserve">
     <value>Got it — {0} will be categorized as {1} from now on</value>
   </data>
+  <data name="Expenses.ConfirmAmount" xml:space="preserve">
+    <value>Which amount did you mean?</value>
+  </data>
+  <data name="Reminders.CreatedOnce" xml:space="preserve">
+    <value>Reminder set for {0}</value>
+  </data>
+  <data name="Reminders.CreatedRecurring" xml:space="preserve">
+    <value>Recurring reminder set ({0}), starting {1}</value>
+  </data>
+  <data name="Reminders.Completed" xml:space="preserve">
+    <value>Done: {0}</value>
+  </data>
+  <data name="Reminders.ListEmpty" xml:space="preserve">
+    <value>No pending reminders</value>
+  </data>
+  <data name="Reminders.ListItemLine" xml:space="preserve">
+    <value>{0} — {1}</value>
+  </data>
+  <data name="Reminders.Usage" xml:space="preserve">
+    <value>Try: /remind 15/09 18:00 water the plants, /remind daily walk the dog, or just /remind to see your list. Natural language dates aren't supported yet.</value>
+  </data>
+  <data name="Reminders.FrequencyDaily" xml:space="preserve">
+    <value>daily</value>
+  </data>
+  <data name="Reminders.FrequencyWeekly" xml:space="preserve">
+    <value>weekly</value>
+  </data>
+  <data name="Reminders.FrequencyMonthly" xml:space="preserve">
+    <value>monthly</value>
+  </data>
+  <data name="RecurringExpenses.CreatedAutoRegister" xml:space="preserve">
+    <value>Recurring expense set: {0} — {1}, {2}</value>
+  </data>
+  <data name="RecurringExpenses.CreatedReminderOnly" xml:space="preserve">
+    <value>Recurring reminder set: {0} — about {1}, {2} (won't be recorded automatically)</value>
+  </data>
+  <data name="RecurringExpenses.InvalidAmount" xml:space="preserve">
+    <value>I couldn't read "{0}" as an amount</value>
+  </data>
+  <data name="RecurringExpenses.ListEmpty" xml:space="preserve">
+    <value>No recurring expenses</value>
+  </data>
+  <data name="RecurringExpenses.ListItemLineAuto" xml:space="preserve">
+    <value>{0}: {1}, {2}</value>
+  </data>
+  <data name="RecurringExpenses.ListItemLineReminderOnly" xml:space="preserve">
+    <value>{0}: ~{1}, {2} (reminder only)</value>
+  </data>
+  <data name="RecurringExpenses.Usage" xml:space="preserve">
+    <value>Try: /recurring monthly 50 rent, /recurring monthly reminder 80 electricity bill, or just /recurring to see your list.</value>
+  </data>
+  <data name="Budget.Usage" xml:space="preserve">
+    <value>Try: /budget 500 to set an overall monthly limit, /budget groceries 200 for a category limit, or just /budget to see your budgets.</value>
+  </data>
+  <data name="Budget.InvalidAmount" xml:space="preserve">
+    <value>I couldn't read "{0}" as an amount</value>
+  </data>
+  <data name="Budget.SetOverall" xml:space="preserve">
+    <value>Overall monthly budget set to {0}</value>
+  </data>
+  <data name="Budget.SetCategory" xml:space="preserve">
+    <value>Monthly budget for {0} set to {1}</value>
+  </data>
+  <data name="Budget.ListEmpty" xml:space="preserve">
+    <value>No budgets set</value>
+  </data>
+  <data name="Budget.ListItemLineOverall" xml:space="preserve">
+    <value>Overall: {0}/month</value>
+  </data>
+  <data name="Budget.ListItemLineCategory" xml:space="preserve">
+    <value>{0}: {1}/month</value>
+  </data>
+  <data name="Budget.AlertOverall" xml:space="preserve">
+    <value>Heads up: you've spent {0} of your {1} overall monthly budget</value>
+  </data>
+  <data name="Budget.AlertCategory" xml:space="preserve">
+    <value>Heads up: you've spent {0} of your {1} monthly budget for {2}</value>
+  </data>
 </root>
