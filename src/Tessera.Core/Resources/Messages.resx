@@ -217,4 +217,25 @@
   <data name="Budget.AlertCategory" xml:space="preserve">
     <value>Heads up: you've spent {0} of your {1} monthly budget for {2}</value>
   </data>
+  <data name="Digest.RemindersHeader" xml:space="preserve">
+    <value>Today's reminders</value>
+  </data>
+  <data name="Digest.RemindersEmpty" xml:space="preserve">
+    <value>No reminders today</value>
+  </data>
+  <data name="Digest.ShoppingHeader" xml:space="preserve">
+    <value>Shopping list</value>
+  </data>
+  <data name="Digest.ShoppingEmpty" xml:space="preserve">
+    <value>Nothing missing from the list</value>
+  </data>
+  <data name="Digest.BudgetHeader" xml:space="preserve">
+    <value>Budget</value>
+  </data>
+  <data name="Digest.BudgetLineOverall" xml:space="preserve">
+    <value>Overall: {0} of {1}</value>
+  </data>
+  <data name="Digest.BudgetLineCategory" xml:space="preserve">
+    <value>{0}: {1} of {2}</value>
+  </data>
 </root>

@@ -82,6 +82,26 @@ public sealed class BudgetService(TesseraDbContext db, IAccessPolicy accessPolic
         return alerts;
     }
 
+    // "Stato del budget" for the daily digest (docs/06-roadmap.md) — unlike
+    // CheckThresholdsAsync this always reports spend-vs-limit, not just threshold crossings.
+    public async Task<IReadOnlyList<BudgetStatus>> GetStatusAsync(
+        Guid spaceId, Guid userId, int year, int month, CancellationToken ct)
+    {
+        var active = await GetActiveAsync(spaceId, userId, ct);
+        var statuses = new List<BudgetStatus>();
+
+        foreach (var budget in active)
+        {
+            var (spent, _) = budget.CategoryId is { } categoryId
+                ? await expenses.GetCategoryTotalAsync(spaceId, userId, categoryId, year, month, ct)
+                : await expenses.GetMonthlyTotalAsync(spaceId, userId, year, month, ct);
+
+            statuses.Add(new BudgetStatus(budget.CategoryId, spent, budget.MonthlyLimit));
+        }
+
+        return statuses;
+    }
+
     private async Task EnsureAccessAsync(Guid spaceId, Guid userId, AccessLevel required, CancellationToken ct)
     {
         var allowed = await accessPolicy.CanAsync(userId, spaceId, ResourceKind.Expenses, required, ct);

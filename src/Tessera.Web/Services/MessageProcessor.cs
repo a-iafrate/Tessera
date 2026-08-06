@@ -86,6 +86,7 @@ public sealed class MessageProcessor(
         var reminders = scope.ServiceProvider.GetRequiredService<ReminderService>();
         var recurringExpenses = scope.ServiceProvider.GetRequiredService<RecurringExpenseService>();
         var budgets = scope.ServiceProvider.GetRequiredService<BudgetService>();
+        var digest = scope.ServiceProvider.GetRequiredService<DigestService>();
 
         if (message.CallbackData is { } callbackData)
         {
@@ -135,6 +136,16 @@ public sealed class MessageProcessor(
             {
                 await channel.SendTextAsync(address, budgetReply, ct);
             }
+            return;
+        }
+
+        // /digest triggers the daily digest on demand — the proactive, once-a-day send
+        // arrives with IScheduledJob (docs/06-roadmap.md); this builds the same composed
+        // content ahead of that, so it can be tested end-to-end before the worker exists.
+        if (message.Text.StartsWith("/digest", StringComparison.OrdinalIgnoreCase))
+        {
+            var digestReply = await HandleDigestCommandAsync(digest, expenses, spaceId, user, culture, ct);
+            await channel.SendTextAsync(address, digestReply, ct);
             return;
         }
 
@@ -784,5 +795,57 @@ public sealed class MessageProcessor(
             return localizer["Budget.ListItemLineCategory", categoryName, limitFormatted].Value;
         });
         return string.Join('\n', lines);
+    }
+
+    private async Task<string> HandleDigestCommandAsync(
+        DigestService digest, ExpenseService expenses, Guid spaceId, User user, CultureInfo culture, CancellationToken ct)
+    {
+        var timeZoneId = user.TimeZoneId ?? "UTC";
+        var timeZone = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+        var today = GetUserToday(user);
+
+        var daily = await digest.BuildAsync(spaceId, user.Id, timeZone, today, ct);
+
+        var remindersSection = daily.RemindersToday.Count == 0
+            ? localizer["Digest.RemindersEmpty"].Value
+            : string.Join('\n', daily.RemindersToday.Select(r =>
+                localizer["Reminders.ListItemLine", FormatDueAt(r.DueAt, timeZone, culture), r.Text].Value));
+
+        var shoppingSection = daily.MissingItems.Count == 0
+            ? localizer["Digest.ShoppingEmpty"].Value
+            : string.Join('\n', daily.MissingItems.Select(i => localizer["Shopping.ListItemLine", i.RawText].Value));
+
+        var budgetSection = daily.BudgetStatuses.Count == 0
+            ? localizer["Budget.ListEmpty"].Value
+            : string.Join('\n', await FormatBudgetStatusLinesAsync(expenses, spaceId, culture, daily.BudgetStatuses, ct));
+
+        return string.Join('\n', [
+            localizer["Digest.RemindersHeader"], remindersSection,
+            "",
+            localizer["Digest.ShoppingHeader"], shoppingSection,
+            "",
+            localizer["Digest.BudgetHeader"], budgetSection,
+        ]);
+    }
+
+    private async Task<IReadOnlyList<string>> FormatBudgetStatusLinesAsync(
+        ExpenseService expenses, Guid spaceId, CultureInfo culture, IReadOnlyList<BudgetStatus> statuses, CancellationToken ct)
+    {
+        var currency = await expenses.GetSpaceCurrencyAsync(spaceId, ct);
+        var categories = await expenses.GetCategoriesAsync(spaceId, ct);
+
+        return statuses.Select(status =>
+        {
+            var spentFormatted = MoneyFormatter.Format(status.Spent, currency, culture.Name);
+            var limitFormatted = MoneyFormatter.Format(status.Limit, currency, culture.Name);
+            if (status.CategoryId is null)
+            {
+                return localizer["Digest.BudgetLineOverall", spentFormatted, limitFormatted].Value;
+            }
+
+            var category = categories.FirstOrDefault(c => c.Id == status.CategoryId);
+            var categoryName = category is null ? "" : GetCategoryDisplayName(category);
+            return localizer["Digest.BudgetLineCategory", categoryName, spentFormatted, limitFormatted].Value;
+        }).ToList();
     }
 }

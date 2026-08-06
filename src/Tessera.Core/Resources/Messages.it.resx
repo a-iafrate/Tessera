@@ -217,4 +217,25 @@
   <data name="Budget.AlertCategory" xml:space="preserve">
     <value>Attenzione: hai speso {0} sul budget mensile di {1} per {2}</value>
   </data>
+  <data name="Digest.RemindersHeader" xml:space="preserve">
+    <value>Promemoria di oggi</value>
+  </data>
+  <data name="Digest.RemindersEmpty" xml:space="preserve">
+    <value>Nessun promemoria oggi</value>
+  </data>
+  <data name="Digest.ShoppingHeader" xml:space="preserve">
+    <value>Lista della spesa</value>
+  </data>
+  <data name="Digest.ShoppingEmpty" xml:space="preserve">
+    <value>Non manca niente in lista</value>
+  </data>
+  <data name="Digest.BudgetHeader" xml:space="preserve">
+    <value>Budget</value>
+  </data>
+  <data name="Digest.BudgetLineOverall" xml:space="preserve">
+    <value>Complessivo: {0} di {1}</value>
+  </data>
+  <data name="Digest.BudgetLineCategory" xml:space="preserve">
+    <value>{0}: {1} di {2}</value>
+  </data>
 </root>
