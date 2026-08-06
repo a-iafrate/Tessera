@@ -75,6 +75,35 @@ public sealed class ReminderService(TesseraDbContext db, IAccessPolicy accessPol
         return reminder;
     }
 
+    // System sweep across every space, not a single user's action — there's no acting user
+    // to run an access check against, unlike every other method here (docs/01-architettura.md,
+    // "il secondo worker").
+    public async Task<IReadOnlyList<Reminder>> GetDueForNotificationAsync(DateTimeOffset asOf, CancellationToken ct) =>
+        await db.Reminders
+            .Where(x => !x.IsCompleted && x.DueAt <= asOf && x.NotifiedAt == null)
+            .ToListAsync(ct);
+
+    // Recurring reminders keep firing: advance to the next occurrence and clear NotifiedAt
+    // so the row is "due again" once that occurrence's DueAt arrives. One-time reminders
+    // just get the flag, staying pending until completed via the existing /remind flow.
+    public async Task RecordNotificationAsync(Guid reminderId, DateTimeOffset notifiedAt, CancellationToken ct)
+    {
+        var reminder = await db.Reminders.FirstOrDefaultAsync(x => x.Id == reminderId, ct);
+        if (reminder is null)
+        {
+            return;
+        }
+
+        reminder.NotifiedAt = notifiedAt;
+        if (reminder.Recurrence is { } recurrence)
+        {
+            reminder.DueAt = RecurrenceRule.Advance(reminder.DueAt, recurrence.Frequency);
+            reminder.NotifiedAt = null;
+        }
+
+        await db.SaveChangesAsync(ct);
+    }
+
     private async Task EnsureAccessAsync(Guid spaceId, Guid userId, AccessLevel required, CancellationToken ct)
     {
         var allowed = await accessPolicy.CanAsync(userId, spaceId, ResourceKind.Reminders, required, ct);

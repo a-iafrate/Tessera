@@ -132,3 +132,16 @@ Le prime tre valgono più delle altre tre insieme.
 Se il prodotto restasse gratuito per un'utenza allargata, il punto di rottura arriva intorno ai **200-300 utenti su Telegram** (~€100/mese fra infrastruttura e LLM) o già ai **50-100 utenti su WhatsApp** con notifiche proattive.
 
 Questo non è un problema della Fase 1 — è la ragione per cui il punto di decisione sta alla fine della Fase 1. Se la retention c'è, la domanda diventa monetizzazione o limitazione dell'utenza; se non c'è, il conto non è mai stato un problema.
+
+## Piani a pagamento
+
+Lo schema esiste già (`SubscriptionPlan`, per spazio non per utente — vedi [02-modello-dati.md](02-modello-dati.md#piano-di-abbonamento) per l'entità e la tabella dei livelli attuali), introdotto in anticipo apposta per non dover riscrivere `Space` quando arriverà davvero la fatturazione.
+
+**L'enforcement non è ancora collegato.** Nessun punto del codice oggi impedisce di superare `MaxLinkedBots` o `MaxCallsPerDay` — l'unica protezione economica attiva è il rate limiting fisso per identità di canale (60 msg/ora, vedi [07-compliance.md](07-compliance.md)), indipendente dal piano. Restano da fare, quando si deciderà di attivarli:
+
+- Un conteggio giornaliero delle chiamate per spazio (`Space`), con reset a mezzanotte — stesso pattern di idempotenza già usato per `Budget.LastAlertedFor`/`RecurringExpense.LastGeneratedFor`.
+- Un controllo al momento del collegamento di una nuova identità di canale allo spazio, contro `MaxLinkedBots`.
+- Un flusso di pagamento reale (Stripe o simile) e la UI in console per scegliere/cambiare piano.
+- Le implicazioni di fatturazione/IVA che questo introduce, non coperte da [07-compliance.md](07-compliance.md) (che tratta solo GDPR).
+
+Deliberatamente rimandato a dopo il punto di decisione di Fase 1: introdurlo prima significherebbe costruire fatturazione per un prodotto che non ha ancora dimostrato di essere usato.

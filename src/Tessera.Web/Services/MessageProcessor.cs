@@ -293,7 +293,7 @@ public sealed class MessageProcessor(
         }
 
         await channel.SendTextAsync(
-            address, localizer["Expenses.CategorySaved", expense.Merchant ?? "", GetCategoryDisplayName(category)], ct);
+            address, localizer["Expenses.CategorySaved", expense.Merchant ?? "", GetCategoryDisplayName(category, localizer)], ct);
     }
 
     private async Task HandleLinkAsync(AsyncServiceScope scope, InboundMessage message, string token, CancellationToken ct)
@@ -448,7 +448,7 @@ public sealed class MessageProcessor(
             var formatted = MoneyFormatter.Format(expense.Amount, expense.Currency, culture.Name);
             var reply = category is null
                 ? localizer["Expenses.Recorded", formatted]
-                : localizer["Expenses.RecordedWithCategory", formatted, GetCategoryDisplayName(category)];
+                : localizer["Expenses.RecordedWithCategory", formatted, GetCategoryDisplayName(category, localizer)];
             return await AppendBudgetAlertsAsync(expenses, budgets, spaceId, user.Id, culture, expense, reply, ct);
         }
 
@@ -471,7 +471,7 @@ public sealed class MessageProcessor(
         if (learnedCategory is not null)
         {
             var reply = localizer["Expenses.RecordedWithMerchantAndCategory",
-                recordedFormatted, merchantText, GetCategoryDisplayName(learnedCategory)];
+                recordedFormatted, merchantText, GetCategoryDisplayName(learnedCategory, localizer)];
             return await AppendBudgetAlertsAsync(expenses, budgets, spaceId, user.Id, culture, recorded, reply, ct);
         }
 
@@ -504,7 +504,7 @@ public sealed class MessageProcessor(
             }
 
             var category = categories.FirstOrDefault(c => c.Id == alert.CategoryId);
-            var categoryName = category is null ? "" : GetCategoryDisplayName(category);
+            var categoryName = category is null ? "" : GetCategoryDisplayName(category, localizer);
             lines.Add(localizer["Budget.AlertCategory", spentFormatted, limitFormatted, categoryName]);
         }
 
@@ -516,7 +516,7 @@ public sealed class MessageProcessor(
     {
         var categories = await expenses.GetCategoriesAsync(spaceId, ct);
         var choices = categories
-            .Select((category, index) => new Choice(GetCategoryDisplayName(category), $"expcat:{expenseId}:{index}"))
+            .Select((category, index) => new Choice(GetCategoryDisplayName(category, localizer), $"expcat:{expenseId}:{index}"))
             .ToList();
 
         await channel.SendChoicesAsync(address, localizer["Expenses.AskCategoryForMerchant", merchant], choices, ct);
@@ -549,7 +549,7 @@ public sealed class MessageProcessor(
         var (total, currency) = await expenses.GetCategoryTotalAsync(spaceId, user.Id, category.Id, today.Year, today.Month, ct);
 
         var formatted = MoneyFormatter.Format(total, currency, culture.Name);
-        return localizer["Expenses.CategoryTotal", formatted, GetCategoryDisplayName(category)];
+        return localizer["Expenses.CategoryTotal", formatted, GetCategoryDisplayName(category, localizer)];
     }
 
     private async Task<Category?> ResolveCategoryAsync(ExpenseService expenses, Guid spaceId, string text, CancellationToken ct)
@@ -559,7 +559,7 @@ public sealed class MessageProcessor(
 
         foreach (var category in categories)
         {
-            var displayName = GetCategoryDisplayName(category).ToLowerInvariant();
+            var displayName = GetCategoryDisplayName(category, localizer).ToLowerInvariant();
             if (displayName.Contains(target) || target.Contains(displayName))
             {
                 return category;
@@ -571,7 +571,8 @@ public sealed class MessageProcessor(
 
     // System categories are resource keys and localize; user categories are free text
     // and never translate (docs/09-localizzazione.md) — never mixed on the same row.
-    private string GetCategoryDisplayName(Category category) =>
+    // Internal static so DigestFormatter can reuse it without threading an instance through.
+    internal static string GetCategoryDisplayName(Category category, IStringLocalizer<Messages> localizer) =>
         category.ResourceKey is not null ? localizer[category.ResourceKey] : category.Name ?? "";
 
     private static DateOnly GetUserToday(User user)
@@ -626,7 +627,7 @@ public sealed class MessageProcessor(
                 var firstDueAt = new DateTimeOffset(localDateTime, timeZone.GetUtcOffset(localDateTime));
                 if (firstDueAt < DateTimeOffset.UtcNow)
                 {
-                    firstDueAt = AdvanceByFrequency(firstDueAt, recurring.Frequency);
+                    firstDueAt = RecurrenceRule.Advance(firstDueAt, recurring.Frequency);
                 }
 
                 var reminder = await reminders.CreateRecurringAsync(
@@ -669,19 +670,10 @@ public sealed class MessageProcessor(
         _ => localizer["Reminders.FrequencyDaily"],
     };
 
-    private static DateTimeOffset AdvanceByFrequency(DateTimeOffset dueAt, RecurrenceFrequency frequency) => frequency switch
-    {
-        RecurrenceFrequency.Daily => dueAt.AddDays(1),
-        RecurrenceFrequency.Weekly => dueAt.AddDays(7),
-        RecurrenceFrequency.Monthly => dueAt.AddMonths(1),
-        RecurrenceFrequency.Yearly => dueAt.AddYears(1),
-        _ => dueAt.AddDays(1),
-    };
-
     // Long form (day + month name), not numeric — "15/09" reads as 15 September for an
     // Italian user and September 15th for an American one; the day-first/month-first
     // ambiguity disappears once the month is spelled out (docs/09-localizzazione.md).
-    private static string FormatDueAt(DateTimeOffset dueAt, TimeZoneInfo timeZone, CultureInfo culture)
+    internal static string FormatDueAt(DateTimeOffset dueAt, TimeZoneInfo timeZone, CultureInfo culture)
     {
         var local = TimeZoneInfo.ConvertTime(dueAt, timeZone);
         return local.ToString("d MMMM, HH:mm", culture);
@@ -786,7 +778,7 @@ public sealed class MessageProcessor(
                 var budget = await budgets.SetAsync(spaceId, user.Id, category.Id, amount, ct);
                 var currency = await expenses.GetSpaceCurrencyAsync(spaceId, ct);
                 return localizer["Budget.SetCategory",
-                    GetCategoryDisplayName(category), MoneyFormatter.Format(budget.MonthlyLimit, currency, culture.Name)];
+                    GetCategoryDisplayName(category, localizer), MoneyFormatter.Format(budget.MonthlyLimit, currency, culture.Name)];
             }
 
             default:
@@ -815,7 +807,7 @@ public sealed class MessageProcessor(
             }
 
             var category = categories.FirstOrDefault(c => c.Id == b.CategoryId);
-            var categoryName = category is null ? "" : GetCategoryDisplayName(category);
+            var categoryName = category is null ? "" : GetCategoryDisplayName(category, localizer);
             return localizer["Budget.ListItemLineCategory", categoryName, limitFormatted].Value;
         });
         return string.Join('\n', lines);
@@ -829,47 +821,9 @@ public sealed class MessageProcessor(
         var today = GetUserToday(user);
 
         var daily = await digest.BuildAsync(spaceId, user.Id, timeZone, today, ct);
-
-        var remindersSection = daily.RemindersToday.Count == 0
-            ? localizer["Digest.RemindersEmpty"].Value
-            : string.Join('\n', daily.RemindersToday.Select(r =>
-                localizer["Reminders.ListItemLine", FormatDueAt(r.DueAt, timeZone, culture), r.Text].Value));
-
-        var shoppingSection = daily.MissingItems.Count == 0
-            ? localizer["Digest.ShoppingEmpty"].Value
-            : string.Join('\n', daily.MissingItems.Select(i => localizer["Shopping.ListItemLine", i.RawText].Value));
-
-        var budgetSection = daily.BudgetStatuses.Count == 0
-            ? localizer["Budget.ListEmpty"].Value
-            : string.Join('\n', await FormatBudgetStatusLinesAsync(expenses, spaceId, culture, daily.BudgetStatuses, ct));
-
-        return string.Join('\n', [
-            localizer["Digest.RemindersHeader"], remindersSection,
-            "",
-            localizer["Digest.ShoppingHeader"], shoppingSection,
-            "",
-            localizer["Digest.BudgetHeader"], budgetSection,
-        ]);
-    }
-
-    private async Task<IReadOnlyList<string>> FormatBudgetStatusLinesAsync(
-        ExpenseService expenses, Guid spaceId, CultureInfo culture, IReadOnlyList<BudgetStatus> statuses, CancellationToken ct)
-    {
         var currency = await expenses.GetSpaceCurrencyAsync(spaceId, ct);
         var categories = await expenses.GetCategoriesAsync(spaceId, ct);
 
-        return statuses.Select(status =>
-        {
-            var spentFormatted = MoneyFormatter.Format(status.Spent, currency, culture.Name);
-            var limitFormatted = MoneyFormatter.Format(status.Limit, currency, culture.Name);
-            if (status.CategoryId is null)
-            {
-                return localizer["Digest.BudgetLineOverall", spentFormatted, limitFormatted].Value;
-            }
-
-            var category = categories.FirstOrDefault(c => c.Id == status.CategoryId);
-            var categoryName = category is null ? "" : GetCategoryDisplayName(category);
-            return localizer["Digest.BudgetLineCategory", categoryName, spentFormatted, limitFormatted].Value;
-        }).ToList();
+        return DigestFormatter.Format(daily, categories, currency, timeZone, culture, localizer);
     }
 }

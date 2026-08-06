@@ -15,5 +15,15 @@ public sealed class SpaceConfiguration : IEntityTypeConfiguration<Space>
         builder.HasMany(x => x.Memberships)
             .WithOne()
             .HasForeignKey(x => x.SpaceId);
+
+        // Default backfills existing rows when this column lands on a populated table —
+        // the app always sets PlanId explicitly at creation regardless.
+        builder.Property(x => x.PlanId).HasDefaultValue(SystemPlanIds.Free);
+
+        builder.HasOne<SubscriptionPlan>()
+            .WithMany()
+            .HasForeignKey(x => x.PlanId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

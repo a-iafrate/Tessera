@@ -47,6 +47,8 @@ public sealed class TesseraDbContext(DbContextOptions<TesseraDbContext> options)
 
     public DbSet<Budget> Budgets => Set<Budget>();
 
+    public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);

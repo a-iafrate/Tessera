@@ -94,6 +94,7 @@ public class Space
     public string Currency { get; set; } = "EUR";      // valuta dello spazio, vedi 09
     public DateTimeOffset CreatedAt { get; set; }
 
+    public Guid PlanId { get; set; }                   // mai null, vedi "Piano di abbonamento"
     public ICollection<Membership> Memberships { get; set; } = [];
     public string? GroupChatId { get; set; }           // se il bot è in un gruppo Telegram
     public string? GroupChannelName { get; set; }
@@ -103,6 +104,33 @@ public class Space
 Ogni utente ha almeno uno spazio personale creato alla registrazione. Uno spazio può essere legato a un gruppo Telegram: in quel caso i messaggi nel gruppo agiscono su quello spazio senza disambiguazione.
 
 `Space.Currency` sta sullo spazio e non sull'utente: una spesa condivisa è in una valuta sola, mentre il *formato* con cui viene mostrata dipende dalla cultura di chi legge. Confondere le due cose è un classico — vedi [09-localizzazione.md](09-localizzazione.md).
+
+### Piano di abbonamento
+
+```csharp
+public class SubscriptionPlan
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = null!;          // "Free", "Basic", "Plus", "Family"
+    public int MaxLinkedBots { get; set; }             // canali/identità collegabili allo spazio
+    public int MaxCallsPerDay { get; set; }
+    public decimal MonthlyPrice { get; set; }
+    public string Currency { get; set; } = "EUR";
+}
+```
+
+Il piano è **per spazio**, non per utente: una famiglia con più membri in uno spazio condiviso paga un piano unico, non uno a testa. `Space.PlanId` non è mai null — ogni spazio nasce sul piano `Free` (`SystemPlanIds.Free`), assegnato da `UserProvisioningService` alla creazione, esattamente come le categorie di sistema in "Categorie di spesa" più sotto.
+
+I piani sono righe seedate (`SubscriptionPlanConfiguration.HasData`), condivise fra tutti gli spazi che le referenziano — non una copia per spazio. Valori attuali (placeholder, modificabili senza toccare lo schema):
+
+| Piano | Bot collegabili | Chiamate/giorno | Prezzo/mese |
+|---|---|---|---|
+| Free | 1 | 20 | 0 € |
+| Basic | 1 | 200 | 5 € |
+| Plus | 3 | 1000 | 12 € |
+| Family | 10 | 5000 | 25 € |
+
+**Lo schema esiste, l'enforcement non ancora.** Nessun punto del codice blocca oggi un collegamento oltre `MaxLinkedBots` né conta le chiamate giornaliere contro `MaxCallsPerDay` — è deliberatamente rimandato (vedi [06-roadmap.md](06-roadmap.md)) per non anticipare pagamenti/fatturazione prima del punto di decisione di Fase 1. Il rate limiting fisso da 60 messaggi/ora per identità (vedi [07-compliance.md](07-compliance.md)) resta la sola protezione attiva nel frattempo, ed è indipendente dal piano.
 
 ### Un bot, molte chat, spazi indipendenti
 
@@ -727,6 +755,15 @@ builder.Entity<RecurringExpense>()
 
 builder.Entity<MerchantCategoryMapping>()
     .HasKey(x => new { x.SpaceId, x.MerchantNormalized });
+
+// Restrict, non Cascade: cancellare un piano non deve cancellare a cascata gli spazi che lo
+// referenziano — deve fallire finché quegli spazi non vengono spostati su un altro piano.
+builder.Entity<Space>()
+    .HasOne<SubscriptionPlan>()
+    .WithMany()
+    .HasForeignKey(x => x.PlanId)
+    .IsRequired()
+    .OnDelete(DeleteBehavior.Restrict);
 
 builder.Entity<Budget>()
     .HasIndex(x => new { x.SpaceId, x.CategoryId }).IsUnique();

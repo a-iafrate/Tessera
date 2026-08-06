@@ -14,6 +14,7 @@ public sealed class UserProvisioningService(TesseraDbContext db)
             Name = "Personale",
             OwnerId = userId,
             CreatedAt = now,
+            PlanId = SystemPlanIds.Free,
         };
         var user = new DomainUser
         {

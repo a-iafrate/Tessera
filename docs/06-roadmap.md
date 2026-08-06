@@ -120,6 +120,8 @@ Il costo di arrivare qui è ~10 settimane e ~€30/mese, coperti dal credito MVP
 
 Il tasso di "non ho capito" è il secondo numero da guardare: se è alto, il problema è il router, non il prodotto — e si aggiusta.
 
+Se l'esito è "sì, uso quotidiano", la domanda successiva è monetizzazione o limitazione dell'utenza (vedi [04-costi.md](04-costi.md#soglia-di-sostenibilità)). Lo schema dei piani (`SubscriptionPlan`, per spazio) esiste già in anticipo — vedi [02-modello-dati.md](02-modello-dati.md#piano-di-abbonamento) — ma l'enforcement dei limiti e il flusso di pagamento restano deliberatamente fuori dalla Fase 1.
+
 ## Fase 2 — Calendario (~5-6 settimane)
 
 Le verification avviate in Fase 1 dovrebbero essere concluse o vicine.

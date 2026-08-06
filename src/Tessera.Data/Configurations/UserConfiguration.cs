@@ -13,6 +13,9 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(x => x.Email).IsRequired();
         builder.Property(x => x.PreferredCulture).IsRequired();
 
+        // Backfills existing rows to the same default as new ones (docs/02-modello-dati.md).
+        builder.Property(x => x.DigestHourLocal).HasDefaultValue(8);
+
         builder.HasMany(x => x.ChannelIdentities)
             .WithOne()
             .HasForeignKey(x => x.UserId);

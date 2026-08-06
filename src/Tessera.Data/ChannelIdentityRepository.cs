@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Tessera.Core.Abstractions;
+using ChannelIdentity = Tessera.Core.Users.ChannelIdentity;
 using DomainUser = Tessera.Core.Users.User;
 
 namespace Tessera.Data;
@@ -20,4 +21,10 @@ public sealed class ChannelIdentityRepository(TesseraDbContext db) : IChannelIde
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == identity.UserId, ct);
     }
+
+    public async Task<IReadOnlyList<ChannelIdentity>> GetForUserAsync(Guid userId, CancellationToken ct) =>
+        await db.ChannelIdentities
+            .AsNoTracking()
+            .Where(x => x.UserId == userId)
+            .ToListAsync(ct);
 }

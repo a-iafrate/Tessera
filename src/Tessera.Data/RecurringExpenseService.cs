@@ -43,6 +43,57 @@ public sealed class RecurringExpenseService(TesseraDbContext db, IAccessPolicy a
             .ToListAsync(ct);
     }
 
+    // System sweep across every space for the generation job — there's no acting user to
+    // check access against, unlike the methods above (docs/01-architettura.md).
+    public async Task<IReadOnlyList<RecurringExpense>> GetAllActiveAsync(CancellationToken ct) =>
+        await db.RecurringExpenses.AsNoTracking().ToListAsync(ct);
+
+    // "Due" per the simplified recurrence model (RecurrenceRule's own doc comment): compares
+    // LastGeneratedFor against the current period rather than "does a similar expense
+    // already exist" (docs/02-modello-dati.md).
+    public static bool IsDue(RecurringExpense recurring, DateOnly today) => recurring.LastGeneratedFor switch
+    {
+        null => true,
+        { } last when recurring.Recurrence.Frequency == RecurrenceFrequency.Daily => last != today,
+        { } last when recurring.Recurrence.Frequency == RecurrenceFrequency.Weekly => today >= last.AddDays(7),
+        { } last when recurring.Recurrence.Frequency == RecurrenceFrequency.Monthly =>
+            last.Year != today.Year || last.Month != today.Month,
+        { } last when recurring.Recurrence.Frequency == RecurrenceFrequency.Yearly => last.Year != today.Year,
+        _ => false,
+    };
+
+    // AutoRegister creates the Expense (Note carries the recurring rule's description,
+    // since Expense has no separate description field); otherwise this only advances
+    // LastGeneratedFor and the caller sends a reminder instead (docs/02-modello-dati.md).
+    public async Task<RecurringExpense?> GenerateAsync(Guid recurringExpenseId, DateOnly today, CancellationToken ct)
+    {
+        var recurring = await db.RecurringExpenses.FirstOrDefaultAsync(x => x.Id == recurringExpenseId, ct);
+        if (recurring is null)
+        {
+            return null;
+        }
+
+        if (recurring.AutoRegister)
+        {
+            var space = await db.Spaces.AsNoTracking().FirstAsync(x => x.Id == recurring.SpaceId, ct);
+            db.Expenses.Add(new Expense
+            {
+                Id = Guid.NewGuid(),
+                SpaceId = recurring.SpaceId,
+                Amount = recurring.Amount,
+                Currency = recurring.Currency,
+                CategoryId = recurring.CategoryId,
+                Date = today,
+                Note = recurring.Description,
+                CreatedByUserId = space.OwnerId,
+            });
+        }
+
+        recurring.LastGeneratedFor = today;
+        await db.SaveChangesAsync(ct);
+        return recurring;
+    }
+
     private async Task EnsureAccessAsync(Guid spaceId, Guid userId, AccessLevel required, CancellationToken ct)
     {
         var allowed = await accessPolicy.CanAsync(userId, spaceId, ResourceKind.Expenses, required, ct);

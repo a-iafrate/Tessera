@@ -14,6 +14,7 @@ using Tessera.Data;
 using Tessera.Web.Components;
 using Tessera.Web.Components.Account;
 using Tessera.Web.Endpoints;
+using Tessera.Web.Jobs;
 using Tessera.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -111,6 +112,14 @@ if (telegramEnabled)
     {
         builder.Services.AddHostedService<TelegramPollingReceiver>();
     }
+
+    // The proactive worker (docs/01-architettura.md) — reminders due, daily digest,
+    // recurring-expense generation. Singleton, since SchedulerWorker resolves
+    // IEnumerable<IScheduledJob> once at construction; each job opens its own scope per run.
+    builder.Services.AddSingleton<IScheduledJob, RemindersDueJob>();
+    builder.Services.AddSingleton<IScheduledJob, DailyDigestJob>();
+    builder.Services.AddSingleton<IScheduledJob, RecurringExpenseJob>();
+    builder.Services.AddHostedService<SchedulerWorker>();
 }
 
 var app = builder.Build();
