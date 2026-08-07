@@ -211,11 +211,42 @@ public sealed class SpaceService(TesseraDbContext db)
         await db.SaveChangesAsync(ct);
     }
 
+    // Pseudonymized departure (docs/02-modello-dati.md §Caso 2, docs/07-compliance.md): unlike
+    // RemoveMembershipAsync, no real name is kept — DisplayNameSnapshot stays blank so
+    // ActorNameResolver treats it as unresolved and every viewer gets their own localized
+    // "former member" fallback instead of a name baked in one fixed language.
+    internal async Task PseudonymizeMembershipAsync(Guid spaceId, Guid userId, CancellationToken ct)
+    {
+        var membership = await db.Memberships
+            .Include(m => m.Permissions)
+            .FirstOrDefaultAsync(m => m.SpaceId == spaceId && m.UserId == userId, ct);
+        if (membership is null)
+        {
+            return;
+        }
+
+        db.MembershipArchives.Add(new MembershipArchive
+        {
+            SpaceId = spaceId,
+            UserId = userId,
+            DisplayNameSnapshot = "",
+            JoinedAt = membership.JoinedAt,
+            LeftAt = DateTimeOffset.UtcNow,
+            Reason = MembershipEndReason.AccountDeleted,
+        });
+
+        db.MembershipPermissions.RemoveRange(membership.Permissions);
+        db.Memberships.Remove(membership);
+        await db.SaveChangesAsync(ct);
+    }
+
     // The sole member leaving is equivalent to deleting the space (docs/02-modello-dati.md):
     // there's nobody left for its data to belong to. Every SpaceId-tagged table is cleaned up
     // explicitly — none of them carry a real FK to Space (by the same design as the
-    // AddedByUserId/SpaceId pattern elsewhere), so nothing would cascade automatically.
-    private async Task DeleteSpaceAsync(Guid spaceId, CancellationToken ct)
+    // AddedByUserId/SpaceId pattern elsewhere), so nothing would cascade automatically. Also
+    // used by AccountDeletionService for the "Personale" space, which by construction always
+    // has exactly the one member being deleted.
+    internal async Task DeleteSpaceAsync(Guid spaceId, CancellationToken ct)
     {
         var space = await db.Spaces.FirstAsync(s => s.Id == spaceId, ct);
 

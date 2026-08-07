@@ -24,6 +24,10 @@ public sealed class ActorNameResolver(TesseraDbContext db)
         var archived = await db.MembershipArchives
             .AsNoTracking()
             .FirstOrDefaultAsync(a => a.SpaceId == spaceId && a.UserId == userId, ct);
-        return archived?.DisplayNameSnapshot;
+
+        // A blank snapshot means the account was later deleted (docs/07-compliance.md) — the
+        // name itself was erased, so this falls through to the caller's localized fallback
+        // rather than baking a fixed-language placeholder into stored data.
+        return string.IsNullOrEmpty(archived?.DisplayNameSnapshot) ? null : archived.DisplayNameSnapshot;
     }
 }

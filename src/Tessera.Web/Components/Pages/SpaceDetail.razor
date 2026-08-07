@@ -101,7 +101,7 @@
                 @foreach (var archived in formerMembers)
                 {
                     <div class="card">
-                        <strong>@archived.DisplayNameSnapshot</strong>
+                        <strong>@(string.IsNullOrEmpty(archived.DisplayNameSnapshot) ? Localizer["Space.FormerMember"].Value : archived.DisplayNameSnapshot)</strong>
                         <span class="text-soft">@FormerMemberNote(archived)</span>
                     </div>
                 }

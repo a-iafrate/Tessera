@@ -446,6 +446,84 @@ Note: I only read messages that start with / or mention me.</value>
   <data name="SpaceDetail.FormerMemberAccountDeleted" xml:space="preserve">
     <value>Account deleted {0}</value>
   </data>
+  <data name="Nav.Account" xml:space="preserve">
+    <value>Account</value>
+  </data>
+  <data name="Profile.Title" xml:space="preserve">
+    <value>Account</value>
+  </data>
+  <data name="Profile.Saved" xml:space="preserve">
+    <value>Saved.</value>
+  </data>
+  <data name="Profile.LanguageHeading" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="Profile.LanguageLabel" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="Profile.LanguageBody" xml:space="preserve">
+    <value>Used by the bot on Telegram and by this console — the same setting either way.</value>
+  </data>
+  <data name="Profile.TimeZoneHeading" xml:space="preserve">
+    <value>Time zone</value>
+  </data>
+  <data name="Profile.TimeZoneLabel" xml:space="preserve">
+    <value>Time zone</value>
+  </data>
+  <data name="Profile.TimeZoneNotSet" xml:space="preserve">
+    <value>Not set</value>
+  </data>
+  <data name="Profile.TimeZoneBody" xml:space="preserve">
+    <value>Used for reminders, the daily digest and recurring expenses. Independent of your language — an Italian speaker in London wants Italian text and London times.</value>
+  </data>
+  <data name="Profile.DefaultSpaceHeading" xml:space="preserve">
+    <value>Default space</value>
+  </data>
+  <data name="Profile.DefaultSpaceLabel" xml:space="preserve">
+    <value>Default space</value>
+  </data>
+  <data name="Profile.DefaultSpaceBody" xml:space="preserve">
+    <value>Used when a message doesn't say which space it's about and there's more than one reasonable choice.</value>
+  </data>
+  <data name="Profile.DeleteAccountLink" xml:space="preserve">
+    <value>Delete my account</value>
+  </data>
+  <data name="AccountDelete.Title" xml:space="preserve">
+    <value>Delete account</value>
+  </data>
+  <data name="AccountDelete.ExportHeading" xml:space="preserve">
+    <value>Export your data</value>
+  </data>
+  <data name="AccountDelete.ExportBody" xml:space="preserve">
+    <value>Download a copy of your profile, spaces, shopping items, expenses and reminders before deleting your account.</value>
+  </data>
+  <data name="AccountDelete.ExportButton" xml:space="preserve">
+    <value>Download my data (JSON)</value>
+  </data>
+  <data name="AccountDelete.DangerHeading" xml:space="preserve">
+    <value>Delete my account</value>
+  </data>
+  <data name="AccountDelete.DangerBody" xml:space="preserve">
+    <value>This closes your account for good. Here's what happens:</value>
+  </data>
+  <data name="AccountDelete.EffectPersonalSpace" xml:space="preserve">
+    <value>Your personal space and everything in it is deleted.</value>
+  </data>
+  <data name="AccountDelete.EffectSharedSpaces" xml:space="preserve">
+    <value>You're removed from every shared space. If you were the Admin, the role passes to whoever joined earliest — the space and its history stay intact for the others.</value>
+  </data>
+  <data name="AccountDelete.EffectFreeText" xml:space="preserve">
+    <value>Notes and text you wrote in shared spaces stay visible to other members, attributed to "Former member" rather than your name.</value>
+  </data>
+  <data name="AccountDelete.EffectIrreversible" xml:space="preserve">
+    <value>This can't be undone.</value>
+  </data>
+  <data name="AccountDelete.ConfirmLabel" xml:space="preserve">
+    <value>Type {0} to confirm</value>
+  </data>
+  <data name="AccountDelete.DeleteButton" xml:space="preserve">
+    <value>Delete my account</value>
+  </data>
   <data name="AccessLevel.None" xml:space="preserve">
     <value>None</value>
   </data>
@@ -511,5 +589,167 @@ Note: I only read messages that start with / or mention me.</value>
   </data>
   <data name="InviteAccept.AcceptButton" xml:space="preserve">
     <value>Accept</value>
+  </data>
+  <data name="Nav.Privacy" xml:space="preserve">
+    <value>Privacy</value>
+  </data>
+  <data name="Nav.Terms" xml:space="preserve">
+    <value>Terms</value>
+  </data>
+  <data name="Privacy.Title" xml:space="preserve">
+    <value>Privacy Policy</value>
+  </data>
+  <data name="Privacy.Disclaimer" xml:space="preserve">
+    <value>This is a draft reflecting how Tessera actually works today. It hasn't been reviewed by a lawyer — replace the placeholders below and get professional review before opening the service beyond your own household.</value>
+  </data>
+  <data name="Privacy.LastUpdated" xml:space="preserve">
+    <value>Last updated: August 2026</value>
+  </data>
+  <data name="Privacy.IntroHeading" xml:space="preserve">
+    <value>Who this is from</value>
+  </data>
+  <data name="Privacy.IntroBody" xml:space="preserve">
+    <value>Tessera is operated by [operator name — placeholder], contactable at [privacy@example.com — placeholder]. This policy explains what data we process when you use the Tessera bot and console, and why.</value>
+  </data>
+  <data name="Privacy.DataHeading" xml:space="preserve">
+    <value>Data we process</value>
+  </data>
+  <data name="Privacy.DataProfile" xml:space="preserve">
+    <value>Account data — email and display name, to run your account.</value>
+  </data>
+  <data name="Privacy.DataChannel" xml:space="preserve">
+    <value>Channel identity — your Telegram chat ID, to deliver messages to the right chat.</value>
+  </data>
+  <data name="Privacy.DataContent" xml:space="preserve">
+    <value>Content you create — shopping list items, expenses, reminders and the spaces you share them in, to provide the service.</value>
+  </data>
+  <data name="Privacy.DataMessages" xml:space="preserve">
+    <value>Message text — sent to Azure OpenAI to interpret natural-language requests; not stored beyond what's needed to reply.</value>
+  </data>
+  <data name="Privacy.DataCalendar" xml:space="preserve">
+    <value>Calendar events (once calendar integration ships) — read at the moment they're needed and not stored.</value>
+  </data>
+  <data name="Privacy.DataTokens" xml:space="preserve">
+    <value>OAuth tokens (once calendar integration ships) — kept encrypted in Azure Key Vault, never in the database, only with your explicit consent for that integration.</value>
+  </data>
+  <data name="Privacy.LegalBasisHeading" xml:space="preserve">
+    <value>Why we process it</value>
+  </data>
+  <data name="Privacy.LegalBasisBody" xml:space="preserve">
+    <value>Account, channel and content data are processed to perform the service you asked for. Optional integrations (calendar, and anything similar in the future) are processed only with your separate, explicit consent.</value>
+  </data>
+  <data name="Privacy.LocationHeading" xml:space="preserve">
+    <value>Where your data lives</value>
+  </data>
+  <data name="Privacy.LocationBody" xml:space="preserve">
+    <value>All data is hosted on Microsoft Azure infrastructure in the EU (West Europe / North Europe regions).</value>
+  </data>
+  <data name="Privacy.SharedSpacesHeading" xml:space="preserve">
+    <value>Shared spaces</value>
+  </data>
+  <data name="Privacy.SharedSpacesBody" xml:space="preserve">
+    <value>Anything you add to a space shared with other people — a shopping list item, an expense, a reminder — is visible to every member of that space, including after you leave it or delete your account. Deleting your account removes your name and every way of identifying you, but the content itself stays so the other members' shared history and totals stay correct. Free text you wrote (a note on an expense, the wording of a list item) can still contain personal details this doesn't touch — you can delete that content yourself before closing your account.</value>
+  </data>
+  <data name="Privacy.RightsHeading" xml:space="preserve">
+    <value>Your rights</value>
+  </data>
+  <data name="Privacy.RightsAccess" xml:space="preserve">
+    <value>Access — download a copy of your data as JSON from the console at any time.</value>
+  </data>
+  <data name="Privacy.RightsErasure" xml:space="preserve">
+    <value>Erasure — delete your account from the console. Your personal space and everything in it is removed outright; your membership in shared spaces is pseudonymized as described above.</value>
+  </data>
+  <data name="Privacy.RightsRectification" xml:space="preserve">
+    <value>Rectification — update your profile, language and time zone from the console.</value>
+  </data>
+  <data name="Privacy.SubprocessorsHeading" xml:space="preserve">
+    <value>Who else sees your data</value>
+  </data>
+  <data name="Privacy.SubprocessorsBody" xml:space="preserve">
+    <value>Microsoft Azure (hosting, database, secrets storage) and Azure OpenAI (interpreting your messages) process data on our behalf under their own data-processing terms. Telegram, as the messaging platform, sees the messages you send it — that's between you and Telegram, governed by their own privacy policy.</value>
+  </data>
+  <data name="Privacy.CookiesHeading" xml:space="preserve">
+    <value>Cookies</value>
+  </data>
+  <data name="Privacy.CookiesBody" xml:space="preserve">
+    <value>The console sets one cookie to keep you signed in. It's required for the console to work and isn't used for tracking or analytics.</value>
+  </data>
+  <data name="Privacy.ChangesHeading" xml:space="preserve">
+    <value>Changes to this policy</value>
+  </data>
+  <data name="Privacy.ChangesBody" xml:space="preserve">
+    <value>If this policy changes materially, we'll let you know before the change takes effect.</value>
+  </data>
+  <data name="Privacy.ContactHeading" xml:space="preserve">
+    <value>Contact</value>
+  </data>
+  <data name="Privacy.ContactBody" xml:space="preserve">
+    <value>Questions about this policy or your data: [privacy@example.com — placeholder].</value>
+  </data>
+  <data name="Terms.Title" xml:space="preserve">
+    <value>Terms of Service</value>
+  </data>
+  <data name="Terms.Disclaimer" xml:space="preserve">
+    <value>This is a draft and hasn't been reviewed by a lawyer — replace the placeholders below and get professional review before opening the service beyond your own household.</value>
+  </data>
+  <data name="Terms.LastUpdated" xml:space="preserve">
+    <value>Last updated: August 2026</value>
+  </data>
+  <data name="Terms.IntroBody" xml:space="preserve">
+    <value>These terms cover your use of the Tessera bot and web console, operated by [operator name — placeholder]. By using Tessera, you agree to them.</value>
+  </data>
+  <data name="Terms.ServiceHeading" xml:space="preserve">
+    <value>What Tessera is</value>
+  </data>
+  <data name="Terms.ServiceBody" xml:space="preserve">
+    <value>Tessera is a shared assistant for shopping lists, expenses and reminders, used through a Telegram bot and this web console.</value>
+  </data>
+  <data name="Terms.AccountsHeading" xml:space="preserve">
+    <value>Your account</value>
+  </data>
+  <data name="Terms.AccountsBody" xml:space="preserve">
+    <value>One account per person. You're responsible for keeping your credentials and linked Telegram chat secure, and for what happens through your account.</value>
+  </data>
+  <data name="Terms.SharedSpacesHeading" xml:space="preserve">
+    <value>Shared spaces</value>
+  </data>
+  <data name="Terms.SharedSpacesBody" xml:space="preserve">
+    <value>Content you add to a space shared with others stays visible to them, including after you leave the space or delete your account — see the Privacy Policy for the details. Don't share a space with someone unless you're fine with that.</value>
+  </data>
+  <data name="Terms.AcceptableUseHeading" xml:space="preserve">
+    <value>Acceptable use</value>
+  </data>
+  <data name="Terms.AcceptableUseBody" xml:space="preserve">
+    <value>Don't use Tessera for anything illegal, don't try to abuse or overload the bot, and don't use it to store or share someone else's personal data without their knowledge.</value>
+  </data>
+  <data name="Terms.AvailabilityHeading" xml:space="preserve">
+    <value>No warranty</value>
+  </data>
+  <data name="Terms.AvailabilityBody" xml:space="preserve">
+    <value>Tessera is provided as-is, without warranty of any kind. We don't guarantee it will always be available or free of errors.</value>
+  </data>
+  <data name="Terms.LiabilityHeading" xml:space="preserve">
+    <value>Limitation of liability</value>
+  </data>
+  <data name="Terms.LiabilityBody" xml:space="preserve">
+    <value>To the extent permitted by law, [operator name — placeholder] isn't liable for indirect or consequential damages arising from your use of Tessera.</value>
+  </data>
+  <data name="Terms.TerminationHeading" xml:space="preserve">
+    <value>Ending your account</value>
+  </data>
+  <data name="Terms.TerminationBody" xml:space="preserve">
+    <value>You can delete your account at any time from the console. We can suspend or terminate access for accounts that violate these terms.</value>
+  </data>
+  <data name="Terms.ChangesHeading" xml:space="preserve">
+    <value>Changes to these terms</value>
+  </data>
+  <data name="Terms.ChangesBody" xml:space="preserve">
+    <value>If we change these terms materially, we'll let you know before the change takes effect.</value>
+  </data>
+  <data name="Terms.ContactHeading" xml:space="preserve">
+    <value>Contact</value>
+  </data>
+  <data name="Terms.ContactBody" xml:space="preserve">
+    <value>Questions about these terms: [legal@example.com — placeholder].</value>
   </data>
 </root>

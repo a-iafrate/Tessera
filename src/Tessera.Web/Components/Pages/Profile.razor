@@ -1,0 +1,145 @@
+@page "/account"
+@attribute [Authorize]
+
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.Extensions.Localization
+@using Tessera.Core.Resources
+@using Tessera.Core.Spaces
+@using Tessera.Data
+
+@inject UserProvisioningService UserProvisioningService
+@inject SpaceService SpaceService
+@inject IStringLocalizer<Messages> Localizer
+
+<PageTitle>@Localizer["Profile.Title"]</PageTitle>
+
+<div class="container">
+    <h1>@Localizer["Profile.Title"]</h1>
+
+    @if (statusMessage is not null)
+    {
+        <div class="alert alert-success">@statusMessage</div>
+    }
+
+    @if (loaded)
+    {
+        <div class="card" style="max-width: 32rem;">
+            <h2>@Localizer["Profile.LanguageHeading"]</h2>
+            <div class="form-floating mb-3">
+                <select class="form-control" id="culture" value="@culture" @onchange="OnCultureChangedAsync">
+                    <option value="en">English</option>
+                    <option value="it">Italiano</option>
+                </select>
+                <label for="culture">@Localizer["Profile.LanguageLabel"]</label>
+            </div>
+            <p class="text-soft">@Localizer["Profile.LanguageBody"]</p>
+        </div>
+
+        <div class="card" style="max-width: 32rem;">
+            <h2>@Localizer["Profile.TimeZoneHeading"]</h2>
+            <div class="form-floating mb-3">
+                <select class="form-control" id="timeZone" value="@(timeZoneId ?? "")" @onchange="OnTimeZoneChangedAsync">
+                    <option value="">@Localizer["Profile.TimeZoneNotSet"]</option>
+                    @foreach (var tz in TimeZones)
+                    {
+                        <option value="@tz">@tz</option>
+                    }
+                </select>
+                <label for="timeZone">@Localizer["Profile.TimeZoneLabel"]</label>
+            </div>
+            <p class="text-soft">@Localizer["Profile.TimeZoneBody"]</p>
+        </div>
+
+        @if (spaces.Count > 0)
+        {
+            <div class="card" style="max-width: 32rem;">
+                <h2>@Localizer["Profile.DefaultSpaceHeading"]</h2>
+                <div class="form-floating mb-3">
+                    <select class="form-control" id="defaultSpace" value="@(defaultSpaceId?.ToString() ?? "")" @onchange="OnDefaultSpaceChangedAsync">
+                        @foreach (var space in spaces)
+                        {
+                            <option value="@space.Id">@space.Name</option>
+                        }
+                    </select>
+                    <label for="defaultSpace">@Localizer["Profile.DefaultSpaceLabel"]</label>
+                </div>
+                <p class="text-soft">@Localizer["Profile.DefaultSpaceBody"]</p>
+            </div>
+        }
+
+        <div class="seam" aria-hidden="true">
+            <span></span><span></span><span></span>
+        </div>
+
+        <a class="btn btn-danger" href="/account/delete">@Localizer["Profile.DeleteAccountLink"]</a>
+    }
+</div>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private static readonly string[] TimeZones =
+    [
+        "Europe/Rome", "Europe/London", "Europe/Paris", "Europe/Berlin", "Europe/Madrid",
+        "Europe/Amsterdam", "Europe/Zurich", "Europe/Lisbon", "Europe/Athens", "Europe/Moscow",
+        "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles",
+        "America/Sao_Paulo", "America/Mexico_City",
+        "Asia/Dubai", "Asia/Kolkata", "Asia/Shanghai", "Asia/Tokyo", "Asia/Singapore",
+        "Australia/Sydney", "Pacific/Auckland",
+        "Africa/Cairo", "Africa/Johannesburg",
+        "UTC",
+    ];
+
+    private Guid userId;
+    private bool loaded;
+    private string culture = "en";
+    private string? timeZoneId;
+    private Guid? defaultSpaceId;
+    private IReadOnlyList<Space> spaces = [];
+    private string? statusMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateTask!;
+        userId = Guid.Parse(authState.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var user = await UserProvisioningService.GetAsync(userId, CancellationToken.None);
+        culture = user.PreferredCulture;
+        timeZoneId = user.TimeZoneId;
+        defaultSpaceId = user.DefaultSpaceId;
+
+        spaces = await SpaceService.GetForUserAsync(userId, CancellationToken.None);
+        loaded = true;
+    }
+
+    private async Task OnCultureChangedAsync(ChangeEventArgs e)
+    {
+        culture = e.Value?.ToString() ?? "en";
+        await UserProvisioningService.SetPreferredCultureAsync(userId, culture, CancellationToken.None);
+        statusMessage = Localizer["Profile.Saved"];
+    }
+
+    private async Task OnTimeZoneChangedAsync(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+        timeZoneId = string.IsNullOrEmpty(value) ? null : value;
+        if (timeZoneId is not null)
+        {
+            await UserProvisioningService.SetTimeZoneAsync(userId, timeZoneId, CancellationToken.None);
+            statusMessage = Localizer["Profile.Saved"];
+        }
+    }
+
+    private async Task OnDefaultSpaceChangedAsync(ChangeEventArgs e)
+    {
+        if (Guid.TryParse(e.Value?.ToString(), out var spaceId))
+        {
+            defaultSpaceId = spaceId;
+            await UserProvisioningService.SetDefaultSpaceAsync(userId, spaceId, CancellationToken.None);
+            statusMessage = Localizer["Profile.Saved"];
+        }
+    }
+}

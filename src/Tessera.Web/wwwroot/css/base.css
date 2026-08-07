@@ -105,6 +105,17 @@ a.card:hover { border-color: var(--clay); }
 
 .navbar nav { display: flex; align-items: center; gap: var(--space-4); }
 
+.footer {
+  max-width: 72rem;
+  margin: var(--space-12) auto 0;
+  padding: var(--space-4);
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: var(--space-4);
+}
+
+.footer a { color: var(--ink-soft); }
+
 /* Hero — the product's subject is a conversation, not a stat block (docs/12-stile-sito.md) */
 .hero {
   max-width: 72rem;

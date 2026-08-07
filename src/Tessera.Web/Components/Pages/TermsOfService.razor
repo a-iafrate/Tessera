@@ -1,0 +1,44 @@
+@page "/terms"
+
+@using Microsoft.Extensions.Localization
+@using Tessera.Core.Resources
+
+@inject IStringLocalizer<Messages> Localizer
+
+<PageTitle>@Localizer["Terms.Title"]</PageTitle>
+
+<div class="container" style="max-width: 42rem;">
+    <h1>@Localizer["Terms.Title"]</h1>
+    <p class="text-soft">@Localizer["Terms.LastUpdated"]</p>
+
+    <div class="alert alert-info">@Localizer["Terms.Disclaimer"]</div>
+
+    <p>@Localizer["Terms.IntroBody"]</p>
+
+    <h2>@Localizer["Terms.ServiceHeading"]</h2>
+    <p>@Localizer["Terms.ServiceBody"]</p>
+
+    <h2>@Localizer["Terms.AccountsHeading"]</h2>
+    <p>@Localizer["Terms.AccountsBody"]</p>
+
+    <h2>@Localizer["Terms.SharedSpacesHeading"]</h2>
+    <p>@Localizer["Terms.SharedSpacesBody"]</p>
+
+    <h2>@Localizer["Terms.AcceptableUseHeading"]</h2>
+    <p>@Localizer["Terms.AcceptableUseBody"]</p>
+
+    <h2>@Localizer["Terms.AvailabilityHeading"]</h2>
+    <p>@Localizer["Terms.AvailabilityBody"]</p>
+
+    <h2>@Localizer["Terms.LiabilityHeading"]</h2>
+    <p>@Localizer["Terms.LiabilityBody"]</p>
+
+    <h2>@Localizer["Terms.TerminationHeading"]</h2>
+    <p>@Localizer["Terms.TerminationBody"]</p>
+
+    <h2>@Localizer["Terms.ChangesHeading"]</h2>
+    <p>@Localizer["Terms.ChangesBody"]</p>
+
+    <h2>@Localizer["Terms.ContactHeading"]</h2>
+    <p>@Localizer["Terms.ContactBody"]</p>
+</div>

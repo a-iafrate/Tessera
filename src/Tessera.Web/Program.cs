@@ -3,6 +3,7 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Telegram.Bot;
@@ -72,6 +73,23 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 
 builder.Services.AddLocalization();
 
+// Console language follows User.PreferredCulture once someone's signed in — the same
+// property the bot writes via /language, so the two channels never disagree. Anonymous
+// requests (landing page, login) have no user row to read, so they fall through to
+// Accept-Language (docs/09-localizzazione.md).
+builder.Services.Configure<RequestLocalizationOptions>(options =>
+{
+    CultureInfo[] supportedCultures = [new("en"), new("it")];
+    options.DefaultRequestCulture = new RequestCulture("en");
+    options.SupportedCultures = supportedCultures;
+    options.SupportedUICultures = supportedCultures;
+    options.RequestCultureProviders =
+    [
+        new AuthenticatedUserRequestCultureProvider(),
+        new AcceptLanguageHeaderRequestCultureProvider(),
+    ];
+});
+
 // Economic safety net (docs/07-compliance.md): caps DB/LLM cost from a loop bug or a
 // bad-faith user, per raw channel identity — not HTTP middleware, since the identity comes
 // from the webhook payload, not a header (see MessageProcessor.ProcessAsync).
@@ -98,6 +116,7 @@ builder.Services.AddScoped<SpaceResolver>();
 builder.Services.AddScoped<SpaceService>();
 builder.Services.AddScoped<InviteService>();
 builder.Services.AddScoped<ActorNameResolver>();
+builder.Services.AddScoped<AccountDeletionService>();
 builder.Services.AddSingleton(new IntentRouter(Matchers.All));
 
 // The bot pipeline is only wired up once a bot token is configured, so the console works
@@ -187,6 +206,11 @@ app.UseWhen(
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
+
+// After UseAuthentication so HttpContext.User is already the signed-in principal by the time
+// AuthenticatedUserRequestCultureProvider reads it.
+app.UseRequestLocalization();
+
 app.UseAuthorization();
 
 app.UseAntiforgery();

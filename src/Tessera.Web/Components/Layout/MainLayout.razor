@@ -1,5 +1,9 @@
 ﻿@inherits LayoutComponentBase
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.Extensions.Localization
+@using Tessera.Core.Resources
+
+@inject IStringLocalizer<Messages> Localizer
 
 <div class="navbar">
     <a class="wordmark" href="/">Tessera</a>
@@ -7,6 +11,7 @@
         <AuthorizeView>
             <Authorized>
                 <a href="/spaces">Your spaces</a>
+                <a href="/account">@Localizer["Nav.Account"]</a>
                 <form action="Account/Logout" method="post" style="margin: 0;">
                     <AntiforgeryToken />
                     <input type="hidden" name="returnUrl" value="" />
@@ -21,6 +26,11 @@
 </div>
 
 @Body
+
+<footer class="footer">
+    <a href="/privacy">@Localizer["Nav.Privacy"]</a>
+    <a href="/terms">@Localizer["Nav.Terms"]</a>
+</footer>
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.

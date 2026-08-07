@@ -1,0 +1,56 @@
+@page "/privacy"
+
+@using Microsoft.Extensions.Localization
+@using Tessera.Core.Resources
+
+@inject IStringLocalizer<Messages> Localizer
+
+<PageTitle>@Localizer["Privacy.Title"]</PageTitle>
+
+<div class="container" style="max-width: 42rem;">
+    <h1>@Localizer["Privacy.Title"]</h1>
+    <p class="text-soft">@Localizer["Privacy.LastUpdated"]</p>
+
+    <div class="alert alert-info">@Localizer["Privacy.Disclaimer"]</div>
+
+    <h2>@Localizer["Privacy.IntroHeading"]</h2>
+    <p>@Localizer["Privacy.IntroBody"]</p>
+
+    <h2>@Localizer["Privacy.DataHeading"]</h2>
+    <ul>
+        <li>@Localizer["Privacy.DataProfile"]</li>
+        <li>@Localizer["Privacy.DataChannel"]</li>
+        <li>@Localizer["Privacy.DataContent"]</li>
+        <li>@Localizer["Privacy.DataMessages"]</li>
+        <li>@Localizer["Privacy.DataCalendar"]</li>
+        <li>@Localizer["Privacy.DataTokens"]</li>
+    </ul>
+
+    <h2>@Localizer["Privacy.LegalBasisHeading"]</h2>
+    <p>@Localizer["Privacy.LegalBasisBody"]</p>
+
+    <h2>@Localizer["Privacy.LocationHeading"]</h2>
+    <p>@Localizer["Privacy.LocationBody"]</p>
+
+    <h2>@Localizer["Privacy.SharedSpacesHeading"]</h2>
+    <p>@Localizer["Privacy.SharedSpacesBody"]</p>
+
+    <h2>@Localizer["Privacy.RightsHeading"]</h2>
+    <ul>
+        <li>@Localizer["Privacy.RightsAccess"]</li>
+        <li>@Localizer["Privacy.RightsErasure"]</li>
+        <li>@Localizer["Privacy.RightsRectification"]</li>
+    </ul>
+
+    <h2>@Localizer["Privacy.SubprocessorsHeading"]</h2>
+    <p>@Localizer["Privacy.SubprocessorsBody"]</p>
+
+    <h2>@Localizer["Privacy.CookiesHeading"]</h2>
+    <p>@Localizer["Privacy.CookiesBody"]</p>
+
+    <h2>@Localizer["Privacy.ChangesHeading"]</h2>
+    <p>@Localizer["Privacy.ChangesBody"]</p>
+
+    <h2>@Localizer["Privacy.ContactHeading"]</h2>
+    <p>@Localizer["Privacy.ContactBody"]</p>
+</div>

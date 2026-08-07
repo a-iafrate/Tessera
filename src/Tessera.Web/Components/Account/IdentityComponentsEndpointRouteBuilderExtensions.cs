@@ -47,6 +47,29 @@ internal static class IdentityComponentsEndpointRouteBuilderExtensions
             return TypedResults.LocalRedirect($"~/{returnUrl.TrimStart('/')}");
         });
 
+        // Plain form POST, not a Blazor component method: sign-out and cookie clearing need a
+        // real HTTP response, which an interactive-server circuit can't produce mid-connection
+        // (same reason /Logout above is here rather than in a .razor @code block).
+        accountGroup.MapPost("/DeleteAccount", async (
+            ClaimsPrincipal user,
+            [FromServices] SignInManager<ApplicationUser> signInManager,
+            [FromServices] UserManager<ApplicationUser> userManager,
+            [FromServices] AccountDeletionService accountDeletion,
+            CancellationToken ct) =>
+        {
+            var userId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            await accountDeletion.DeleteAsync(userId, ct);
+
+            var identityUser = await userManager.FindByIdAsync(userId.ToString());
+            if (identityUser is not null)
+            {
+                await userManager.DeleteAsync(identityUser);
+            }
+
+            await signInManager.SignOutAsync();
+            return TypedResults.LocalRedirect("~/");
+        });
+
         return accountGroup;
     }
 }

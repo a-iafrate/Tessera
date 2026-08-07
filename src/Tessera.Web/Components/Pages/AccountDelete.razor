@@ -1,0 +1,76 @@
+@page "/account/delete"
+@attribute [Authorize]
+
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.Extensions.Localization
+@using Tessera.Core.Resources
+@using Tessera.Data
+
+@inject AccountDeletionService AccountDeletionService
+@inject IStringLocalizer<Messages> Localizer
+
+<PageTitle>@Localizer["AccountDelete.Title"]</PageTitle>
+
+<div class="container">
+    <h1>@Localizer["AccountDelete.Title"]</h1>
+
+    <div class="card" style="max-width: 40rem;">
+        <h2>@Localizer["AccountDelete.ExportHeading"]</h2>
+        <p class="text-soft">@Localizer["AccountDelete.ExportBody"]</p>
+        @if (exportDataUri is not null)
+        {
+            <a class="btn btn-secondary" download="tessera-data.json" href="@exportDataUri">@Localizer["AccountDelete.ExportButton"]</a>
+        }
+    </div>
+
+    <div class="seam" aria-hidden="true">
+        <span></span><span></span><span></span>
+    </div>
+
+    <div class="card" style="max-width: 40rem; border-color: var(--danger);">
+        <h2>@Localizer["AccountDelete.DangerHeading"]</h2>
+        <p class="text-soft">@Localizer["AccountDelete.DangerBody"]</p>
+        <ul class="text-soft">
+            <li>@Localizer["AccountDelete.EffectPersonalSpace"]</li>
+            <li>@Localizer["AccountDelete.EffectSharedSpaces"]</li>
+            <li>@Localizer["AccountDelete.EffectFreeText"]</li>
+            <li>@Localizer["AccountDelete.EffectIrreversible"]</li>
+        </ul>
+
+        <form action="Account/DeleteAccount" method="post">
+            <AntiforgeryToken />
+            <div class="form-floating mb-3">
+                <input class="form-control" id="confirmEmail" @bind="confirmEmail" @bind:event="oninput" placeholder=" " autocomplete="off" />
+                <label for="confirmEmail">@Localizer["AccountDelete.ConfirmLabel", userEmail]</label>
+            </div>
+            <button type="submit" class="btn btn-danger" disabled="@(!CanDelete)">
+                @Localizer["AccountDelete.DeleteButton"]
+            </button>
+        </form>
+    </div>
+</div>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private Guid userId;
+    private string userEmail = "";
+    private string confirmEmail = "";
+    private string? exportDataUri;
+
+    private bool CanDelete => !string.IsNullOrEmpty(userEmail)
+        && string.Equals(confirmEmail, userEmail, StringComparison.OrdinalIgnoreCase);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateTask!;
+        userId = Guid.Parse(authState.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        userEmail = authState.User.FindFirstValue(ClaimTypes.Email) ?? "";
+
+        var json = await AccountDeletionService.ExportAsJsonAsync(userId, CancellationToken.None);
+        exportDataUri = $"data:application/json;base64,{Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(json))}";
+    }
+}

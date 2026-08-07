@@ -317,4 +317,439 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   <data name="Space.WhichOne" xml:space="preserve">
     <value>A quale spazio ti riferisci?</value>
   </data>
+  <data name="Landing.Tagline" xml:space="preserve">
+    <value>Gestisci casa, spese e calendario dalla chat.</value>
+  </data>
+  <data name="Landing.Lead" xml:space="preserve">
+    <value>Tessera è l'assistente condiviso per la tua famiglia — liste della spesa, spese e promemoria, tutto tramite una chat Telegram che avete già aperta.</value>
+  </data>
+  <data name="Landing.ChatUser1" xml:space="preserve">
+    <value>aggiungi il latte</value>
+  </data>
+  <data name="Landing.ChatBot1" xml:space="preserve">
+    <value>Fatto — latte aggiunto</value>
+  </data>
+  <data name="Landing.ChatUser2" xml:space="preserve">
+    <value>quanto abbiamo speso a gennaio?</value>
+  </data>
+  <data name="Landing.ChatBot2" xml:space="preserve">
+    <value>342€, soprattutto spesa alimentare</value>
+  </data>
+  <data name="Landing.CtaPrimary" xml:space="preserve">
+    <value>Inizia</value>
+  </data>
+  <data name="Landing.CtaSecondary" xml:space="preserve">
+    <value>Accedi</value>
+  </data>
+  <data name="Dashboard.Welcome" xml:space="preserve">
+    <value>Bentornato, {0}</value>
+  </data>
+  <data name="Dashboard.Subtitle" xml:space="preserve">
+    <value>Gestisci i tuoi spazi e collega Telegram da qui.</value>
+  </data>
+  <data name="Dashboard.SpacesTitle" xml:space="preserve">
+    <value>I tuoi spazi</value>
+  </data>
+  <data name="Dashboard.SpacesDescription" xml:space="preserve">
+    <value>Crea uno spazio, invita membri e gestisci i permessi.</value>
+  </data>
+  <data name="Dashboard.TelegramTitle" xml:space="preserve">
+    <value>Collega Telegram</value>
+  </data>
+  <data name="Dashboard.TelegramDescription" xml:space="preserve">
+    <value>Collega il tuo account Telegram per iniziare a chattare con il bot.</value>
+  </data>
+  <data name="LinkTelegram.Title" xml:space="preserve">
+    <value>Collega Telegram</value>
+  </data>
+  <data name="LinkTelegram.Intro" xml:space="preserve">
+    <value>Genera un link per collegare la tua chat Telegram a questo account.</value>
+  </data>
+  <data name="LinkTelegram.GenerateButton" xml:space="preserve">
+    <value>Genera link</value>
+  </data>
+  <data name="LinkTelegram.OpenInstructions" xml:space="preserve">
+    <value>Apri questo link da Telegram per completare il collegamento (valido 10 minuti):</value>
+  </data>
+  <data name="LinkTelegram.RegenerateButton" xml:space="preserve">
+    <value>Genera un nuovo link</value>
+  </data>
+  <data name="Common.Loading" xml:space="preserve">
+    <value>Caricamento…</value>
+  </data>
+  <data name="Spaces.Title" xml:space="preserve">
+    <value>I tuoi spazi</value>
+  </data>
+  <data name="Spaces.Empty" xml:space="preserve">
+    <value>Non hai ancora nessuno spazio. Creane uno qui sotto.</value>
+  </data>
+  <data name="Spaces.PersonalBadge" xml:space="preserve">
+    <value>personale</value>
+  </data>
+  <data name="Spaces.CreateHeading" xml:space="preserve">
+    <value>Crea un nuovo spazio</value>
+  </data>
+  <data name="Spaces.CreatePlaceholder" xml:space="preserve">
+    <value>Es. Casa</value>
+  </data>
+  <data name="Spaces.CreateButton" xml:space="preserve">
+    <value>Crea</value>
+  </data>
+  <data name="SpaceDetail.Title" xml:space="preserve">
+    <value>Spazio</value>
+  </data>
+  <data name="SpaceDetail.PersonalNote" xml:space="preserve">
+    <value>Il tuo spazio personale — non può essere abbandonato, solo eliminato insieme al tuo account.</value>
+  </data>
+  <data name="SpaceDetail.MembersHeading" xml:space="preserve">
+    <value>Membri</value>
+  </data>
+  <data name="SpaceDetail.InviteButton" xml:space="preserve">
+    <value>Invita un membro</value>
+  </data>
+  <data name="SpaceDetail.YouTag" xml:space="preserve">
+    <value>(tu)</value>
+  </data>
+  <data name="SpaceDetail.RemoveButton" xml:space="preserve">
+    <value>Rimuovi</value>
+  </data>
+  <data name="SpaceDetail.RemoveConfirm" xml:space="preserve">
+    <value>Rimuovere {0} da questo spazio?</value>
+  </data>
+  <data name="SpaceDetail.MakeAdminButton" xml:space="preserve">
+    <value>Rendi Admin</value>
+  </data>
+  <data name="SpaceDetail.MakeAdminConfirm" xml:space="preserve">
+    <value>Rendere {0} l'Admin di questo spazio? Non potrai più gestirne i membri.</value>
+  </data>
+  <data name="SpaceDetail.LeaveButton" xml:space="preserve">
+    <value>Abbandona questo spazio</value>
+  </data>
+  <data name="SpaceDetail.LeaveConfirm" xml:space="preserve">
+    <value>Abbandonare questo spazio? Perderai l'accesso a liste, spese e promemoria condivisi.</value>
+  </data>
+  <data name="SpaceDetail.LeaveTransferFirstError" xml:space="preserve">
+    <value>Trasferisci il ruolo di Admin a un altro membro prima di uscire.</value>
+  </data>
+  <data name="SpaceDetail.GenericError" xml:space="preserve">
+    <value>Qualcosa è andato storto. Riprova.</value>
+  </data>
+  <data name="SpaceDetail.FormerMembersHeading" xml:space="preserve">
+    <value>Ex membri</value>
+  </data>
+  <data name="SpaceDetail.FormerMemberLeft" xml:space="preserve">
+    <value>Uscito il {0}</value>
+  </data>
+  <data name="SpaceDetail.FormerMemberRemoved" xml:space="preserve">
+    <value>Rimosso il {0}</value>
+  </data>
+  <data name="SpaceDetail.FormerMemberAccountDeleted" xml:space="preserve">
+    <value>Account eliminato il {0}</value>
+  </data>
+  <data name="Nav.Account" xml:space="preserve">
+    <value>Account</value>
+  </data>
+  <data name="Profile.Title" xml:space="preserve">
+    <value>Account</value>
+  </data>
+  <data name="Profile.Saved" xml:space="preserve">
+    <value>Salvato.</value>
+  </data>
+  <data name="Profile.LanguageHeading" xml:space="preserve">
+    <value>Lingua</value>
+  </data>
+  <data name="Profile.LanguageLabel" xml:space="preserve">
+    <value>Lingua</value>
+  </data>
+  <data name="Profile.LanguageBody" xml:space="preserve">
+    <value>Usata dal bot su Telegram e da questa console — è la stessa impostazione in entrambi i casi.</value>
+  </data>
+  <data name="Profile.TimeZoneHeading" xml:space="preserve">
+    <value>Fuso orario</value>
+  </data>
+  <data name="Profile.TimeZoneLabel" xml:space="preserve">
+    <value>Fuso orario</value>
+  </data>
+  <data name="Profile.TimeZoneNotSet" xml:space="preserve">
+    <value>Non impostato</value>
+  </data>
+  <data name="Profile.TimeZoneBody" xml:space="preserve">
+    <value>Usato per promemoria, riepilogo quotidiano e spese ricorrenti. Indipendente dalla lingua — chi parla italiano a Londra vuole i testi in italiano e gli orari di Londra.</value>
+  </data>
+  <data name="Profile.DefaultSpaceHeading" xml:space="preserve">
+    <value>Spazio predefinito</value>
+  </data>
+  <data name="Profile.DefaultSpaceLabel" xml:space="preserve">
+    <value>Spazio predefinito</value>
+  </data>
+  <data name="Profile.DefaultSpaceBody" xml:space="preserve">
+    <value>Usato quando un messaggio non specifica a quale spazio si riferisce e c'è più di una scelta plausibile.</value>
+  </data>
+  <data name="Profile.DeleteAccountLink" xml:space="preserve">
+    <value>Elimina il mio account</value>
+  </data>
+  <data name="AccountDelete.Title" xml:space="preserve">
+    <value>Elimina account</value>
+  </data>
+  <data name="AccountDelete.ExportHeading" xml:space="preserve">
+    <value>Esporta i tuoi dati</value>
+  </data>
+  <data name="AccountDelete.ExportBody" xml:space="preserve">
+    <value>Scarica una copia del tuo profilo, degli spazi, delle voci della lista, delle spese e dei promemoria prima di eliminare il tuo account.</value>
+  </data>
+  <data name="AccountDelete.ExportButton" xml:space="preserve">
+    <value>Scarica i miei dati (JSON)</value>
+  </data>
+  <data name="AccountDelete.DangerHeading" xml:space="preserve">
+    <value>Elimina il mio account</value>
+  </data>
+  <data name="AccountDelete.DangerBody" xml:space="preserve">
+    <value>Questo chiude il tuo account in modo definitivo. Ecco cosa succede:</value>
+  </data>
+  <data name="AccountDelete.EffectPersonalSpace" xml:space="preserve">
+    <value>Il tuo spazio personale e tutto il suo contenuto vengono eliminati.</value>
+  </data>
+  <data name="AccountDelete.EffectSharedSpaces" xml:space="preserve">
+    <value>Vieni rimosso da ogni spazio condiviso. Se eri l'Admin, il ruolo passa a chi è entrato prima — lo spazio e la sua storia restano intatti per gli altri.</value>
+  </data>
+  <data name="AccountDelete.EffectFreeText" xml:space="preserve">
+    <value>Note e testi che hai scritto negli spazi condivisi restano visibili agli altri membri, attribuiti a "Ex membro" invece che al tuo nome.</value>
+  </data>
+  <data name="AccountDelete.EffectIrreversible" xml:space="preserve">
+    <value>Non si può annullare.</value>
+  </data>
+  <data name="AccountDelete.ConfirmLabel" xml:space="preserve">
+    <value>Scrivi {0} per confermare</value>
+  </data>
+  <data name="AccountDelete.DeleteButton" xml:space="preserve">
+    <value>Elimina il mio account</value>
+  </data>
+  <data name="AccessLevel.None" xml:space="preserve">
+    <value>Nessuno</value>
+  </data>
+  <data name="AccessLevel.Availability" xml:space="preserve">
+    <value>Disponibilità</value>
+  </data>
+  <data name="AccessLevel.Read" xml:space="preserve">
+    <value>Lettura</value>
+  </data>
+  <data name="AccessLevel.Write" xml:space="preserve">
+    <value>Scrittura</value>
+  </data>
+  <data name="AccessLevel.Admin" xml:space="preserve">
+    <value>Admin</value>
+  </data>
+  <data name="ResourceKind.ShoppingList" xml:space="preserve">
+    <value>Lista della spesa</value>
+  </data>
+  <data name="ResourceKind.Expenses" xml:space="preserve">
+    <value>Spese</value>
+  </data>
+  <data name="ResourceKind.Reminders" xml:space="preserve">
+    <value>Promemoria</value>
+  </data>
+  <data name="ResourceKind.Calendar" xml:space="preserve">
+    <value>Calendario</value>
+  </data>
+  <data name="InviteMember.Title" xml:space="preserve">
+    <value>Invita un membro</value>
+  </data>
+  <data name="InviteMember.LinkGenerated" xml:space="preserve">
+    <value>Link generato — condividilo con la persona che vuoi invitare (valido 7 giorni):</value>
+  </data>
+  <data name="InviteMember.PresetHeading" xml:space="preserve">
+    <value>Scegli un preset</value>
+  </data>
+  <data name="InviteMember.Preset.Partner" xml:space="preserve">
+    <value>Partner</value>
+  </data>
+  <data name="InviteMember.Preset.Family" xml:space="preserve">
+    <value>Famiglia</value>
+  </data>
+  <data name="InviteMember.Preset.Friend" xml:space="preserve">
+    <value>Amico</value>
+  </data>
+  <data name="InviteMember.Preset.Custom" xml:space="preserve">
+    <value>Personalizzato</value>
+  </data>
+  <data name="InviteMember.GenerateButton" xml:space="preserve">
+    <value>Genera link</value>
+  </data>
+  <data name="InviteAccept.Title" xml:space="preserve">
+    <value>Invito</value>
+  </data>
+  <data name="InviteAccept.InvalidTitle" xml:space="preserve">
+    <value>Invito non valido</value>
+  </data>
+  <data name="InviteAccept.InvalidMessage" xml:space="preserve">
+    <value>Questo link non è valido o è scaduto. Chiedi a chi ti ha invitato di generarne uno nuovo.</value>
+  </data>
+  <data name="InviteAccept.InvitedBy" xml:space="preserve">
+    <value>{0} ti ha invitato a unirti a questo spazio.</value>
+  </data>
+  <data name="InviteAccept.AcceptButton" xml:space="preserve">
+    <value>Accetta</value>
+  </data>
+  <data name="Nav.Privacy" xml:space="preserve">
+    <value>Privacy</value>
+  </data>
+  <data name="Nav.Terms" xml:space="preserve">
+    <value>Termini</value>
+  </data>
+  <data name="Privacy.Title" xml:space="preserve">
+    <value>Informativa sulla privacy</value>
+  </data>
+  <data name="Privacy.Disclaimer" xml:space="preserve">
+    <value>Questa è una bozza che riflette come funziona oggi Tessera. Non è stata revisionata da un legale — sostituisci i segnaposto qui sotto e fai una revisione professionale prima di aprire il servizio oltre la tua famiglia.</value>
+  </data>
+  <data name="Privacy.LastUpdated" xml:space="preserve">
+    <value>Ultimo aggiornamento: agosto 2026</value>
+  </data>
+  <data name="Privacy.IntroHeading" xml:space="preserve">
+    <value>Chi siamo</value>
+  </data>
+  <data name="Privacy.IntroBody" xml:space="preserve">
+    <value>Tessera è gestita da [nome del gestore — segnaposto], contattabile a [privacy@example.com — segnaposto]. Questa informativa spiega quali dati trattiamo quando usi il bot e la console di Tessera, e perché.</value>
+  </data>
+  <data name="Privacy.DataHeading" xml:space="preserve">
+    <value>Dati che trattiamo</value>
+  </data>
+  <data name="Privacy.DataProfile" xml:space="preserve">
+    <value>Dati dell'account — email e nome visualizzato, per far funzionare il tuo account.</value>
+  </data>
+  <data name="Privacy.DataChannel" xml:space="preserve">
+    <value>Identità di canale — il tuo chat ID Telegram, per inviare i messaggi alla chat giusta.</value>
+  </data>
+  <data name="Privacy.DataContent" xml:space="preserve">
+    <value>Contenuti che crei — voci della lista della spesa, spese, promemoria e gli spazi in cui li condividi, per fornire il servizio.</value>
+  </data>
+  <data name="Privacy.DataMessages" xml:space="preserve">
+    <value>Testo dei messaggi — inviato ad Azure OpenAI per interpretare le richieste in linguaggio naturale; non conservato oltre quanto serve per risponderti.</value>
+  </data>
+  <data name="Privacy.DataCalendar" xml:space="preserve">
+    <value>Eventi di calendario (quando arriverà l'integrazione con il calendario) — letti al momento in cui servono e non conservati.</value>
+  </data>
+  <data name="Privacy.DataTokens" xml:space="preserve">
+    <value>Token OAuth (quando arriverà l'integrazione con il calendario) — conservati cifrati in Azure Key Vault, mai nel database, solo con il tuo consenso esplicito per quell'integrazione.</value>
+  </data>
+  <data name="Privacy.LegalBasisHeading" xml:space="preserve">
+    <value>Perché li trattiamo</value>
+  </data>
+  <data name="Privacy.LegalBasisBody" xml:space="preserve">
+    <value>Dati dell'account, di canale e i contenuti sono trattati per fornire il servizio che hai richiesto. Le integrazioni opzionali (calendario, e altre simili in futuro) sono trattate solo con il tuo consenso separato ed esplicito.</value>
+  </data>
+  <data name="Privacy.LocationHeading" xml:space="preserve">
+    <value>Dove risiedono i tuoi dati</value>
+  </data>
+  <data name="Privacy.LocationBody" xml:space="preserve">
+    <value>Tutti i dati sono ospitati su infrastruttura Microsoft Azure nell'UE (regioni West Europe / North Europe).</value>
+  </data>
+  <data name="Privacy.SharedSpacesHeading" xml:space="preserve">
+    <value>Spazi condivisi</value>
+  </data>
+  <data name="Privacy.SharedSpacesBody" xml:space="preserve">
+    <value>Tutto ciò che aggiungi a uno spazio condiviso con altre persone — una voce della lista, una spesa, un promemoria — è visibile a tutti i membri di quello spazio, anche dopo che lo lasci o elimini il tuo account. L'eliminazione dell'account rimuove il tuo nome e ogni modo di identificarti, ma il contenuto resta perché lo storico e i totali condivisi degli altri membri restino corretti. Il testo libero che hai scritto (una nota su una spesa, il testo di una voce della lista) può ancora contenere dati personali che questo non tocca — puoi eliminare tu stesso quel contenuto prima di chiudere il tuo account.</value>
+  </data>
+  <data name="Privacy.RightsHeading" xml:space="preserve">
+    <value>I tuoi diritti</value>
+  </data>
+  <data name="Privacy.RightsAccess" xml:space="preserve">
+    <value>Accesso — scarica una copia dei tuoi dati in formato JSON dalla console in qualsiasi momento.</value>
+  </data>
+  <data name="Privacy.RightsErasure" xml:space="preserve">
+    <value>Cancellazione — elimina il tuo account dalla console. Il tuo spazio personale e tutto il suo contenuto vengono rimossi del tutto; la tua appartenenza agli spazi condivisi viene pseudonimizzata come descritto sopra.</value>
+  </data>
+  <data name="Privacy.RightsRectification" xml:space="preserve">
+    <value>Rettifica — aggiorna il tuo profilo, la lingua e il fuso orario dalla console.</value>
+  </data>
+  <data name="Privacy.SubprocessorsHeading" xml:space="preserve">
+    <value>Chi altro vede i tuoi dati</value>
+  </data>
+  <data name="Privacy.SubprocessorsBody" xml:space="preserve">
+    <value>Microsoft Azure (hosting, database, gestione dei segreti) e Azure OpenAI (interpretazione dei tuoi messaggi) trattano i dati per nostro conto secondo i propri termini di trattamento dati. Telegram, come piattaforma di messaggistica, vede i messaggi che le invii — questo riguarda te e Telegram, secondo la loro informativa privacy.</value>
+  </data>
+  <data name="Privacy.CookiesHeading" xml:space="preserve">
+    <value>Cookie</value>
+  </data>
+  <data name="Privacy.CookiesBody" xml:space="preserve">
+    <value>La console imposta un cookie per mantenerti connesso. È necessario per il funzionamento della console e non è usato per tracciamento o analisi.</value>
+  </data>
+  <data name="Privacy.ChangesHeading" xml:space="preserve">
+    <value>Modifiche a questa informativa</value>
+  </data>
+  <data name="Privacy.ChangesBody" xml:space="preserve">
+    <value>Se questa informativa cambia in modo sostanziale, te lo comunicheremo prima che la modifica entri in vigore.</value>
+  </data>
+  <data name="Privacy.ContactHeading" xml:space="preserve">
+    <value>Contatti</value>
+  </data>
+  <data name="Privacy.ContactBody" xml:space="preserve">
+    <value>Domande su questa informativa o sui tuoi dati: [privacy@example.com — segnaposto].</value>
+  </data>
+  <data name="Terms.Title" xml:space="preserve">
+    <value>Termini di servizio</value>
+  </data>
+  <data name="Terms.Disclaimer" xml:space="preserve">
+    <value>Questa è una bozza e non è stata revisionata da un legale — sostituisci i segnaposto qui sotto e fai una revisione professionale prima di aprire il servizio oltre la tua famiglia.</value>
+  </data>
+  <data name="Terms.LastUpdated" xml:space="preserve">
+    <value>Ultimo aggiornamento: agosto 2026</value>
+  </data>
+  <data name="Terms.IntroBody" xml:space="preserve">
+    <value>Questi termini regolano il tuo uso del bot e della console web di Tessera, gestita da [nome del gestore — segnaposto]. Usando Tessera, li accetti.</value>
+  </data>
+  <data name="Terms.ServiceHeading" xml:space="preserve">
+    <value>Cos'è Tessera</value>
+  </data>
+  <data name="Terms.ServiceBody" xml:space="preserve">
+    <value>Tessera è un assistente condiviso per liste della spesa, spese e promemoria, usato tramite un bot Telegram e questa console web.</value>
+  </data>
+  <data name="Terms.AccountsHeading" xml:space="preserve">
+    <value>Il tuo account</value>
+  </data>
+  <data name="Terms.AccountsBody" xml:space="preserve">
+    <value>Un account per persona. Sei responsabile della sicurezza delle tue credenziali e della chat Telegram collegata, e di ciò che accade tramite il tuo account.</value>
+  </data>
+  <data name="Terms.SharedSpacesHeading" xml:space="preserve">
+    <value>Spazi condivisi</value>
+  </data>
+  <data name="Terms.SharedSpacesBody" xml:space="preserve">
+    <value>I contenuti che aggiungi a uno spazio condiviso con altri restano visibili a loro, anche dopo che lasci lo spazio o elimini il tuo account — vedi l'informativa sulla privacy per i dettagli. Non condividere uno spazio con qualcuno a meno che questo non ti vada bene.</value>
+  </data>
+  <data name="Terms.AcceptableUseHeading" xml:space="preserve">
+    <value>Uso consentito</value>
+  </data>
+  <data name="Terms.AcceptableUseBody" xml:space="preserve">
+    <value>Non usare Tessera per scopi illegali, non cercare di abusarne o sovraccaricare il bot, e non usarla per conservare o condividere dati personali di altri senza il loro consenso.</value>
+  </data>
+  <data name="Terms.AvailabilityHeading" xml:space="preserve">
+    <value>Nessuna garanzia</value>
+  </data>
+  <data name="Terms.AvailabilityBody" xml:space="preserve">
+    <value>Tessera è fornita così com'è, senza garanzie di alcun tipo. Non garantiamo che sarà sempre disponibile o priva di errori.</value>
+  </data>
+  <data name="Terms.LiabilityHeading" xml:space="preserve">
+    <value>Limitazione di responsabilità</value>
+  </data>
+  <data name="Terms.LiabilityBody" xml:space="preserve">
+    <value>Nei limiti consentiti dalla legge, [nome del gestore — segnaposto] non è responsabile per danni indiretti o consequenziali derivanti dall'uso di Tessera.</value>
+  </data>
+  <data name="Terms.TerminationHeading" xml:space="preserve">
+    <value>Chiusura dell'account</value>
+  </data>
+  <data name="Terms.TerminationBody" xml:space="preserve">
+    <value>Puoi eliminare il tuo account in qualsiasi momento dalla console. Possiamo sospendere o terminare l'accesso per account che violano questi termini.</value>
+  </data>
+  <data name="Terms.ChangesHeading" xml:space="preserve">
+    <value>Modifiche a questi termini</value>
+  </data>
+  <data name="Terms.ChangesBody" xml:space="preserve">
+    <value>Se cambiamo questi termini in modo sostanziale, te lo comunicheremo prima che la modifica entri in vigore.</value>
+  </data>
+  <data name="Terms.ContactHeading" xml:space="preserve">
+    <value>Contatti</value>
+  </data>
+  <data name="Terms.ContactBody" xml:space="preserve">
+    <value>Domande su questi termini: [legal@example.com — segnaposto].</value>
+  </data>
 </root>

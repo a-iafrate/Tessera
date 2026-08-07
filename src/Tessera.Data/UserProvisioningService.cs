@@ -48,4 +48,29 @@ public sealed class UserProvisioningService(TesseraDbContext db)
         user.PreferredCulture = culture;
         await db.SaveChangesAsync(ct);
     }
+
+    // IANA id, independent of PreferredCulture (docs/09-localizzazione.md: "un italiano a
+    // Londra vuole l'interfaccia in italiano e gli orari in Europe/London").
+    public async Task SetTimeZoneAsync(Guid userId, string timeZoneId, CancellationToken ct)
+    {
+        var user = await db.DomainUsers.FirstAsync(x => x.Id == userId, ct);
+        user.TimeZoneId = timeZoneId;
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task<DomainUser> GetAsync(Guid userId, CancellationToken ct) =>
+        await db.DomainUsers.AsNoTracking().FirstAsync(x => x.Id == userId, ct);
+
+    public async Task SetDefaultSpaceAsync(Guid userId, Guid spaceId, CancellationToken ct)
+    {
+        var isMember = await db.Memberships.AnyAsync(m => m.SpaceId == spaceId && m.UserId == userId, ct);
+        if (!isMember)
+        {
+            throw new InvalidOperationException($"User {userId} is not a member of space {spaceId}.");
+        }
+
+        var user = await db.DomainUsers.FirstAsync(x => x.Id == userId, ct);
+        user.DefaultSpaceId = spaceId;
+        await db.SaveChangesAsync(ct);
+    }
 }
