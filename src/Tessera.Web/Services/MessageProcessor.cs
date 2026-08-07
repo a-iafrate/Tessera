@@ -4,6 +4,7 @@ using System.Threading.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Tessera.Ai.Commands;
+using Tessera.Ai.Llm;
 using Tessera.Ai.Routing;
 using Tessera.Core.Abstractions;
 using Tessera.Core.Channels;
@@ -27,7 +28,8 @@ public sealed class MessageProcessor(
     IChannel channel,
     PartitionedRateLimiter<string> rateLimiter,
     IStringLocalizer<Messages> localizer,
-    ILogger<MessageProcessor> logger) : BackgroundService
+    ILogger<MessageProcessor> logger,
+    LlmFallbackClient? llmFallback = null) : BackgroundService
 {
     // Command names are canonical English and never shown localized in the menu — these are
     // the router-accepted shortcuts for users who type from habit (docs/09-localizzazione.md,
@@ -143,6 +145,15 @@ public sealed class MessageProcessor(
         if (message.CallbackData is { } spaceChoiceCallback && spaceChoiceCallback.StartsWith("space.choose:", StringComparison.Ordinal))
         {
             await HandleSpaceChoiceCallbackAsync(scope, message, user, ct);
+            return;
+        }
+
+        // The space for an LLM-proposed reminder is already fixed in the pending payload
+        // (it was resolved when the fallback ran) — no need to resolve one again here, same
+        // reasoning as the space.choose interception just above.
+        if (message.CallbackData is { } remindConfirmCallback && remindConfirmCallback.StartsWith("remind.llmconfirm:", StringComparison.Ordinal))
+        {
+            await HandleLlmReminderConfirmCallbackAsync(scope, address, user, remindConfirmCallback["remind.llmconfirm:".Length..], ct);
             return;
         }
 
@@ -334,12 +345,7 @@ public sealed class MessageProcessor(
         }
 
         string? reply;
-        if (match is null)
-        {
-            // No L3/LLM fallback wired up yet — this is the honest answer until it is.
-            reply = localizer["Errors.NotUnderstood"];
-        }
-        else
+        if (match is not null && match.Intent != "reminders.natural")
         {
             reply = match.Intent switch
             {
@@ -354,18 +360,156 @@ public sealed class MessageProcessor(
                 "expenses.query" => await HandleExpensesQueryAsync(expenses, spaceId, user, culture, ct),
                 "expenses.query.category" => await HandleExpensesQueryByCategoryAsync(
                     expenses, spaceId, user, culture, match.Slots["category"], ct),
-                // Recognized as a reminder attempt, but the date itself still needs L3
-                // (docs/05-ottimizzazioni.md) — point at the syntax that works today
-                // instead of the generic "I didn't get that".
-                "reminders.natural" => localizer["Reminders.Usage"],
                 _ => null,
             };
+        }
+        else
+        {
+            // Either nothing matched at all, or a reminder attempt was recognized but its date
+            // still needs interpreting — both go to L3 (docs/05-ottimizzazioni.md).
+            reply = await HandleLlmFallbackAsync(
+                scope, shopping, expenses, reminders, budgets, notifications, address, spaceId, user, culture, text, ct);
         }
 
         if (reply is not null)
         {
             await channel.SendTextAsync(address, reply, ct);
         }
+    }
+
+    // L3 (docs/05-ottimizzazioni.md): reached when nothing in L1/L2 matched, or a reminder
+    // attempt was recognized but its date still needs interpreting. Tool calls dispatch to the
+    // same handlers L1/L2 use, so notifications, budget alerts and category assignment stay
+    // consistent no matter which router level produced the action.
+    private async Task<string?> HandleLlmFallbackAsync(
+        AsyncServiceScope scope, ShoppingListService shopping, ExpenseService expenses, ReminderService reminders,
+        BudgetService budgets, NotificationService notifications, ChannelAddress address, Guid spaceId, User user,
+        CultureInfo culture, string? text, CancellationToken ct)
+    {
+        if (llmFallback is null || string.IsNullOrWhiteSpace(text))
+        {
+            return localizer["Errors.NotUnderstood"];
+        }
+
+        var db = scope.ServiceProvider.GetRequiredService<TesseraDbContext>();
+        var space = await db.Spaces.AsNoTracking().FirstAsync(s => s.Id == spaceId, ct);
+        var context = new LlmContext(culture.Name, user.TimeZoneId ?? "UTC", DateTimeOffset.UtcNow, space.Name);
+
+        var result = await llmFallback.TryCompleteAsync(text, context, ct);
+        if (result is null)
+        {
+            // The deterministic paths must survive an Azure OpenAI outage
+            // (docs/06-roadmap.md) — this is the same honest reply as "not configured".
+            return localizer["Errors.NotUnderstood"];
+        }
+
+        if (result.ToolCall is null)
+        {
+            return result.ReplyText ?? localizer["Errors.NotUnderstood"];
+        }
+
+        var args = result.ToolCall.Arguments;
+        return result.ToolCall.Name switch
+        {
+            LlmTools.AddShoppingItem => await HandleAddAsync(
+                shopping, notifications, address, spaceId, user.Id, args.GetProperty("item").GetString() ?? "", ct),
+            LlmTools.CheckShoppingItem => await HandleCheckAsync(
+                shopping, notifications, address, spaceId, user.Id, args.GetProperty("item").GetString() ?? "", ct),
+            LlmTools.RemoveShoppingItem => await HandleRemoveAsync(
+                shopping, spaceId, user.Id, args.GetProperty("item").GetString() ?? "", ct),
+            LlmTools.ShowShoppingList => await HandleShowAsync(shopping, address, spaceId, user.Id, ct),
+            LlmTools.ClearShoppingList => await HandleClearAsync(shopping, spaceId, user.Id, ct),
+            LlmTools.RecordExpense => await RecordExpenseAndReplyAsync(
+                expenses, budgets, notifications, address, spaceId, user, culture,
+                args.GetProperty("amount").GetDecimal(),
+                args.TryGetProperty("category", out var categoryProp) ? categoryProp.GetString() : null,
+                args.TryGetProperty("merchant", out var merchantProp) ? merchantProp.GetString() : null, ct),
+            LlmTools.QueryMonthlyExpenses => await HandleExpensesQueryAsync(expenses, spaceId, user, culture, ct),
+            LlmTools.CreateReminder => await HandleLlmReminderAsync(scope, address, spaceId, user, culture, args, ct),
+            _ => localizer["Errors.NotUnderstood"],
+        };
+    }
+
+    private sealed record PendingLlmReminder(Guid SpaceId, string Text, DateTimeOffset DueAt, string TimeZoneId);
+
+    // The model's interpreted date is never committed straight away — it's read back to the
+    // user first (docs/05-ottimizzazioni.md: "l'unico modo per intercettare l'interpretazione
+    // sbagliata prima che diventi un promemoria inutile"), the same ConversationState-backed
+    // ask-and-replay mechanism the space disambiguation question uses.
+    private async Task<string?> HandleLlmReminderAsync(
+        AsyncServiceScope scope, ChannelAddress address, Guid spaceId, User user, CultureInfo culture,
+        JsonElement args, CancellationToken ct)
+    {
+        var reminderText = args.GetProperty("text").GetString();
+        var dueAtText = args.GetProperty("due_at").GetString();
+        if (string.IsNullOrWhiteSpace(reminderText) || dueAtText is null
+            || !DateTime.TryParse(dueAtText, CultureInfo.InvariantCulture, DateTimeStyles.None, out var localDateTime))
+        {
+            return localizer["Errors.NotUnderstood"];
+        }
+
+        var timeZoneId = user.TimeZoneId ?? "UTC";
+        var timeZone = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+        var dueAt = new DateTimeOffset(localDateTime, timeZone.GetUtcOffset(localDateTime));
+
+        var db = scope.ServiceProvider.GetRequiredService<TesseraDbContext>();
+        var payload = new PendingLlmReminder(spaceId, reminderText, dueAt, timeZoneId);
+        var state = await db.ConversationStates.FirstOrDefaultAsync(s => s.UserId == user.Id, ct);
+        if (state is null)
+        {
+            state = new ConversationState { Id = Guid.NewGuid(), UserId = user.Id };
+            db.ConversationStates.Add(state);
+        }
+
+        state.PendingIntent = "reminder.llmConfirm";
+        state.StateJson = JsonSerializer.Serialize(payload);
+        state.UpdatedAt = DateTimeOffset.UtcNow;
+        state.ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(30);
+        await db.SaveChangesAsync(ct);
+
+        var prompt = localizer["Reminders.ConfirmPrompt", reminderText, FormatDueAt(dueAt, timeZone, culture)];
+        var choices = new[]
+        {
+            new Choice(localizer["Reminders.ConfirmYes"].Value, "remind.llmconfirm:yes"),
+            new Choice(localizer["Reminders.ConfirmNo"].Value, "remind.llmconfirm:no"),
+        };
+        await channel.SendChoicesAsync(address, prompt, choices, ct);
+        return null;
+    }
+
+    private async Task HandleLlmReminderConfirmCallbackAsync(
+        AsyncServiceScope scope, ChannelAddress address, User user, string choice, CancellationToken ct)
+    {
+        var db = scope.ServiceProvider.GetRequiredService<TesseraDbContext>();
+        var state = await db.ConversationStates.FirstOrDefaultAsync(
+            s => s.UserId == user.Id && s.PendingIntent == "reminder.llmConfirm" && s.ExpiresAt > DateTimeOffset.UtcNow, ct);
+        if (state is null)
+        {
+            // Expired, or already answered by a previous tap.
+            return;
+        }
+
+        state.PendingIntent = null;
+        await db.SaveChangesAsync(ct);
+
+        if (choice != "yes")
+        {
+            await channel.SendTextAsync(address, localizer["Reminders.ConfirmCancelled"], ct);
+            return;
+        }
+
+        var payload = JsonSerializer.Deserialize<PendingLlmReminder>(state.StateJson);
+        if (payload is null)
+        {
+            return;
+        }
+
+        var reminders = scope.ServiceProvider.GetRequiredService<ReminderService>();
+        var reminder = await reminders.CreateOnceAsync(payload.SpaceId, user.Id, payload.Text, payload.DueAt, payload.TimeZoneId, ct);
+
+        var culture = new CultureInfo(user.PreferredCulture);
+        var timeZone = TimeZoneInfo.FindSystemTimeZoneById(payload.TimeZoneId);
+        await channel.SendTextAsync(address, localizer["Reminders.CreatedOnce", FormatDueAt(reminder.DueAt, timeZone, culture)], ct);
     }
 
     private enum NativeCommand
@@ -936,8 +1080,8 @@ public sealed class MessageProcessor(
     private async Task<string> HandleExpensesQueryAsync(
         ExpenseService expenses, Guid spaceId, User user, CultureInfo culture, CancellationToken ct)
     {
-        // Specific months ("a gennaio") aren't parsed yet — date phrases go to the LLM
-        // fallback (docs/05-ottimizzazioni.md), which isn't wired up. This always answers
+        // Specific months ("a gennaio") aren't supported yet — query_monthly_expenses (the L3
+        // tool, docs/05-ottimizzazioni.md) has no month parameter either. This always answers
         // for the current month and says so explicitly, rather than guessing wrong.
         var today = GetUserToday(user);
         var (total, currency) = await expenses.GetMonthlyTotalAsync(spaceId, user.Id, today.Year, today.Month, ct);
@@ -1002,8 +1146,9 @@ public sealed class MessageProcessor(
         var command = RemindCommandParser.Parse(argsText);
         if (command is null)
         {
-            // Not one of the trivial forms — natural language dates aren't parsed without
-            // an LLM fallback (docs/05-ottimizzazioni.md), so this is the honest answer.
+            // Not one of the trivial forms. /remind is a native L1 command and stays fully
+            // deterministic on purpose (docs/05-ottimizzazioni.md) — natural language belongs
+            // to the "ricordami di/che" intent match instead, which does go to L3.
             return localizer["Reminders.Usage"];
         }
 

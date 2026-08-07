@@ -1,5 +1,7 @@
 using System.Globalization;
 using System.Threading.RateLimiting;
+using Azure;
+using Azure.AI.OpenAI;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
@@ -8,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Telegram.Bot;
 using Telegram.Bot.Types;
+using Tessera.Ai.Llm;
 using Tessera.Ai.Routing;
 using Tessera.Ai.Routing.Matchers;
 using Tessera.Channels;
@@ -119,6 +122,25 @@ builder.Services.AddScoped<ActorNameResolver>();
 builder.Services.AddScoped<AccountDeletionService>();
 builder.Services.AddSingleton(new IntentRouter(Matchers.All));
 
+// L3 fallback (docs/05-ottimizzazioni.md) — optional, like the Telegram pipeline below: the
+// console and the deterministic L1/L2 paths work without it. MessageProcessor's LlmFallbackClient
+// parameter defaults to null when nothing is registered, degrading to the honest
+// "I didn't understand" reply rather than failing to start.
+var azureOpenAiEndpoint = builder.Configuration["AzureOpenAI:Endpoint"];
+var azureOpenAiApiKey = builder.Configuration["AzureOpenAI:ApiKey"];
+var azureOpenAiDeployment = builder.Configuration["AzureOpenAI:Deployment"];
+var azureOpenAiEnabled = !string.IsNullOrWhiteSpace(azureOpenAiEndpoint)
+    && !string.IsNullOrWhiteSpace(azureOpenAiApiKey)
+    && !string.IsNullOrWhiteSpace(azureOpenAiDeployment);
+if (azureOpenAiEnabled)
+{
+    builder.Services.AddSingleton(new AzureOpenAIClient(
+        new Uri(azureOpenAiEndpoint!), new AzureKeyCredential(azureOpenAiApiKey!)));
+    builder.Services.AddSingleton(sp =>
+        sp.GetRequiredService<AzureOpenAIClient>().GetChatClient(azureOpenAiDeployment));
+    builder.Services.AddSingleton<LlmFallbackClient>();
+}
+
 // The bot pipeline is only wired up once a bot token is configured, so the console works
 // standalone during development before a Telegram bot exists (dotnet user-secrets set
 // "Telegram:BotToken" ... / "Telegram:WebhookSecret" ..., see docs/08-setup-sviluppo.md).
@@ -151,6 +173,11 @@ if (telegramEnabled)
 }
 
 var app = builder.Build();
+
+if (!azureOpenAiEnabled)
+{
+    app.Logger.LogWarning("AzureOpenAI configuration is missing — the L3 fallback is disabled.");
+}
 
 if (!telegramEnabled)
 {

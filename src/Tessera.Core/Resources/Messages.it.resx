@@ -178,6 +178,18 @@
   <data name="Reminders.FrequencyMonthly" xml:space="preserve">
     <value>ogni mese</value>
   </data>
+  <data name="Reminders.ConfirmPrompt" xml:space="preserve">
+    <value>Ok, {0} — {1}. Lo imposto?</value>
+  </data>
+  <data name="Reminders.ConfirmYes" xml:space="preserve">
+    <value>Sì</value>
+  </data>
+  <data name="Reminders.ConfirmNo" xml:space="preserve">
+    <value>No</value>
+  </data>
+  <data name="Reminders.ConfirmCancelled" xml:space="preserve">
+    <value>Ok, lascio stare.</value>
+  </data>
   <data name="RecurringExpenses.CreatedAutoRegister" xml:space="preserve">
     <value>Spesa ricorrente impostata: {0} — {1}, {2}</value>
   </data>

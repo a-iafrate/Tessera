@@ -178,6 +178,18 @@
   <data name="Reminders.FrequencyMonthly" xml:space="preserve">
     <value>monthly</value>
   </data>
+  <data name="Reminders.ConfirmPrompt" xml:space="preserve">
+    <value>Ok, {0} — {1}. Should I set it?</value>
+  </data>
+  <data name="Reminders.ConfirmYes" xml:space="preserve">
+    <value>Yes</value>
+  </data>
+  <data name="Reminders.ConfirmNo" xml:space="preserve">
+    <value>No</value>
+  </data>
+  <data name="Reminders.ConfirmCancelled" xml:space="preserve">
+    <value>Ok, never mind.</value>
+  </data>
   <data name="RecurringExpenses.CreatedAutoRegister" xml:space="preserve">
     <value>Recurring expense set: {0} — {1}, {2}</value>
   </data>
