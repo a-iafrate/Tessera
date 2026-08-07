@@ -1,13 +1,18 @@
 using System.Globalization;
+using System.Text.Json;
 using System.Threading.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Tessera.Ai.Commands;
 using Tessera.Ai.Routing;
 using Tessera.Core.Abstractions;
 using Tessera.Core.Channels;
+using Tessera.Core.Conversations;
 using Tessera.Core.Expenses;
+using Tessera.Core.Notifications;
 using Tessera.Core.Reminders;
 using Tessera.Core.Resources;
+using Tessera.Core.Spaces;
 using Tessera.Core.Users;
 using Tessera.Data;
 
@@ -78,6 +83,13 @@ public sealed class MessageProcessor(
         }
 
         await using var scope = scopeFactory.CreateAsyncScope();
+
+        if (message.LifecycleEvent is not null)
+        {
+            await HandleGroupLifecycleEventAsync(scope, message, ct);
+            return;
+        }
+
         var identities = scope.ServiceProvider.GetRequiredService<IChannelIdentityRepository>();
 
         // No HTTP context here, so nothing else sets the culture — omitting this produces
@@ -126,6 +138,31 @@ public sealed class MessageProcessor(
         // user typing "/lista" from habit still gets the right handler.
         var text = message.Text is null ? null : ResolveCommandAlias(message.Text);
 
+        // The answer to a disambiguation question (step 5 below) — resolved before anything
+        // else needs a space, since resolving it IS what sets the space for the replay.
+        if (message.CallbackData is { } spaceChoiceCallback && spaceChoiceCallback.StartsWith("space.choose:", StringComparison.Ordinal))
+        {
+            await HandleSpaceChoiceCallbackAsync(scope, message, user, ct);
+            return;
+        }
+
+        // /link in a group is the manual remedy for a lost or missed association (e.g. the
+        // bot was added while offline, or the auto-link at add-time picked the wrong space)
+        // — docs/03-integrazioni.md. In a private chat /link means something else entirely.
+        if (text is not null && text.StartsWith("/link", StringComparison.OrdinalIgnoreCase) && message.IsGroupChat)
+        {
+            if (user.DefaultSpaceId is { } linkSpaceId)
+            {
+                var linkDb = scope.ServiceProvider.GetRequiredService<TesseraDbContext>();
+                var linkSpace = await linkDb.Spaces.FirstAsync(s => s.Id == linkSpaceId, ct);
+                linkSpace.GroupChatId = message.ExternalChatId;
+                await linkDb.SaveChangesAsync(ct);
+            }
+
+            await channel.SendTextAsync(address, localizer["Group.Linked"], ct);
+            return;
+        }
+
         // The identity is already linked — a stale/reused /start deep link (e.g. tapped
         // again, or from a different environment sharing the same database), or a bare
         // /link typed out of habit, must not fall through to the intent router and come
@@ -138,12 +175,67 @@ public sealed class MessageProcessor(
             return;
         }
 
-        // Full disambiguation chain (docs/02-modello-dati.md) isn't built yet — the
-        // personal space created at registration is the only one a user has today.
-        if (user.DefaultSpaceId is not { } spaceId)
+        // /language and /help touch no resource, so they don't need a space resolved at all.
+        if (text is not null && text.StartsWith("/language", StringComparison.OrdinalIgnoreCase))
+        {
+            var languageReply = await HandleLanguageCommandAsync(scope, user, culture, text["/language".Length..], ct);
+            await channel.SendTextAsync(address, languageReply, ct);
+            return;
+        }
+
+        if (text is not null && text.StartsWith("/help", StringComparison.OrdinalIgnoreCase))
+        {
+            await channel.SendTextAsync(address, HandleHelpCommand(), ct);
+            return;
+        }
+
+        // Which native command (if any), and which intent (if natural language) — figured
+        // out before resolving the space, since disambiguation is per resource, not per user
+        // (docs/02-modello-dati.md). router.TryRoute is pure text matching, no DB, so calling
+        // it here costs nothing even for messages that turn out to need a space first.
+        var nativeCommand = text is null ? NativeCommand.None : DetectNativeCommand(text);
+        IntentMatch? match = null;
+        ResourceKind resourceKind;
+        AccessLevel requiredLevel;
+
+        if (message.CallbackData is { } cd)
+        {
+            (resourceKind, requiredLevel) = ResourceForCallback(cd);
+        }
+        else if (nativeCommand != NativeCommand.None)
+        {
+            (resourceKind, requiredLevel) = ResourceForNativeCommand(nativeCommand);
+        }
+        else if (!string.IsNullOrWhiteSpace(text))
+        {
+            match = router.TryRoute(text, culture.Name);
+            (resourceKind, requiredLevel) = match is null
+                ? (ResourceKind.ShoppingList, AccessLevel.Read)
+                : ResourceForIntent(match.Intent);
+        }
+        else
         {
             return;
         }
+
+        var spaces = scope.ServiceProvider.GetRequiredService<SpaceResolver>();
+        var resolution = await spaces.ResolveAsync(user.Id, resourceKind, requiredLevel, text, ct);
+
+        if (resolution.IsAmbiguous)
+        {
+            await AskSpaceDisambiguationAsync(scope, address, user.Id, message, resolution.AmbiguousCandidates, ct);
+            return;
+        }
+
+        if (resolution.SpaceId is not { } spaceId)
+        {
+            // No accessible space for this resource at all — nothing to do.
+            return;
+        }
+
+        // Possibly stripped of an explicit "in <space name>" suffix (step 1) — downstream
+        // parsing works from this, not the original text.
+        text = resolution.RemainingText;
 
         var shopping = scope.ServiceProvider.GetRequiredService<ShoppingListService>();
         var expenses = scope.ServiceProvider.GetRequiredService<ExpenseService>();
@@ -151,12 +243,13 @@ public sealed class MessageProcessor(
         var recurringExpenses = scope.ServiceProvider.GetRequiredService<RecurringExpenseService>();
         var budgets = scope.ServiceProvider.GetRequiredService<BudgetService>();
         var digest = scope.ServiceProvider.GetRequiredService<DigestService>();
+        var notifications = scope.ServiceProvider.GetRequiredService<NotificationService>();
 
         if (message.CallbackData is { } callbackData)
         {
             // L1 (docs/05-ottimizzazioni.md): an inline-keyboard tap is already a
             // structured action — it never goes through the intent matcher.
-            await HandleCallbackAsync(shopping, expenses, reminders, budgets, address, spaceId, user, culture, callbackData, ct);
+            await HandleCallbackAsync(shopping, expenses, reminders, budgets, notifications, address, spaceId, user, culture, callbackData, ct);
             return;
         }
 
@@ -165,98 +258,80 @@ public sealed class MessageProcessor(
             return;
         }
 
-        // /remind is a native command (L1), not routed through the intent matcher — its
-        // trivial date/frequency forms are fully deterministic (docs/05-ottimizzazioni.md).
-        if (text.StartsWith("/remind", StringComparison.OrdinalIgnoreCase))
+        // Native commands (L1), not routed through the intent matcher — their trivial forms
+        // are fully deterministic (docs/05-ottimizzazioni.md).
+        switch (nativeCommand)
         {
-            var remindReply = await HandleRemindCommandAsync(
-                reminders, address, spaceId, user, culture, text["/remind".Length..], ct);
-            if (remindReply is not null)
+            case NativeCommand.Remind:
             {
-                await channel.SendTextAsync(address, remindReply, ct);
+                var remindReply = await HandleRemindCommandAsync(
+                    reminders, address, spaceId, user, culture, text["/remind".Length..], ct);
+                if (remindReply is not null)
+                {
+                    await channel.SendTextAsync(address, remindReply, ct);
+                }
+                return;
             }
-            return;
-        }
 
-        // /recurring is a native command (L1), mirroring /remind — the same trivial,
-        // deterministic forms apply (docs/05-ottimizzazioni.md).
-        if (text.StartsWith("/recurring", StringComparison.OrdinalIgnoreCase))
-        {
-            var recurringReply = await HandleRecurringCommandAsync(
-                recurringExpenses, spaceId, user, culture, text["/recurring".Length..], ct);
-            if (recurringReply is not null)
+            case NativeCommand.Recurring:
             {
-                await channel.SendTextAsync(address, recurringReply, ct);
+                var recurringReply = await HandleRecurringCommandAsync(
+                    recurringExpenses, spaceId, user, culture, text["/recurring".Length..], ct);
+                if (recurringReply is not null)
+                {
+                    await channel.SendTextAsync(address, recurringReply, ct);
+                }
+                return;
             }
-            return;
-        }
 
-        // /budget is a native command (L1), mirroring /remind and /recurring.
-        if (text.StartsWith("/budget", StringComparison.OrdinalIgnoreCase))
-        {
-            var budgetReply = await HandleBudgetCommandAsync(
-                expenses, budgets, spaceId, user, culture, text["/budget".Length..], ct);
-            if (budgetReply is not null)
+            case NativeCommand.Budget:
             {
-                await channel.SendTextAsync(address, budgetReply, ct);
+                var budgetReply = await HandleBudgetCommandAsync(
+                    expenses, budgets, spaceId, user, culture, text["/budget".Length..], ct);
+                if (budgetReply is not null)
+                {
+                    await channel.SendTextAsync(address, budgetReply, ct);
+                }
+                return;
             }
-            return;
-        }
 
-        // /digest triggers the daily digest on demand — the proactive, once-a-day send
-        // arrives with IScheduledJob (docs/06-roadmap.md); this builds the same composed
-        // content ahead of that, so it can be tested end-to-end before the worker exists.
-        if (text.StartsWith("/digest", StringComparison.OrdinalIgnoreCase))
-        {
-            var digestReply = await HandleDigestCommandAsync(digest, expenses, spaceId, user, culture, ct);
-            await channel.SendTextAsync(address, digestReply, ct);
-            return;
-        }
-
-        // The canonical menu commands (docs/09-localizzazione.md) — trivial, deterministic,
-        // never routed through the intent matcher.
-        if (text.StartsWith("/list", StringComparison.OrdinalIgnoreCase))
-        {
-            var listReply = await HandleShowAsync(shopping, address, spaceId, user.Id, ct);
-            if (listReply is not null)
+            case NativeCommand.Digest:
             {
-                await channel.SendTextAsync(address, listReply, ct);
+                // /digest triggers the daily digest on demand — the proactive, once-a-day
+                // send arrives with IScheduledJob (docs/06-roadmap.md).
+                var digestReply = await HandleDigestCommandAsync(digest, expenses, spaceId, user, culture, ct);
+                await channel.SendTextAsync(address, digestReply, ct);
+                return;
             }
-            return;
-        }
 
-        if (text.StartsWith("/expense", StringComparison.OrdinalIgnoreCase))
-        {
-            var expenseReply = await HandleExpenseCommandAsync(
-                expenses, budgets, address, spaceId, user, culture, text["/expense".Length..], ct);
-            if (expenseReply is not null)
+            case NativeCommand.List:
             {
-                await channel.SendTextAsync(address, expenseReply, ct);
+                var listReply = await HandleShowAsync(shopping, address, spaceId, user.Id, ct);
+                if (listReply is not null)
+                {
+                    await channel.SendTextAsync(address, listReply, ct);
+                }
+                return;
             }
-            return;
-        }
 
-        if (text.StartsWith("/month", StringComparison.OrdinalIgnoreCase))
-        {
-            var monthReply = await HandleExpensesQueryAsync(expenses, spaceId, user, culture, ct);
-            await channel.SendTextAsync(address, monthReply, ct);
-            return;
-        }
+            case NativeCommand.Expense:
+            {
+                var expenseReply = await HandleExpenseCommandAsync(
+                    expenses, budgets, notifications, address, spaceId, user, culture, text["/expense".Length..], ct);
+                if (expenseReply is not null)
+                {
+                    await channel.SendTextAsync(address, expenseReply, ct);
+                }
+                return;
+            }
 
-        if (text.StartsWith("/language", StringComparison.OrdinalIgnoreCase))
-        {
-            var languageReply = await HandleLanguageCommandAsync(scope, user, culture, text["/language".Length..], ct);
-            await channel.SendTextAsync(address, languageReply, ct);
-            return;
+            case NativeCommand.Month:
+            {
+                var monthReply = await HandleExpensesQueryAsync(expenses, spaceId, user, culture, ct);
+                await channel.SendTextAsync(address, monthReply, ct);
+                return;
+            }
         }
-
-        if (text.StartsWith("/help", StringComparison.OrdinalIgnoreCase))
-        {
-            await channel.SendTextAsync(address, HandleHelpCommand(), ct);
-            return;
-        }
-
-        var match = router.TryRoute(text, culture.Name);
 
         string? reply;
         if (match is null)
@@ -268,13 +343,13 @@ public sealed class MessageProcessor(
         {
             reply = match.Intent switch
             {
-                "shopping.add" => await HandleAddAsync(shopping, spaceId, user.Id, match.Slots["item"], ct),
+                "shopping.add" => await HandleAddAsync(shopping, notifications, address, spaceId, user.Id, match.Slots["item"], ct),
                 "shopping.show" => await HandleShowAsync(shopping, address, spaceId, user.Id, ct),
-                "shopping.check" => await HandleCheckAsync(shopping, spaceId, user.Id, match.Slots["item"], ct),
+                "shopping.check" => await HandleCheckAsync(shopping, notifications, address, spaceId, user.Id, match.Slots["item"], ct),
                 "shopping.remove" => await HandleRemoveAsync(shopping, spaceId, user.Id, match.Slots["item"], ct),
                 "shopping.clear" => await HandleClearAsync(shopping, spaceId, user.Id, ct),
                 "expenses.add" => await HandleExpenseAddAsync(
-                    expenses, budgets, address, spaceId, user, culture, match.Slots["amount"],
+                    expenses, budgets, notifications, address, spaceId, user, culture, match.Slots["amount"],
                     match.Slots.GetValueOrDefault("category"), match.Slots.GetValueOrDefault("merchant"), ct),
                 "expenses.query" => await HandleExpensesQueryAsync(expenses, spaceId, user, culture, ct),
                 "expenses.query.category" => await HandleExpensesQueryByCategoryAsync(
@@ -293,15 +368,148 @@ public sealed class MessageProcessor(
         }
     }
 
+    private enum NativeCommand
+    {
+        None,
+        Remind,
+        Recurring,
+        Budget,
+        Digest,
+        List,
+        Expense,
+        Month,
+    }
+
+    private static NativeCommand DetectNativeCommand(string text) => text switch
+    {
+        _ when text.StartsWith("/remind", StringComparison.OrdinalIgnoreCase) => NativeCommand.Remind,
+        _ when text.StartsWith("/recurring", StringComparison.OrdinalIgnoreCase) => NativeCommand.Recurring,
+        _ when text.StartsWith("/budget", StringComparison.OrdinalIgnoreCase) => NativeCommand.Budget,
+        _ when text.StartsWith("/digest", StringComparison.OrdinalIgnoreCase) => NativeCommand.Digest,
+        _ when text.StartsWith("/list", StringComparison.OrdinalIgnoreCase) => NativeCommand.List,
+        _ when text.StartsWith("/expense", StringComparison.OrdinalIgnoreCase) => NativeCommand.Expense,
+        _ when text.StartsWith("/month", StringComparison.OrdinalIgnoreCase) => NativeCommand.Month,
+        _ => NativeCommand.None,
+    };
+
+    // Read, even for commands that can also write (/remind, /recurring, /budget bare vs.
+    // with args) — this only decides *which space* is a candidate for disambiguation, not
+    // whether the action is authorized; each Service's own EnsureAccessAsync still enforces
+    // the real Write requirement for a mutation and rejects it if the resolved space lacks
+    // it. Asking for Write here would wrongly exclude a Read-only space from candidates for
+    // what might turn out to be a read-only bare command (docs/02-modello-dati.md).
+    private static (ResourceKind, AccessLevel) ResourceForNativeCommand(NativeCommand command) => command switch
+    {
+        NativeCommand.Remind => (ResourceKind.Reminders, AccessLevel.Read),
+        NativeCommand.Recurring or NativeCommand.Budget => (ResourceKind.Expenses, AccessLevel.Read),
+        // /expense always writes — no read-only variant, so the stronger requirement is
+        // exactly right here.
+        NativeCommand.Expense => (ResourceKind.Expenses, AccessLevel.Write),
+        // /digest spans three resources; ShoppingList is an arbitrary but reasonable anchor
+        // (docs/02-modello-dati.md doesn't cover multi-resource disambiguation).
+        NativeCommand.Digest => (ResourceKind.ShoppingList, AccessLevel.Read),
+        NativeCommand.List => (ResourceKind.ShoppingList, AccessLevel.Read),
+        NativeCommand.Month => (ResourceKind.Expenses, AccessLevel.Read),
+        _ => (ResourceKind.ShoppingList, AccessLevel.Read),
+    };
+
+    private static (ResourceKind, AccessLevel) ResourceForIntent(string intent) => intent switch
+    {
+        "shopping.add" or "shopping.check" or "shopping.remove" or "shopping.clear" => (ResourceKind.ShoppingList, AccessLevel.Write),
+        "shopping.show" => (ResourceKind.ShoppingList, AccessLevel.Read),
+        "expenses.add" => (ResourceKind.Expenses, AccessLevel.Write),
+        "expenses.query" or "expenses.query.category" => (ResourceKind.Expenses, AccessLevel.Read),
+        _ => (ResourceKind.ShoppingList, AccessLevel.Read),
+    };
+
+    private static (ResourceKind, AccessLevel) ResourceForCallback(string callbackData) => callbackData.Split(':')[0] switch
+    {
+        "shopping.check" => (ResourceKind.ShoppingList, AccessLevel.Write),
+        "expcat" or "expconfirm" => (ResourceKind.Expenses, AccessLevel.Write),
+        "remind.complete" => (ResourceKind.Reminders, AccessLevel.Write),
+        _ => (ResourceKind.ShoppingList, AccessLevel.Read),
+    };
+
+    private sealed record PendingSpaceChoice(IReadOnlyList<Guid> CandidateSpaceIds, string? OriginalText, string? OriginalCallbackData);
+
+    // Step 5 of the precedence chain: ask, and remember the answer for the TTL window so it
+    // isn't asked again on every message (docs/02-modello-dati.md).
+    private async Task AskSpaceDisambiguationAsync(
+        AsyncServiceScope scope, ChannelAddress address, Guid userId, InboundMessage message,
+        IReadOnlyList<Guid> candidateSpaceIds, CancellationToken ct)
+    {
+        var db = scope.ServiceProvider.GetRequiredService<TesseraDbContext>();
+        var candidateSpaces = await db.Spaces
+            .Where(s => candidateSpaceIds.Contains(s.Id))
+            .OrderBy(s => s.Id)
+            .AsNoTracking()
+            .ToListAsync(ct);
+
+        var payload = new PendingSpaceChoice(candidateSpaces.Select(s => s.Id).ToList(), message.Text, message.CallbackData);
+        var state = await db.ConversationStates.FirstOrDefaultAsync(s => s.UserId == userId, ct);
+        if (state is null)
+        {
+            state = new ConversationState { Id = Guid.NewGuid(), UserId = userId };
+            db.ConversationStates.Add(state);
+        }
+
+        state.PendingIntent = "space.choice";
+        state.StateJson = JsonSerializer.Serialize(payload);
+        state.UpdatedAt = DateTimeOffset.UtcNow;
+        state.ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(30);
+        await db.SaveChangesAsync(ct);
+
+        var choices = candidateSpaces.Select((s, index) => new Choice(s.Name, $"space.choose:{index}")).ToList();
+        await channel.SendChoicesAsync(address, localizer["Space.WhichOne"], choices, ct);
+    }
+
+    // Sets the answer from step 5, then replays the original action — now unambiguous, since
+    // ConversationState.ActiveSpaceId (step 2) resolves it this time.
+    private async Task HandleSpaceChoiceCallbackAsync(
+        AsyncServiceScope scope, InboundMessage message, User user, CancellationToken ct)
+    {
+        if (!int.TryParse(message.CallbackData!["space.choose:".Length..], out var index))
+        {
+            return;
+        }
+
+        var db = scope.ServiceProvider.GetRequiredService<TesseraDbContext>();
+        var state = await db.ConversationStates.FirstOrDefaultAsync(
+            s => s.UserId == user.Id && s.PendingIntent == "space.choice" && s.ExpiresAt > DateTimeOffset.UtcNow, ct);
+        if (state is null)
+        {
+            // Expired, or already answered by a previous tap — the button is stale.
+            return;
+        }
+
+        var payload = JsonSerializer.Deserialize<PendingSpaceChoice>(state.StateJson);
+        if (payload is null || index < 0 || index >= payload.CandidateSpaceIds.Count)
+        {
+            return;
+        }
+
+        var spaces = scope.ServiceProvider.GetRequiredService<SpaceResolver>();
+        await spaces.SetActiveSpaceAsync(user.Id, payload.CandidateSpaceIds[index], ct);
+
+        var replay = message with
+        {
+            Text = payload.OriginalText,
+            CallbackData = payload.OriginalCallbackData,
+            ProviderMessageId = $"replay:{message.ProviderMessageId}",
+        };
+        await ProcessAsync(replay, ct);
+    }
+
     private async Task HandleCallbackAsync(
         ShoppingListService shopping, ExpenseService expenses, ReminderService reminders, BudgetService budgets,
-        ChannelAddress address, Guid spaceId, User user, CultureInfo culture, string callbackData, CancellationToken ct)
+        NotificationService notifications, ChannelAddress address, Guid spaceId, User user, CultureInfo culture,
+        string callbackData, CancellationToken ct)
     {
         var parts = callbackData.Split(':');
 
         if (parts.Length == 2 && parts[0] == "shopping.check" && Guid.TryParse(parts[1], out var itemId))
         {
-            await HandleShoppingCheckCallbackAsync(shopping, address, spaceId, user.Id, itemId, ct);
+            await HandleShoppingCheckCallbackAsync(shopping, notifications, address, spaceId, user.Id, itemId, ct);
             return;
         }
 
@@ -314,7 +522,7 @@ public sealed class MessageProcessor(
 
         if (parts.Length == 3 && parts[0] == "expconfirm" && Guid.TryParse(parts[1], out var pendingId))
         {
-            await HandleExpenseConfirmCallbackAsync(expenses, budgets, address, spaceId, user, culture, pendingId, parts[2], ct);
+            await HandleExpenseConfirmCallbackAsync(expenses, budgets, notifications, address, spaceId, user, culture, pendingId, parts[2], ct);
             return;
         }
 
@@ -338,7 +546,8 @@ public sealed class MessageProcessor(
     }
 
     private async Task HandleShoppingCheckCallbackAsync(
-        ShoppingListService shopping, ChannelAddress address, Guid spaceId, Guid userId, Guid itemId, CancellationToken ct)
+        ShoppingListService shopping, NotificationService notifications, ChannelAddress address, Guid spaceId,
+        Guid userId, Guid itemId, CancellationToken ct)
     {
         var item = await shopping.CheckItemByIdAsync(spaceId, userId, itemId, ct);
         if (item is null)
@@ -349,6 +558,8 @@ public sealed class MessageProcessor(
             return;
         }
 
+        await notifications.NotifyAsync(
+            new ShoppingItemChecked(spaceId, userId, item.RawText, address.ExternalChatId, DateTimeOffset.UtcNow), ct);
         await channel.SendTextAsync(address, localizer["Shopping.ItemChecked", item.RawText], ct);
     }
 
@@ -400,10 +611,94 @@ public sealed class MessageProcessor(
         await channel.SendTextAsync(address, reply, ct);
     }
 
+    private async Task HandleGroupLifecycleEventAsync(AsyncServiceScope scope, InboundMessage message, CancellationToken ct)
+    {
+        var evt = message.LifecycleEvent!;
+        var db = scope.ServiceProvider.GetRequiredService<TesseraDbContext>();
+
+        switch (evt.Type)
+        {
+            case GroupLifecycleEventType.ChatMigrated:
+                await RemapGroupChatAsync(db, evt.OldChatId!, message.ExternalChatId, ct);
+                break;
+
+            case GroupLifecycleEventType.BotRemoved:
+                // Zeroes GroupChatId only — the space and its data survive being removed
+                // and re-added (docs/03-integrazioni.md).
+                await ClearGroupChatAsync(db, message.ExternalChatId, ct);
+                break;
+
+            case GroupLifecycleEventType.BotAdded:
+                await HandleBotAddedToGroupAsync(scope, db, message, ct);
+                break;
+        }
+    }
+
+    // Idempotent: both migration forms (docs/03-integrazioni.md) can arrive for the same
+    // event, and a re-delivery must not fail or duplicate the remap.
+    private static async Task RemapGroupChatAsync(TesseraDbContext db, string oldChatId, string newChatId, CancellationToken ct)
+    {
+        var space = await db.Spaces.FirstOrDefaultAsync(s => s.GroupChatId == oldChatId, ct);
+        if (space is null || space.GroupChatId == newChatId)
+        {
+            return;
+        }
+
+        space.PreviousGroupChatId = space.GroupChatId;
+        space.GroupChatId = newChatId;
+        await db.SaveChangesAsync(ct);
+    }
+
+    private static async Task ClearGroupChatAsync(TesseraDbContext db, string chatId, CancellationToken ct)
+    {
+        var space = await db.Spaces.FirstOrDefaultAsync(s => s.GroupChatId == chatId, ct);
+        if (space is null)
+        {
+            return;
+        }
+
+        space.GroupChatId = null;
+        await db.SaveChangesAsync(ct);
+    }
+
+    // Auto-associates the adder's own personal space with the group, matching docs/10's
+    // example ("l'assistente di Alessio") — no disambiguation UI exists yet, so this is the
+    // deterministic default. /link in the group (a later checklist item) is the manual
+    // remedy once the mapping is lost or wrong.
+    private async Task HandleBotAddedToGroupAsync(
+        AsyncServiceScope scope, TesseraDbContext db, InboundMessage message, CancellationToken ct)
+    {
+        var identities = scope.ServiceProvider.GetRequiredService<IChannelIdentityRepository>();
+        var adder = message.ExternalUserId is null
+            ? null
+            : await identities.ResolveUserAsync(message.ChannelName, message.ExternalUserId, ct);
+
+        var culture = new CultureInfo(adder?.PreferredCulture ?? "en");
+        CultureInfo.CurrentCulture = culture;
+        CultureInfo.CurrentUICulture = culture;
+
+        var address = new ChannelAddress(message.ChannelName, message.ExternalChatId);
+
+        if (adder?.DefaultSpaceId is not { } spaceId)
+        {
+            await channel.SendTextAsync(address, localizer["Group.WelcomeUnlinked"], ct);
+            return;
+        }
+
+        var space = await db.Spaces.FirstAsync(s => s.Id == spaceId, ct);
+        space.GroupChatId = message.ExternalChatId;
+        await db.SaveChangesAsync(ct);
+
+        await channel.SendTextAsync(address, localizer["Group.Welcome", adder.DisplayName ?? adder.Email], ct);
+    }
+
     private async Task<string> HandleAddAsync(
-        ShoppingListService shopping, Guid spaceId, Guid userId, string itemText, CancellationToken ct)
+        ShoppingListService shopping, NotificationService notifications, ChannelAddress address, Guid spaceId,
+        Guid userId, string itemText, CancellationToken ct)
     {
         var item = await shopping.AddItemAsync(spaceId, userId, itemText, ct);
+        await notifications.NotifyAsync(
+            new ShoppingItemAdded(spaceId, userId, item.RawText, address.ExternalChatId, DateTimeOffset.UtcNow), ct);
         return localizer["Shopping.ItemAdded", item.RawText];
     }
 
@@ -440,12 +735,18 @@ public sealed class MessageProcessor(
     }
 
     private async Task<string> HandleCheckAsync(
-        ShoppingListService shopping, Guid spaceId, Guid userId, string itemText, CancellationToken ct)
+        ShoppingListService shopping, NotificationService notifications, ChannelAddress address, Guid spaceId,
+        Guid userId, string itemText, CancellationToken ct)
     {
         var item = await shopping.CheckItemAsync(spaceId, userId, itemText, ct);
-        return item is null
-            ? localizer["Shopping.ItemNotFound", itemText]
-            : localizer["Shopping.ItemChecked", item.RawText];
+        if (item is null)
+        {
+            return localizer["Shopping.ItemNotFound", itemText];
+        }
+
+        await notifications.NotifyAsync(
+            new ShoppingItemChecked(spaceId, userId, item.RawText, address.ExternalChatId, DateTimeOffset.UtcNow), ct);
+        return localizer["Shopping.ItemChecked", item.RawText];
     }
 
     private async Task<string> HandleRemoveAsync(
@@ -464,8 +765,9 @@ public sealed class MessageProcessor(
     }
 
     private async Task<string?> HandleExpenseAddAsync(
-        ExpenseService expenses, BudgetService budgets, ChannelAddress address, Guid spaceId, User user, CultureInfo culture,
-        string amountText, string? categoryText, string? merchantText, CancellationToken ct)
+        ExpenseService expenses, BudgetService budgets, NotificationService notifications, ChannelAddress address,
+        Guid spaceId, User user, CultureInfo culture, string amountText, string? categoryText, string? merchantText,
+        CancellationToken ct)
     {
         if (!decimal.TryParse(amountText, NumberStyles.Number, culture, out var amount))
         {
@@ -492,14 +794,14 @@ public sealed class MessageProcessor(
         }
 
         return await RecordExpenseAndReplyAsync(
-            expenses, budgets, address, spaceId, user, culture, amount, categoryText, merchantText, ct);
+            expenses, budgets, notifications, address, spaceId, user, culture, amount, categoryText, merchantText, ct);
     }
 
     // The trivial form of the /expense menu command — amount plus an optional free-text
     // category, no merchant slot (that's the natural-language path's job).
     private async Task<string?> HandleExpenseCommandAsync(
-        ExpenseService expenses, BudgetService budgets, ChannelAddress address, Guid spaceId, User user, CultureInfo culture,
-        string argsText, CancellationToken ct)
+        ExpenseService expenses, BudgetService budgets, NotificationService notifications, ChannelAddress address,
+        Guid spaceId, User user, CultureInfo culture, string argsText, CancellationToken ct)
     {
         var command = ExpenseCommandParser.Parse(argsText);
         if (command is null)
@@ -507,13 +809,13 @@ public sealed class MessageProcessor(
             return localizer["Expenses.Usage"];
         }
 
-        return await HandleExpenseAddAsync(
-            expenses, budgets, address, spaceId, user, culture, command.AmountText, command.CategoryText, merchantText: null, ct);
+        return await HandleExpenseAddAsync(expenses, budgets, notifications, address, spaceId, user, culture,
+            command.AmountText, command.CategoryText, merchantText: null, ct);
     }
 
     private async Task HandleExpenseConfirmCallbackAsync(
-        ExpenseService expenses, BudgetService budgets, ChannelAddress address, Guid spaceId, User user, CultureInfo culture,
-        Guid pendingId, string choice, CancellationToken ct)
+        ExpenseService expenses, BudgetService budgets, NotificationService notifications, ChannelAddress address,
+        Guid spaceId, User user, CultureInfo culture, Guid pendingId, string choice, CancellationToken ct)
     {
         var pending = await expenses.ConsumePendingConfirmationAsync(spaceId, pendingId, ct);
         if (pending is null)
@@ -524,7 +826,7 @@ public sealed class MessageProcessor(
 
         var amount = choice == "g" ? pending.CandidateAsGrouped : pending.CandidateAsDecimal;
         var reply = await RecordExpenseAndReplyAsync(
-            expenses, budgets, address, spaceId, user, culture, amount, pending.CategoryText, pending.MerchantText, ct);
+            expenses, budgets, notifications, address, spaceId, user, culture, amount, pending.CategoryText, pending.MerchantText, ct);
         if (reply is not null)
         {
             await channel.SendTextAsync(address, reply, ct);
@@ -534,8 +836,9 @@ public sealed class MessageProcessor(
     // Shared by the direct (unambiguous) path and the post-confirmation path, so recording
     // and the categorization precedence (docs/02-modello-dati.md) can't drift between them.
     private async Task<string?> RecordExpenseAndReplyAsync(
-        ExpenseService expenses, BudgetService budgets, ChannelAddress address, Guid spaceId, User user, CultureInfo culture,
-        decimal amount, string? categoryText, string? merchantText, CancellationToken ct)
+        ExpenseService expenses, BudgetService budgets, NotificationService notifications, ChannelAddress address,
+        Guid spaceId, User user, CultureInfo culture, decimal amount, string? categoryText, string? merchantText,
+        CancellationToken ct)
     {
         var today = GetUserToday(user);
 
@@ -544,6 +847,7 @@ public sealed class MessageProcessor(
         {
             var category = await ResolveCategoryAsync(expenses, spaceId, categoryText, ct);
             var expense = await expenses.RecordAsync(spaceId, user.Id, amount, category?.Id, merchant: null, today, ct);
+            await NotifyExpenseRecordedAsync(notifications, spaceId, user.Id, expense, address, ct);
             var formatted = MoneyFormatter.Format(expense.Amount, expense.Currency, culture.Name);
             var reply = category is null
                 ? localizer["Expenses.Recorded", formatted]
@@ -555,6 +859,7 @@ public sealed class MessageProcessor(
         if (merchantText is null)
         {
             var expense = await expenses.RecordAsync(spaceId, user.Id, amount, categoryId: null, merchant: null, today, ct);
+            await NotifyExpenseRecordedAsync(notifications, spaceId, user.Id, expense, address, ct);
             var reply = localizer["Expenses.Recorded", MoneyFormatter.Format(expense.Amount, expense.Currency, culture.Name)];
             return await AppendBudgetAlertsAsync(expenses, budgets, spaceId, user.Id, culture, expense, reply, ct);
         }
@@ -565,6 +870,7 @@ public sealed class MessageProcessor(
         //    into the mapping so this merchant is never asked about again.
         var learnedCategory = await expenses.FindMerchantCategoryAsync(spaceId, merchantText, ct);
         var recorded = await expenses.RecordAsync(spaceId, user.Id, amount, learnedCategory?.Id, merchantText, today, ct);
+        await NotifyExpenseRecordedAsync(notifications, spaceId, user.Id, recorded, address, ct);
         var recordedFormatted = MoneyFormatter.Format(recorded.Amount, recorded.Currency, culture.Name);
 
         if (learnedCategory is not null)
@@ -579,6 +885,12 @@ public sealed class MessageProcessor(
         return await AppendBudgetAlertsAsync(expenses, budgets, spaceId, user.Id, culture, recorded,
             localizer["Expenses.RecordedWithMerchant", recordedFormatted, merchantText], ct);
     }
+
+    private static async Task NotifyExpenseRecordedAsync(
+        NotificationService notifications, Guid spaceId, Guid actorUserId, Expense expense, ChannelAddress address, CancellationToken ct) =>
+        await notifications.NotifyAsync(
+            new ExpenseRecorded(spaceId, actorUserId, expense.Amount, expense.Currency, expense.CategoryId, address.ExternalChatId, DateTimeOffset.UtcNow),
+            ct);
 
     private async Task<string> AppendBudgetAlertsAsync(
         ExpenseService expenses, BudgetService budgets, Guid spaceId, Guid userId, CultureInfo culture,

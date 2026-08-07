@@ -1,0 +1,122 @@
+@page "/spaces/{SpaceId:guid}"
+@attribute [Authorize]
+
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.Extensions.Localization
+@using Tessera.Core.Resources
+@using Tessera.Core.Spaces
+@using Tessera.Data
+
+@inject SpaceService SpaceService
+@inject NavigationManager NavigationManager
+@inject IStringLocalizer<Messages> Localizer
+
+<PageTitle>@(space?.Name ?? Localizer["SpaceDetail.Title"].Value)</PageTitle>
+
+<div class="container">
+    @if (space is null)
+    {
+        <p class="text-soft">@Localizer["Common.Loading"]</p>
+    }
+    else
+    {
+        <h1>@space.Name</h1>
+        @if (space.IsPersonal)
+        {
+            <p class="text-soft">@Localizer["SpaceDetail.PersonalNote"]</p>
+        }
+
+        <div class="seam" aria-hidden="true">
+            <span></span><span></span><span></span>
+        </div>
+
+        <h2>@Localizer["SpaceDetail.MembersHeading"]</h2>
+        <div style="display: flex; flex-direction: column; gap: var(--space-3); margin-bottom: var(--space-8);">
+            @foreach (var (membership, displayName) in members)
+            {
+                <div class="card">
+                    <strong>@displayName</strong>
+                    <div style="margin-top: var(--space-2); display: flex; gap: var(--space-2); flex-wrap: wrap;">
+                        @if (membership.IsOwner)
+                        {
+                            <span class="badge badge-admin">@Localizer["AccessLevel.Admin"]</span>
+                        }
+                        else
+                        {
+                            @foreach (var permission in membership.Permissions)
+                            {
+                                <span class="badge @BadgeClass(permission.Level)">
+                                    @ResourceName(permission.Resource): @LevelName(permission.Level)
+                                </span>
+                            }
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (isOwner)
+        {
+            <a class="btn btn-primary" href="@($"/spaces/{SpaceId}/invite")">@Localizer["SpaceDetail.InviteButton"]</a>
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid SpaceId { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private Space? space;
+    private IReadOnlyList<(Membership Membership, string DisplayName)> members = [];
+    private bool isOwner;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateTask!;
+        var userId = Guid.Parse(authState.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        space = await SpaceService.GetByIdAsync(SpaceId, userId, CancellationToken.None);
+        if (space is null)
+        {
+            NavigationManager.NavigateTo("/spaces");
+            return;
+        }
+
+        members = await SpaceService.GetMembersAsync(SpaceId, userId, CancellationToken.None);
+        isOwner = await SpaceService.IsOwnerAsync(SpaceId, userId, CancellationToken.None);
+    }
+
+    private string BadgeClass(AccessLevel level) => level switch
+    {
+        AccessLevel.None => "badge-none",
+        AccessLevel.Availability => "badge-availability",
+        AccessLevel.Read => "badge-read",
+        AccessLevel.Write => "badge-write",
+        AccessLevel.Admin => "badge-admin",
+        _ => "badge-none",
+    };
+
+    private string LevelName(AccessLevel level) => level switch
+    {
+        AccessLevel.None => Localizer["AccessLevel.None"],
+        AccessLevel.Availability => Localizer["AccessLevel.Availability"],
+        AccessLevel.Read => Localizer["AccessLevel.Read"],
+        AccessLevel.Write => Localizer["AccessLevel.Write"],
+        AccessLevel.Admin => Localizer["AccessLevel.Admin"],
+        _ => Localizer["AccessLevel.None"],
+    };
+
+    private string ResourceName(ResourceKind resource) => resource switch
+    {
+        ResourceKind.ShoppingList => Localizer["ResourceKind.ShoppingList"],
+        ResourceKind.Expenses => Localizer["ResourceKind.Expenses"],
+        ResourceKind.Reminders => Localizer["ResourceKind.Reminders"],
+        ResourceKind.Calendar => Localizer["ResourceKind.Calendar"],
+        _ => resource.ToString(),
+    };
+}

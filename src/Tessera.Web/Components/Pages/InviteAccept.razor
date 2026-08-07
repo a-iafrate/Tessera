@@ -1,0 +1,61 @@
+@page "/invite/accept"
+@attribute [Authorize]
+
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.Extensions.Localization
+@using Tessera.Core.Resources
+@using Tessera.Data
+
+@inject InviteService InviteService
+@inject NavigationManager NavigationManager
+@inject IStringLocalizer<Messages> Localizer
+
+<PageTitle>@Localizer["InviteAccept.Title"]</PageTitle>
+
+<div class="container">
+    @if (preview is null)
+    {
+        <h1>@Localizer["InviteAccept.InvalidTitle"]</h1>
+        <p class="text-soft">@Localizer["InviteAccept.InvalidMessage"]</p>
+    }
+    else
+    {
+        <h1>@Localizer["InviteAccept.Title"]: @preview.Value.SpaceName</h1>
+        <p>@Localizer["InviteAccept.InvitedBy", preview.Value.InviterDisplayName]</p>
+        <button class="btn btn-primary" @onclick="AcceptAsync">@Localizer["InviteAccept.AcceptButton"]</button>
+    }
+</div>
+
+@code {
+    [SupplyParameterFromQuery]
+    private string? Token { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private (string SpaceName, string InviterDisplayName)? preview;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Token is not null)
+        {
+            preview = await InviteService.GetPreviewAsync(Token, CancellationToken.None);
+        }
+    }
+
+    private async Task AcceptAsync()
+    {
+        if (Token is null)
+        {
+            return;
+        }
+
+        var authState = await AuthenticationStateTask!;
+        var userId = Guid.Parse(authState.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var membership = await InviteService.ConsumeAsync(Token, userId, CancellationToken.None);
+        NavigationManager.NavigateTo(membership is not null ? $"/spaces/{membership.SpaceId}" : "/spaces");
+    }
+}

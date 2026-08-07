@@ -1,0 +1,101 @@
+@page "/spaces/{SpaceId:guid}/invite"
+@attribute [Authorize]
+
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.Extensions.Localization
+@using Tessera.Core.Resources
+@using Tessera.Core.Spaces
+@using Tessera.Data
+
+@inject SpaceService SpaceService
+@inject InviteService InviteService
+@inject NavigationManager NavigationManager
+@inject IStringLocalizer<Messages> Localizer
+
+<PageTitle>@Localizer["InviteMember.Title"]</PageTitle>
+
+<div class="container">
+    <h1>@Localizer["InviteMember.Title"]@(space is not null ? $" — {space.Name}" : "")</h1>
+
+    @if (inviteLink is not null)
+    {
+        <div class="card">
+            <p>@Localizer["InviteMember.LinkGenerated"]</p>
+            <input readonly value="@inviteLink" style="width: 100%; padding: var(--space-2); font-family: var(--font-mono); border: 1px solid var(--line); border-radius: var(--radius-sm);" onclick="this.select()" />
+        </div>
+        return;
+    }
+
+    <div class="card" style="max-width: 32rem;">
+        <h2>@Localizer["InviteMember.PresetHeading"]</h2>
+        <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+            @foreach (var option in Presets)
+            {
+                <label style="display: flex; align-items: center; gap: var(--space-2);">
+                    <input type="radio" name="preset" checked="@(preset == option)" @onchange="() => preset = option" />
+                    @Localizer[$"InviteMember.Preset.{option}"]
+                </label>
+            }
+        </div>
+
+        @if (preset == "Custom")
+        {
+            <div style="margin-top: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3);">
+                <LevelPicker Label="@Localizer["ResourceKind.ShoppingList"].Value" @bind-Level="shoppingListLevel" />
+                <LevelPicker Label="@Localizer["ResourceKind.Expenses"].Value" @bind-Level="expensesLevel" />
+                <LevelPicker Label="@Localizer["ResourceKind.Reminders"].Value" @bind-Level="remindersLevel" />
+            </div>
+        }
+
+        <button class="btn btn-primary" style="margin-top: var(--space-4);" @onclick="GenerateAsync">@Localizer["InviteMember.GenerateButton"]</button>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public Guid SpaceId { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private static readonly string[] Presets = ["Partner", "Family", "Friend", "Custom"];
+
+    private Space? space;
+    private Guid userId;
+    private string preset = "Partner";
+    private string? inviteLink;
+
+    private AccessLevel shoppingListLevel = AccessLevel.Write;
+    private AccessLevel expensesLevel = AccessLevel.Write;
+    private AccessLevel remindersLevel = AccessLevel.Write;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateTask!;
+        userId = Guid.Parse(authState.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        space = await SpaceService.GetByIdAsync(SpaceId, userId, CancellationToken.None);
+        if (space is null || !await SpaceService.IsOwnerAsync(SpaceId, userId, CancellationToken.None))
+        {
+            NavigationManager.NavigateTo($"/spaces/{SpaceId}");
+        }
+    }
+
+    // Presets per docs/02-modello-dati.md — Calendar isn't usable yet (Fase 2), so "Custom"
+    // has no Calendar control and always leaves it at None.
+    private async Task GenerateAsync()
+    {
+        var (shopping, expenses, reminders, calendar) = preset switch
+        {
+            "Partner" => (AccessLevel.Write, AccessLevel.Write, AccessLevel.Write, AccessLevel.Read),
+            "Family" => (AccessLevel.Write, AccessLevel.None, AccessLevel.Write, AccessLevel.Availability),
+            "Friend" => (AccessLevel.None, AccessLevel.None, AccessLevel.None, AccessLevel.Availability),
+            _ => (shoppingListLevel, expensesLevel, remindersLevel, AccessLevel.None),
+        };
+
+        var invite = await InviteService.CreateAsync(SpaceId, userId, shopping, expenses, reminders, calendar, CancellationToken.None);
+        inviteLink = $"{NavigationManager.BaseUri}invite/accept?token={invite.Token}";
+    }
+}

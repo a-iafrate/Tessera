@@ -8,6 +8,10 @@ public class Space
     public string Currency { get; set; } = "EUR";
     public DateTimeOffset CreatedAt { get; set; }
 
+    // The space created automatically at registration — can't be left, only deleted along
+    // with the account (docs/02-modello-dati.md). False for every other space a user creates.
+    public bool IsPersonal { get; set; }
+
     // Every Space is on exactly one commercial tier — never null, defaults to
     // SystemPlanIds.Free at creation (docs/04-costi.md). Limits enforcement isn't wired
     // up yet; this is the schema it will read from once it is.

@@ -1,23 +1,48 @@
 @page "/"
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.Extensions.Localization
+@using Tessera.Core.Resources
+
+@inject IStringLocalizer<Messages> Localizer
 
 <PageTitle>Tessera</PageTitle>
 
 <AuthorizeView>
     <Authorized>
-        <h1>Tessera</h1>
-        <p>Sei connesso come <strong>@context.User.Identity?.Name</strong>.</p>
-        <p><a href="/link/telegram">Collega Telegram</a></p>
-        <form action="Account/Logout" method="post">
-            <AntiforgeryToken />
-            <input type="hidden" name="returnUrl" value="" />
-            <button type="submit" class="btn btn-link">Log out</button>
-        </form>
+        <div class="container">
+            <h1>@Localizer["Dashboard.Welcome", context.User.Identity?.Name ?? ""]</h1>
+            <p class="text-soft">@Localizer["Dashboard.Subtitle"]</p>
+
+            <div class="seam" aria-hidden="true">
+                <span></span><span></span><span></span>
+            </div>
+
+            <div style="display: flex; gap: var(--space-4); flex-wrap: wrap;">
+                <a class="card" href="/spaces" style="flex: 1; min-width: 14rem; color: var(--ink);">
+                    <h3 style="margin-bottom: var(--space-2);">@Localizer["Dashboard.SpacesTitle"]</h3>
+                    <p class="text-soft" style="margin: 0;">@Localizer["Dashboard.SpacesDescription"]</p>
+                </a>
+                <a class="card" href="/link/telegram" style="flex: 1; min-width: 14rem; color: var(--ink);">
+                    <h3 style="margin-bottom: var(--space-2);">@Localizer["Dashboard.TelegramTitle"]</h3>
+                    <p class="text-soft" style="margin: 0;">@Localizer["Dashboard.TelegramDescription"]</p>
+                </a>
+            </div>
+        </div>
     </Authorized>
     <NotAuthorized>
-        <h1>Tessera</h1>
-        <p>Il tuo assistente condiviso per lista della spesa, spese e promemoria.</p>
-        <a href="Account/Login" class="btn btn-primary">Log in</a>
-        <a href="Account/Register" class="btn btn-secondary">Register</a>
+        <div class="hero">
+            <div>
+                <h1>@Localizer["Landing.Tagline"]</h1>
+                <p class="lead">@Localizer["Landing.Lead"]</p>
+                <a class="btn btn-primary btn-lg" href="Account/Register">@Localizer["Landing.CtaPrimary"]</a>
+                <a class="btn btn-secondary btn-lg" href="Account/Login" style="margin-left: var(--space-3);">@Localizer["Landing.CtaSecondary"]</a>
+            </div>
+            <div class="chat-mockup" aria-hidden="true">
+                <span class="chat-bubble from-user">@Localizer["Landing.ChatUser1"]</span>
+                <span class="chat-bubble from-bot">@Localizer["Landing.ChatBot1"]</span>
+                <span class="chat-bubble from-user">@Localizer["Landing.ChatUser2"]</span>
+                <span class="chat-bubble from-bot">@Localizer["Landing.ChatBot2"]</span>
+            </div>
+        </div>
     </NotAuthorized>
 </AuthorizeView>

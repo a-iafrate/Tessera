@@ -4,26 +4,33 @@
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.Extensions.Localization
+@using Tessera.Core.Resources
 @using Tessera.Data
 
 @inject LinkService LinkService
 @inject IConfiguration Configuration
+@inject IStringLocalizer<Messages> Localizer
 
-<PageTitle>Collega Telegram</PageTitle>
+<PageTitle>@Localizer["LinkTelegram.Title"]</PageTitle>
 
-<h1>Collega Telegram</h1>
+<div class="container">
+    <h1>@Localizer["LinkTelegram.Title"]</h1>
 
-@if (deepLink is null)
-{
-    <p>Genera un link per collegare la tua chat Telegram a questo account.</p>
-    <button class="btn btn-primary" @onclick="GenerateLinkAsync">Genera link</button>
-}
-else
-{
-    <p>Apri questo link da Telegram per completare il collegamento (valido 10 minuti):</p>
-    <p><a href="@deepLink" target="_blank">@deepLink</a></p>
-    <button class="btn btn-link" @onclick="GenerateLinkAsync">Genera un nuovo link</button>
-}
+    <div class="card" style="max-width: 32rem;">
+        @if (deepLink is null)
+        {
+            <p>@Localizer["LinkTelegram.Intro"]</p>
+            <button class="btn btn-primary" @onclick="GenerateLinkAsync">@Localizer["LinkTelegram.GenerateButton"]</button>
+        }
+        else
+        {
+            <p>@Localizer["LinkTelegram.OpenInstructions"]</p>
+            <p><a href="@deepLink" target="_blank" class="text-mono">@deepLink</a></p>
+            <button class="btn btn-secondary" @onclick="GenerateLinkAsync">@Localizer["LinkTelegram.RegenerateButton"]</button>
+        }
+    </div>
+</div>
 
 @code {
     [CascadingParameter]

@@ -1,4 +1,24 @@
 ﻿@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Authorization
+
+<div class="navbar">
+    <a class="wordmark" href="/">Tessera</a>
+    <nav>
+        <AuthorizeView>
+            <Authorized>
+                <a href="/spaces">Your spaces</a>
+                <form action="Account/Logout" method="post" style="margin: 0;">
+                    <AntiforgeryToken />
+                    <input type="hidden" name="returnUrl" value="" />
+                    <button type="submit" class="btn btn-secondary">Log out</button>
+                </form>
+            </Authorized>
+            <NotAuthorized>
+                <a href="Account/Login">Log in</a>
+            </NotAuthorized>
+        </AuthorizeView>
+    </nav>
+</div>
 
 @Body
 

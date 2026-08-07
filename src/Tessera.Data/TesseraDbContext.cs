@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Tessera.Core.Channels;
+using Tessera.Core.Conversations;
 using Tessera.Core.Expenses;
 using Tessera.Core.Reminders;
 using Tessera.Core.Shopping;
@@ -48,6 +49,10 @@ public sealed class TesseraDbContext(DbContextOptions<TesseraDbContext> options)
     public DbSet<Budget> Budgets => Set<Budget>();
 
     public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
+
+    public DbSet<ConversationState> ConversationStates => Set<ConversationState>();
+
+    public DbSet<InviteToken> InviteTokens => Set<InviteToken>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

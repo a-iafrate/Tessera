@@ -286,4 +286,191 @@
   <data name="Commands.Help.Description" xml:space="preserve">
     <value>Help</value>
   </data>
+  <data name="Notification.ShoppingItemAdded" xml:space="preserve">
+    <value>{0} added {1}</value>
+  </data>
+  <data name="Notification.ShoppingItemChecked" xml:space="preserve">
+    <value>{0} checked off {1}</value>
+  </data>
+  <data name="Notification.ExpenseRecorded" xml:space="preserve">
+    <value>{0} recorded {1}</value>
+  </data>
+  <data name="Notification.ExpenseRecordedWithCategory" xml:space="preserve">
+    <value>{0} recorded {1} for {2}</value>
+  </data>
+  <data name="Space.FormerMember" xml:space="preserve">
+    <value>a former member</value>
+  </data>
+  <data name="Group.Welcome" xml:space="preserve">
+    <value>Hi! I'm Tessera, {0}'s assistant for shared lists and expenses.
+
+From here you can add to the household list by writing "/list add milk".
+
+Note: I only read messages that start with / or mention me.</value>
+  </data>
+  <data name="Group.WelcomeUnlinked" xml:space="preserve">
+    <value>Hi! I'm Tessera. To use me in this group, link your Telegram account from the console first, then add me here again.</value>
+  </data>
+  <data name="Group.Linked" xml:space="preserve">
+    <value>This group is now linked to your space.</value>
+  </data>
+  <data name="Space.WhichOne" xml:space="preserve">
+    <value>Which space did you mean?</value>
+  </data>
+  <data name="Landing.Tagline" xml:space="preserve">
+    <value>Manage your home, expenses, and calendar from chat.</value>
+  </data>
+  <data name="Landing.Lead" xml:space="preserve">
+    <value>Tessera is a shared assistant for your household — shopping lists, expenses, and reminders, all through a Telegram chat everyone already has open.</value>
+  </data>
+  <data name="Landing.ChatUser1" xml:space="preserve">
+    <value>add milk</value>
+  </data>
+  <data name="Landing.ChatBot1" xml:space="preserve">
+    <value>Got it — milk added</value>
+  </data>
+  <data name="Landing.ChatUser2" xml:space="preserve">
+    <value>how much did we spend in January?</value>
+  </data>
+  <data name="Landing.ChatBot2" xml:space="preserve">
+    <value>€342, mostly groceries</value>
+  </data>
+  <data name="Landing.CtaPrimary" xml:space="preserve">
+    <value>Get started</value>
+  </data>
+  <data name="Landing.CtaSecondary" xml:space="preserve">
+    <value>Log in</value>
+  </data>
+  <data name="Dashboard.Welcome" xml:space="preserve">
+    <value>Welcome back, {0}</value>
+  </data>
+  <data name="Dashboard.Subtitle" xml:space="preserve">
+    <value>Manage your spaces and connect Telegram from here.</value>
+  </data>
+  <data name="Dashboard.SpacesTitle" xml:space="preserve">
+    <value>Your spaces</value>
+  </data>
+  <data name="Dashboard.SpacesDescription" xml:space="preserve">
+    <value>Create a space, invite members, and manage permissions.</value>
+  </data>
+  <data name="Dashboard.TelegramTitle" xml:space="preserve">
+    <value>Link Telegram</value>
+  </data>
+  <data name="Dashboard.TelegramDescription" xml:space="preserve">
+    <value>Connect your Telegram account to start chatting with the bot.</value>
+  </data>
+  <data name="LinkTelegram.Title" xml:space="preserve">
+    <value>Link Telegram</value>
+  </data>
+  <data name="LinkTelegram.Intro" xml:space="preserve">
+    <value>Generate a link to connect your Telegram chat to this account.</value>
+  </data>
+  <data name="LinkTelegram.GenerateButton" xml:space="preserve">
+    <value>Generate link</value>
+  </data>
+  <data name="LinkTelegram.OpenInstructions" xml:space="preserve">
+    <value>Open this link from Telegram to complete the link (valid 10 minutes):</value>
+  </data>
+  <data name="LinkTelegram.RegenerateButton" xml:space="preserve">
+    <value>Generate a new link</value>
+  </data>
+  <data name="Common.Loading" xml:space="preserve">
+    <value>Loading…</value>
+  </data>
+  <data name="Spaces.Title" xml:space="preserve">
+    <value>Your spaces</value>
+  </data>
+  <data name="Spaces.Empty" xml:space="preserve">
+    <value>You don't have any spaces yet. Create the first one below.</value>
+  </data>
+  <data name="Spaces.PersonalBadge" xml:space="preserve">
+    <value>personal</value>
+  </data>
+  <data name="Spaces.CreateHeading" xml:space="preserve">
+    <value>Create a new space</value>
+  </data>
+  <data name="Spaces.CreatePlaceholder" xml:space="preserve">
+    <value>E.g. Home</value>
+  </data>
+  <data name="Spaces.CreateButton" xml:space="preserve">
+    <value>Create</value>
+  </data>
+  <data name="SpaceDetail.Title" xml:space="preserve">
+    <value>Space</value>
+  </data>
+  <data name="SpaceDetail.PersonalNote" xml:space="preserve">
+    <value>Your personal space — it can't be left, only deleted along with your account.</value>
+  </data>
+  <data name="SpaceDetail.MembersHeading" xml:space="preserve">
+    <value>Members</value>
+  </data>
+  <data name="SpaceDetail.InviteButton" xml:space="preserve">
+    <value>Invite a member</value>
+  </data>
+  <data name="AccessLevel.None" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="AccessLevel.Availability" xml:space="preserve">
+    <value>Availability</value>
+  </data>
+  <data name="AccessLevel.Read" xml:space="preserve">
+    <value>Read</value>
+  </data>
+  <data name="AccessLevel.Write" xml:space="preserve">
+    <value>Write</value>
+  </data>
+  <data name="AccessLevel.Admin" xml:space="preserve">
+    <value>Admin</value>
+  </data>
+  <data name="ResourceKind.ShoppingList" xml:space="preserve">
+    <value>Shopping list</value>
+  </data>
+  <data name="ResourceKind.Expenses" xml:space="preserve">
+    <value>Expenses</value>
+  </data>
+  <data name="ResourceKind.Reminders" xml:space="preserve">
+    <value>Reminders</value>
+  </data>
+  <data name="ResourceKind.Calendar" xml:space="preserve">
+    <value>Calendar</value>
+  </data>
+  <data name="InviteMember.Title" xml:space="preserve">
+    <value>Invite a member</value>
+  </data>
+  <data name="InviteMember.LinkGenerated" xml:space="preserve">
+    <value>Link generated — share it with the person you want to invite (valid 7 days):</value>
+  </data>
+  <data name="InviteMember.PresetHeading" xml:space="preserve">
+    <value>Choose a preset</value>
+  </data>
+  <data name="InviteMember.Preset.Partner" xml:space="preserve">
+    <value>Partner</value>
+  </data>
+  <data name="InviteMember.Preset.Family" xml:space="preserve">
+    <value>Family</value>
+  </data>
+  <data name="InviteMember.Preset.Friend" xml:space="preserve">
+    <value>Friend</value>
+  </data>
+  <data name="InviteMember.Preset.Custom" xml:space="preserve">
+    <value>Custom</value>
+  </data>
+  <data name="InviteMember.GenerateButton" xml:space="preserve">
+    <value>Generate link</value>
+  </data>
+  <data name="InviteAccept.Title" xml:space="preserve">
+    <value>Invite</value>
+  </data>
+  <data name="InviteAccept.InvalidTitle" xml:space="preserve">
+    <value>Invalid invite</value>
+  </data>
+  <data name="InviteAccept.InvalidMessage" xml:space="preserve">
+    <value>This link is invalid or has expired. Ask whoever invited you to generate a new one.</value>
+  </data>
+  <data name="InviteAccept.InvitedBy" xml:space="preserve">
+    <value>{0} invited you to join this space.</value>
+  </data>
+  <data name="InviteAccept.AcceptButton" xml:space="preserve">
+    <value>Accept</value>
+  </data>
 </root>

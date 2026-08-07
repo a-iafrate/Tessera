@@ -20,6 +20,10 @@ public sealed class SpaceConfiguration : IEntityTypeConfiguration<Space>
         // the app always sets PlanId explicitly at creation regardless.
         builder.Property(x => x.PlanId).HasDefaultValue(SystemPlanIds.Free);
 
+        // Existing rows predate this column and were all created at registration — true is
+        // the correct backfill, not just a placeholder.
+        builder.Property(x => x.IsPersonal).HasDefaultValue(true);
+
         builder.HasOne<SubscriptionPlan>()
             .WithMany()
             .HasForeignKey(x => x.PlanId)

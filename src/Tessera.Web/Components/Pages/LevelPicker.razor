@@ -1,0 +1,28 @@
+@using Microsoft.Extensions.Localization
+@using Tessera.Core.Resources
+@using Tessera.Core.Spaces
+
+@inject IStringLocalizer<Messages> Localizer
+
+<label style="display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);">
+    <span>@Label</span>
+    <select value="@Level" @onchange="OnChanged" style="padding: var(--space-1) var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);">
+        <option value="@AccessLevel.None">@Localizer["AccessLevel.None"]</option>
+        <option value="@AccessLevel.Read">@Localizer["AccessLevel.Read"]</option>
+        <option value="@AccessLevel.Write">@Localizer["AccessLevel.Write"]</option>
+    </select>
+</label>
+
+@code {
+    [Parameter]
+    public string Label { get; set; } = "";
+
+    [Parameter]
+    public AccessLevel Level { get; set; }
+
+    [Parameter]
+    public EventCallback<AccessLevel> LevelChanged { get; set; }
+
+    private Task OnChanged(ChangeEventArgs e) =>
+        LevelChanged.InvokeAsync(Enum.Parse<AccessLevel>((string)e.Value!));
+}

@@ -286,4 +286,35 @@
   <data name="Commands.Help.Description" xml:space="preserve">
     <value>Aiuto</value>
   </data>
+  <data name="Notification.ShoppingItemAdded" xml:space="preserve">
+    <value>{0} ha aggiunto {1}</value>
+  </data>
+  <data name="Notification.ShoppingItemChecked" xml:space="preserve">
+    <value>{0} ha spuntato {1}</value>
+  </data>
+  <data name="Notification.ExpenseRecorded" xml:space="preserve">
+    <value>{0} ha registrato {1}</value>
+  </data>
+  <data name="Notification.ExpenseRecordedWithCategory" xml:space="preserve">
+    <value>{0} ha registrato {1} per {2}</value>
+  </data>
+  <data name="Space.FormerMember" xml:space="preserve">
+    <value>un ex membro</value>
+  </data>
+  <data name="Group.Welcome" xml:space="preserve">
+    <value>Ciao! Sono Tessera, l'assistente di {0} per liste e spese condivise.
+
+Da qui potete aggiungere alla lista di casa scrivendo "/list aggiungi il latte".
+
+Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
+  </data>
+  <data name="Group.WelcomeUnlinked" xml:space="preserve">
+    <value>Ciao! Sono Tessera. Per usarmi in questo gruppo, collega prima il tuo account Telegram dalla console, poi riaggiungimi qui.</value>
+  </data>
+  <data name="Group.Linked" xml:space="preserve">
+    <value>Questo gruppo è ora collegato al tuo spazio.</value>
+  </data>
+  <data name="Space.WhichOne" xml:space="preserve">
+    <value>A quale spazio ti riferisci?</value>
+  </data>
 </root>

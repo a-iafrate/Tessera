@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Tessera.Data;
 
@@ -11,9 +12,11 @@ using Tessera.Data;
 namespace Tessera.Data.Migrations
 {
     [DbContext(typeof(TesseraDbContext))]
-    partial class TesseraDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260807103249_AddSpaceIsPersonal")]
+    partial class AddSpaceIsPersonal
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -525,48 +528,6 @@ namespace Tessera.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ShoppingLists");
-                });
-
-            modelBuilder.Entity("Tessera.Core.Spaces.InviteToken", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("CalendarLevel")
-                        .HasColumnType("int");
-
-                    b.Property<DateTimeOffset?>("ConsumedAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<int>("ExpensesLevel")
-                        .HasColumnType("int");
-
-                    b.Property<DateTimeOffset>("ExpiresAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<Guid>("InvitedByUserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("RemindersLevel")
-                        .HasColumnType("int");
-
-                    b.Property<int>("ShoppingListLevel")
-                        .HasColumnType("int");
-
-                    b.Property<Guid>("SpaceId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Token")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Token")
-                        .IsUnique();
-
-                    b.ToTable("InviteTokens");
                 });
 
             modelBuilder.Entity("Tessera.Core.Spaces.Membership", b =>

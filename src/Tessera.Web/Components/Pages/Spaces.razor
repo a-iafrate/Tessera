@@ -1,0 +1,84 @@
+@page "/spaces"
+@attribute [Authorize]
+
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.Extensions.Localization
+@using Tessera.Core.Resources
+@using Tessera.Core.Spaces
+@using Tessera.Data
+
+@inject SpaceService SpaceService
+@inject IStringLocalizer<Messages> Localizer
+
+<PageTitle>@Localizer["Spaces.Title"]</PageTitle>
+
+<div class="container">
+    <h1>@Localizer["Spaces.Title"]</h1>
+
+    @if (spaces is null)
+    {
+        <p class="text-soft">@Localizer["Common.Loading"]</p>
+    }
+    else if (spaces.Count == 0)
+    {
+        <p class="text-soft">@Localizer["Spaces.Empty"]</p>
+    }
+    else
+    {
+        <div style="display: flex; flex-direction: column; gap: var(--space-3);">
+            @foreach (var space in spaces)
+            {
+                <a class="card" href="@($"/spaces/{space.Id}")" style="display: block; color: var(--ink);">
+                    <strong>@space.Name</strong>
+                    @if (space.IsPersonal)
+                    {
+                        <span class="badge badge-none" style="margin-left: var(--space-2);">@Localizer["Spaces.PersonalBadge"]</span>
+                    }
+                </a>
+            }
+        </div>
+    }
+
+    <div class="seam" aria-hidden="true">
+        <span></span><span></span><span></span>
+    </div>
+
+    <h2>@Localizer["Spaces.CreateHeading"]</h2>
+    <EditForm Model="this" OnValidSubmit="CreateAsync">
+        <div class="card" style="display: flex; gap: var(--space-3); align-items: center; max-width: 32rem;">
+            <input @bind="newSpaceName" placeholder="@Localizer["Spaces.CreatePlaceholder"]"
+                   style="flex: 1; padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);" />
+            <button type="submit" class="btn btn-primary" disabled="@string.IsNullOrWhiteSpace(newSpaceName)">@Localizer["Spaces.CreateButton"]</button>
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private IReadOnlyList<Space>? spaces;
+    private string newSpaceName = "";
+    private Guid userId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateTask!;
+        userId = Guid.Parse(authState.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        spaces = await SpaceService.GetForUserAsync(userId, CancellationToken.None);
+    }
+
+    private async Task CreateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(newSpaceName))
+        {
+            return;
+        }
+
+        await SpaceService.CreateAsync(userId, newSpaceName.Trim(), CancellationToken.None);
+        newSpaceName = "";
+        spaces = await SpaceService.GetForUserAsync(userId, CancellationToken.None);
+    }
+}

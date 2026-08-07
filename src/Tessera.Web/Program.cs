@@ -93,6 +93,10 @@ builder.Services.AddScoped<ReminderService>();
 builder.Services.AddScoped<RecurringExpenseService>();
 builder.Services.AddScoped<BudgetService>();
 builder.Services.AddScoped<DigestService>();
+builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<SpaceResolver>();
+builder.Services.AddScoped<SpaceService>();
+builder.Services.AddScoped<InviteService>();
 builder.Services.AddSingleton(new IntentRouter(Matchers.All));
 
 // The bot pipeline is only wired up once a bot token is configured, so the console works
