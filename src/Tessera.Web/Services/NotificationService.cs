@@ -17,27 +17,28 @@ namespace Tessera.Web.Services;
 public sealed class NotificationService(
     TesseraDbContext db,
     IChannelIdentityRepository identities,
+    ActorNameResolver actorNames,
     IChannel channel,
     IStringLocalizer<Messages> localizer,
     ILogger<NotificationService> logger)
 {
     public async Task NotifyAsync(ShoppingItemAdded evt, CancellationToken ct)
     {
-        var actorName = await ResolveActorNameAsync(evt.ActorUserId, ct);
+        var actorName = await ResolveActorNameAsync(evt.SpaceId, evt.ActorUserId, ct);
         await NotifyOtherMembersAsync(evt.SpaceId, evt.ActorUserId, evt.OriginChatId,
             () => localizer["Notification.ShoppingItemAdded", actorName, evt.ItemText], ct);
     }
 
     public async Task NotifyAsync(ShoppingItemChecked evt, CancellationToken ct)
     {
-        var actorName = await ResolveActorNameAsync(evt.ActorUserId, ct);
+        var actorName = await ResolveActorNameAsync(evt.SpaceId, evt.ActorUserId, ct);
         await NotifyOtherMembersAsync(evt.SpaceId, evt.ActorUserId, evt.OriginChatId,
             () => localizer["Notification.ShoppingItemChecked", actorName, evt.ItemText], ct);
     }
 
     public async Task NotifyAsync(ExpenseRecorded evt, CancellationToken ct)
     {
-        var actorName = await ResolveActorNameAsync(evt.ActorUserId, ct);
+        var actorName = await ResolveActorNameAsync(evt.SpaceId, evt.ActorUserId, ct);
         var category = evt.CategoryId is { } categoryId
             ? await db.Categories.AsNoTracking().FirstOrDefaultAsync(c => c.Id == categoryId, ct)
             : null;
@@ -52,14 +53,8 @@ public sealed class NotificationService(
         }, ct);
     }
 
-    // Active members only — MembershipArchive (docs/02-modello-dati.md) doesn't exist yet,
-    // and neither does a way to leave a space or delete an account, so "former member" is
-    // unreachable today. Falls back to the raw name if the user row is somehow gone anyway.
-    private async Task<string> ResolveActorNameAsync(Guid actorUserId, CancellationToken ct)
-    {
-        var user = await db.DomainUsers.AsNoTracking().FirstOrDefaultAsync(u => u.Id == actorUserId, ct);
-        return user?.DisplayName ?? user?.Email ?? localizer["Space.FormerMember"];
-    }
+    private async Task<string> ResolveActorNameAsync(Guid spaceId, Guid actorUserId, CancellationToken ct) =>
+        await actorNames.ResolveAsync(spaceId, actorUserId, ct) ?? localizer["Space.FormerMember"];
 
     private async Task NotifyOtherMembersAsync(
         Guid spaceId, Guid actorUserId, string? originChatId, Func<string> composeText, CancellationToken ct)

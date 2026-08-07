@@ -407,6 +407,45 @@ Note: I only read messages that start with / or mention me.</value>
   <data name="SpaceDetail.InviteButton" xml:space="preserve">
     <value>Invite a member</value>
   </data>
+  <data name="SpaceDetail.YouTag" xml:space="preserve">
+    <value>(you)</value>
+  </data>
+  <data name="SpaceDetail.RemoveButton" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="SpaceDetail.RemoveConfirm" xml:space="preserve">
+    <value>Remove {0} from this space?</value>
+  </data>
+  <data name="SpaceDetail.MakeAdminButton" xml:space="preserve">
+    <value>Make Admin</value>
+  </data>
+  <data name="SpaceDetail.MakeAdminConfirm" xml:space="preserve">
+    <value>Make {0} the Admin of this space? You'll no longer be able to manage its members.</value>
+  </data>
+  <data name="SpaceDetail.LeaveButton" xml:space="preserve">
+    <value>Leave this space</value>
+  </data>
+  <data name="SpaceDetail.LeaveConfirm" xml:space="preserve">
+    <value>Leave this space? You'll lose access to its shared lists, expenses and reminders.</value>
+  </data>
+  <data name="SpaceDetail.LeaveTransferFirstError" xml:space="preserve">
+    <value>Transfer the Admin role to another member before leaving.</value>
+  </data>
+  <data name="SpaceDetail.GenericError" xml:space="preserve">
+    <value>Something went wrong. Please try again.</value>
+  </data>
+  <data name="SpaceDetail.FormerMembersHeading" xml:space="preserve">
+    <value>Former members</value>
+  </data>
+  <data name="SpaceDetail.FormerMemberLeft" xml:space="preserve">
+    <value>Left {0}</value>
+  </data>
+  <data name="SpaceDetail.FormerMemberRemoved" xml:space="preserve">
+    <value>Removed {0}</value>
+  </data>
+  <data name="SpaceDetail.FormerMemberAccountDeleted" xml:space="preserve">
+    <value>Account deleted {0}</value>
+  </data>
   <data name="AccessLevel.None" xml:space="preserve">
     <value>None</value>
   </data>

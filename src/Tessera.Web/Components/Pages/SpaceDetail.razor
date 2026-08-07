@@ -11,6 +11,7 @@
 
 @inject SpaceService SpaceService
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JsRuntime
 @inject IStringLocalizer<Messages> Localizer
 
 <PageTitle>@(space?.Name ?? Localizer["SpaceDetail.Title"].Value)</PageTitle>
@@ -28,6 +29,11 @@
             <p class="text-soft">@Localizer["SpaceDetail.PersonalNote"]</p>
         }
 
+        @if (errorMessage is not null)
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
         <div class="seam" aria-hidden="true">
             <span></span><span></span><span></span>
         </div>
@@ -38,6 +44,10 @@
             {
                 <div class="card">
                     <strong>@displayName</strong>
+                    @if (membership.UserId == currentUserId)
+                    {
+                        <span class="text-soft">@Localizer["SpaceDetail.YouTag"]</span>
+                    }
                     <div style="margin-top: var(--space-2); display: flex; gap: var(--space-2); flex-wrap: wrap;">
                         @if (membership.IsOwner)
                         {
@@ -53,13 +63,49 @@
                             }
                         }
                     </div>
+
+                    @if (isOwner && membership.UserId != currentUserId)
+                    {
+                        <div style="margin-top: var(--space-3); display: flex; gap: var(--space-2);">
+                            <button class="btn btn-secondary" @onclick="() => MakeAdminAsync(membership.UserId, displayName)">
+                                @Localizer["SpaceDetail.MakeAdminButton"]
+                            </button>
+                            <button class="btn btn-danger" @onclick="() => RemoveMemberAsync(membership.UserId, displayName)">
+                                @Localizer["SpaceDetail.RemoveButton"]
+                            </button>
+                        </div>
+                    }
                 </div>
             }
         </div>
 
-        @if (isOwner)
+        <div style="display: flex; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-8);">
+            @if (isOwner)
+            {
+                <a class="btn btn-primary" href="@($"/spaces/{SpaceId}/invite")">@Localizer["SpaceDetail.InviteButton"]</a>
+            }
+            @if (!space.IsPersonal)
+            {
+                <button class="btn btn-danger" @onclick="LeaveAsync">@Localizer["SpaceDetail.LeaveButton"]</button>
+            }
+        </div>
+
+        @if (formerMembers.Count > 0)
         {
-            <a class="btn btn-primary" href="@($"/spaces/{SpaceId}/invite")">@Localizer["SpaceDetail.InviteButton"]</a>
+            <div class="seam" aria-hidden="true">
+                <span></span><span></span><span></span>
+            </div>
+
+            <h2>@Localizer["SpaceDetail.FormerMembersHeading"]</h2>
+            <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+                @foreach (var archived in formerMembers)
+                {
+                    <div class="card">
+                        <strong>@archived.DisplayNameSnapshot</strong>
+                        <span class="text-soft">@FormerMemberNote(archived)</span>
+                    </div>
+                }
+            </div>
         }
     }
 </div>
@@ -73,22 +119,103 @@
 
     private Space? space;
     private IReadOnlyList<(Membership Membership, string DisplayName)> members = [];
+    private IReadOnlyList<MembershipArchive> formerMembers = [];
+    private Guid currentUserId;
     private bool isOwner;
+    private string? errorMessage;
 
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthenticationStateTask!;
-        var userId = Guid.Parse(authState.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        currentUserId = Guid.Parse(authState.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-        space = await SpaceService.GetByIdAsync(SpaceId, userId, CancellationToken.None);
+        space = await SpaceService.GetByIdAsync(SpaceId, currentUserId, CancellationToken.None);
         if (space is null)
         {
             NavigationManager.NavigateTo("/spaces");
             return;
         }
 
-        members = await SpaceService.GetMembersAsync(SpaceId, userId, CancellationToken.None);
-        isOwner = await SpaceService.IsOwnerAsync(SpaceId, userId, CancellationToken.None);
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        members = await SpaceService.GetMembersAsync(SpaceId, currentUserId, CancellationToken.None);
+        formerMembers = await SpaceService.GetFormerMembersAsync(SpaceId, currentUserId, CancellationToken.None);
+        isOwner = await SpaceService.IsOwnerAsync(SpaceId, currentUserId, CancellationToken.None);
+    }
+
+    private async Task MakeAdminAsync(Guid targetUserId, string targetDisplayName)
+    {
+        errorMessage = null;
+        if (!await JsRuntime.InvokeAsync<bool>("confirm", Localizer["SpaceDetail.MakeAdminConfirm", targetDisplayName].Value))
+        {
+            return;
+        }
+
+        try
+        {
+            await SpaceService.TransferOwnershipAsync(SpaceId, currentUserId, targetUserId, CancellationToken.None);
+            await ReloadAsync();
+        }
+        catch (Exception)
+        {
+            errorMessage = Localizer["SpaceDetail.GenericError"];
+        }
+    }
+
+    private async Task RemoveMemberAsync(Guid targetUserId, string targetDisplayName)
+    {
+        errorMessage = null;
+        if (!await JsRuntime.InvokeAsync<bool>("confirm", Localizer["SpaceDetail.RemoveConfirm", targetDisplayName].Value))
+        {
+            return;
+        }
+
+        try
+        {
+            await SpaceService.RemoveMemberAsync(SpaceId, currentUserId, targetUserId, CancellationToken.None);
+            await ReloadAsync();
+        }
+        catch (Exception)
+        {
+            errorMessage = Localizer["SpaceDetail.GenericError"];
+        }
+    }
+
+    private async Task LeaveAsync()
+    {
+        errorMessage = null;
+        if (!await JsRuntime.InvokeAsync<bool>("confirm", Localizer["SpaceDetail.LeaveConfirm"].Value))
+        {
+            return;
+        }
+
+        try
+        {
+            await SpaceService.LeaveAsync(SpaceId, currentUserId, CancellationToken.None);
+            NavigationManager.NavigateTo("/spaces");
+        }
+        catch (InvalidOperationException)
+        {
+            errorMessage = Localizer["SpaceDetail.LeaveTransferFirstError"];
+        }
+        catch (Exception)
+        {
+            errorMessage = Localizer["SpaceDetail.GenericError"];
+        }
+    }
+
+    private string FormerMemberNote(MembershipArchive archived)
+    {
+        var when = archived.LeftAt.ToString("d", System.Globalization.CultureInfo.CurrentUICulture);
+        return archived.Reason switch
+        {
+            MembershipEndReason.Removed => Localizer["SpaceDetail.FormerMemberRemoved", when],
+            MembershipEndReason.AccountDeleted => Localizer["SpaceDetail.FormerMemberAccountDeleted", when],
+            _ => Localizer["SpaceDetail.FormerMemberLeft", when],
+        };
     }
 
     private string BadgeClass(AccessLevel level) => level switch

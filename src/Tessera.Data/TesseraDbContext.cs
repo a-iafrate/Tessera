@@ -54,6 +54,8 @@ public sealed class TesseraDbContext(DbContextOptions<TesseraDbContext> options)
 
     public DbSet<InviteToken> InviteTokens => Set<InviteToken>();
 
+    public DbSet<MembershipArchive> MembershipArchives => Set<MembershipArchive>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
