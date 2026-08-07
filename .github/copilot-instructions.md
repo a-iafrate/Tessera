@@ -41,6 +41,7 @@ Projects: `Tessera.Web` (host), `Tessera.Core` (domain, no infrastructure depend
 - Money is `decimal(18,2)`; parse amounts with the user's culture
 - Telegram command names are canonical English; Italian aliases are router-only
 - Dates and times: `DateTimeOffset` plus an IANA `TimeZoneId`, never a fixed offset
+- UI colors and type come only from `wwwroot/css/tokens.css` (see `docs/12-stile-sito.md`); never hardcode a hex value in a component
 
 ## Style
 

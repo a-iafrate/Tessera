@@ -65,6 +65,8 @@ Le istruzioni per gli assistenti AI sono versionate nel repository: `CLAUDE.md` 
 | [08-setup-sviluppo.md](08-setup-sviluppo.md) | Ambiente locale, ngrok, secrets, migrations |
 | [09-localizzazione.md](09-localizzazione.md) | Multilingua: router per lingua, comandi, notifiche per destinatario |
 | [10-conversazione.md](10-conversazione.md) | Onboarding, undo, recupero dagli errori, tono dei messaggi |
+| [11-logo.md](11-logo.md) | Il segno, i file, quale usare per ogni contesto |
+| [12-stile-sito.md](12-stile-sito.md) | Palette, tipografia, componenti — coerenti col logo |
 
 ## Quick start (sviluppo)
 
