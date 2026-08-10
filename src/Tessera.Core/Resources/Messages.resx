@@ -554,6 +554,9 @@ Note: I only read messages that start with / or mention me.</value>
   <data name="Profile.Saved" xml:space="preserve">
     <value>Saved.</value>
   </data>
+  <data name="Profile.Saving" xml:space="preserve">
+    <value>Saving…</value>
+  </data>
   <data name="Profile.LanguageHeading" xml:space="preserve">
     <value>Language</value>
   </data>

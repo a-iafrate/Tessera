@@ -24,7 +24,10 @@
     {
         <h1>@Localizer["InviteAccept.Title"]: @preview.Value.SpaceName</h1>
         <p>@Localizer["InviteAccept.InvitedBy", preview.Value.InviterDisplayName]</p>
-        <button class="btn btn-primary" @onclick="AcceptAsync">@Localizer["InviteAccept.AcceptButton"]</button>
+        <button class="btn btn-primary" disabled="@isBusy" @onclick="AcceptAsync">
+            @if (isBusy) { <span class="spinner" aria-hidden="true"></span> }
+            @Localizer["InviteAccept.AcceptButton"]
+        </button>
     }
 </div>
 
@@ -36,6 +39,7 @@
     private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
 
     private (string SpaceName, string InviterDisplayName)? preview;
+    private bool isBusy;
 
     protected override async Task OnInitializedAsync()
     {
@@ -47,15 +51,23 @@
 
     private async Task AcceptAsync()
     {
-        if (Token is null)
+        if (Token is null || isBusy)
         {
             return;
         }
 
-        var authState = await AuthenticationStateTask!;
-        var userId = Guid.Parse(authState.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        isBusy = true;
+        try
+        {
+            var authState = await AuthenticationStateTask!;
+            var userId = Guid.Parse(authState.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-        var membership = await InviteService.ConsumeAsync(Token, userId, CancellationToken.None);
-        NavigationManager.NavigateTo(membership is not null ? $"/spaces/{membership.SpaceId}" : "/spaces");
+            var membership = await InviteService.ConsumeAsync(Token, userId, CancellationToken.None);
+            NavigationManager.NavigateTo(membership is not null ? $"/spaces/{membership.SpaceId}" : "/spaces");
+        }
+        finally
+        {
+            isBusy = false;
+        }
     }
 }

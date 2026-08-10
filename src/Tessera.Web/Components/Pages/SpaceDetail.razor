@@ -19,7 +19,7 @@
 <div class="container">
     @if (space is null)
     {
-        <p class="text-soft">@Localizer["Common.Loading"]</p>
+        <p class="text-soft"><span class="spinner" aria-hidden="true"></span> @Localizer["Common.Loading"]</p>
     }
     else
     {
@@ -67,10 +67,10 @@
                     @if (isOwner && membership.UserId != currentUserId)
                     {
                         <div style="margin-top: var(--space-3); display: flex; gap: var(--space-2);">
-                            <button class="btn btn-secondary" @onclick="() => MakeAdminAsync(membership.UserId, displayName)">
+                            <button class="btn btn-secondary" disabled="@isBusy" @onclick="() => MakeAdminAsync(membership.UserId, displayName)">
                                 @Localizer["SpaceDetail.MakeAdminButton"]
                             </button>
-                            <button class="btn btn-danger" @onclick="() => RemoveMemberAsync(membership.UserId, displayName)">
+                            <button class="btn btn-danger" disabled="@isBusy" @onclick="() => RemoveMemberAsync(membership.UserId, displayName)">
                                 @Localizer["SpaceDetail.RemoveButton"]
                             </button>
                         </div>
@@ -90,7 +90,7 @@
             }
             @if (!space.IsPersonal)
             {
-                <button class="btn btn-danger" @onclick="LeaveAsync">@Localizer["SpaceDetail.LeaveButton"]</button>
+                <button class="btn btn-danger" disabled="@isBusy" @onclick="LeaveAsync">@Localizer["SpaceDetail.LeaveButton"]</button>
             }
         </div>
 
@@ -126,6 +126,7 @@
     private IReadOnlyList<MembershipArchive> formerMembers = [];
     private Guid currentUserId;
     private bool isOwner;
+    private bool isBusy;
     private string? errorMessage;
 
     protected override async Task OnInitializedAsync()
@@ -152,12 +153,18 @@
 
     private async Task MakeAdminAsync(Guid targetUserId, string targetDisplayName)
     {
+        if (isBusy)
+        {
+            return;
+        }
+
         errorMessage = null;
         if (!await JsRuntime.InvokeAsync<bool>("confirm", Localizer["SpaceDetail.MakeAdminConfirm", targetDisplayName].Value))
         {
             return;
         }
 
+        isBusy = true;
         try
         {
             await SpaceService.TransferOwnershipAsync(SpaceId, currentUserId, targetUserId, CancellationToken.None);
@@ -167,16 +174,26 @@
         {
             errorMessage = Localizer["SpaceDetail.GenericError"];
         }
+        finally
+        {
+            isBusy = false;
+        }
     }
 
     private async Task RemoveMemberAsync(Guid targetUserId, string targetDisplayName)
     {
+        if (isBusy)
+        {
+            return;
+        }
+
         errorMessage = null;
         if (!await JsRuntime.InvokeAsync<bool>("confirm", Localizer["SpaceDetail.RemoveConfirm", targetDisplayName].Value))
         {
             return;
         }
 
+        isBusy = true;
         try
         {
             await SpaceService.RemoveMemberAsync(SpaceId, currentUserId, targetUserId, CancellationToken.None);
@@ -186,16 +203,26 @@
         {
             errorMessage = Localizer["SpaceDetail.GenericError"];
         }
+        finally
+        {
+            isBusy = false;
+        }
     }
 
     private async Task LeaveAsync()
     {
+        if (isBusy)
+        {
+            return;
+        }
+
         errorMessage = null;
         if (!await JsRuntime.InvokeAsync<bool>("confirm", Localizer["SpaceDetail.LeaveConfirm"].Value))
         {
             return;
         }
 
+        isBusy = true;
         try
         {
             await SpaceService.LeaveAsync(SpaceId, currentUserId, CancellationToken.None);
@@ -208,6 +235,10 @@
         catch (Exception)
         {
             errorMessage = Localizer["SpaceDetail.GenericError"];
+        }
+        finally
+        {
+            isBusy = false;
         }
     }
 

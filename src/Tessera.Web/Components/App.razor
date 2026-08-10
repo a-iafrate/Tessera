@@ -21,6 +21,21 @@
     <Routes @rendermode="PageRenderMode" />
     <ReconnectModal />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
+    <script>
+        // Login/Register/AccountDelete post via a real HTML form (static SSR, no Blazor
+        // circuit yet) — a plain onsubmit="" attribute gets misparsed as a component event
+        // binding by Razor, so the marker is a data attribute instead (docs/12-stile-sito.md:
+        // an in-flight request must never look frozen).
+        document.addEventListener('submit', function (e) {
+            var form = e.target.closest('[data-spinner-form]');
+            if (!form) { return; }
+            var button = form.querySelector('button[type=submit]');
+            if (button && !button.disabled) {
+                button.disabled = true;
+                button.insertAdjacentHTML('afterbegin', '<span class="spinner"></span> ');
+            }
+        }, true);
+    </script>
 </body>
 
 </html>

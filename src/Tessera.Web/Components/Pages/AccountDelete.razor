@@ -39,7 +39,7 @@
             <li>@Localizer["AccountDelete.EffectIrreversible"]</li>
         </ul>
 
-        <form action="Account/DeleteAccount" method="post">
+        <form action="Account/DeleteAccount" method="post" data-spinner-form>
             <AntiforgeryToken />
             <div class="form-floating mb-3">
                 <input class="form-control" id="confirmEmail" @bind="confirmEmail" @bind:event="oninput" placeholder=" " autocomplete="off" />

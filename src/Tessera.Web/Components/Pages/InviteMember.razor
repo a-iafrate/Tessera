@@ -50,7 +50,10 @@
             </div>
         }
 
-        <button class="btn btn-primary" style="margin-top: var(--space-4);" @onclick="GenerateAsync">@Localizer["InviteMember.GenerateButton"]</button>
+        <button class="btn btn-primary" style="margin-top: var(--space-4);" disabled="@isBusy" @onclick="GenerateAsync">
+            @if (isBusy) { <span class="spinner" aria-hidden="true"></span> }
+            @Localizer["InviteMember.GenerateButton"]
+        </button>
     </div>
 </div>
 
@@ -67,6 +70,7 @@
     private Guid userId;
     private string preset = "Partner";
     private string? inviteLink;
+    private bool isBusy;
 
     private AccessLevel shoppingListLevel = AccessLevel.Write;
     private AccessLevel expensesLevel = AccessLevel.Write;
@@ -90,15 +94,28 @@
     // column in every preset: same kind of low-stakes shared content.
     private async Task GenerateAsync()
     {
-        var (shopping, expenses, reminders, calendar, notes) = preset switch
+        if (isBusy)
         {
-            "Partner" => (AccessLevel.Write, AccessLevel.Write, AccessLevel.Write, AccessLevel.Read, AccessLevel.Write),
-            "Family" => (AccessLevel.Write, AccessLevel.None, AccessLevel.Write, AccessLevel.Availability, AccessLevel.Write),
-            "Friend" => (AccessLevel.None, AccessLevel.None, AccessLevel.None, AccessLevel.Availability, AccessLevel.None),
-            _ => (shoppingListLevel, expensesLevel, remindersLevel, AccessLevel.None, notesLevel),
-        };
+            return;
+        }
 
-        var invite = await InviteService.CreateAsync(SpaceId, userId, shopping, expenses, reminders, calendar, notes, CancellationToken.None);
-        inviteLink = $"{NavigationManager.BaseUri}invite/accept?token={invite.Token}";
+        isBusy = true;
+        try
+        {
+            var (shopping, expenses, reminders, calendar, notes) = preset switch
+            {
+                "Partner" => (AccessLevel.Write, AccessLevel.Write, AccessLevel.Write, AccessLevel.Read, AccessLevel.Write),
+                "Family" => (AccessLevel.Write, AccessLevel.None, AccessLevel.Write, AccessLevel.Availability, AccessLevel.Write),
+                "Friend" => (AccessLevel.None, AccessLevel.None, AccessLevel.None, AccessLevel.Availability, AccessLevel.None),
+                _ => (shoppingListLevel, expensesLevel, remindersLevel, AccessLevel.None, notesLevel),
+            };
+
+            var invite = await InviteService.CreateAsync(SpaceId, userId, shopping, expenses, reminders, calendar, notes, CancellationToken.None);
+            inviteLink = $"{NavigationManager.BaseUri}invite/accept?token={invite.Token}";
+        }
+        finally
+        {
+            isBusy = false;
+        }
     }
 }

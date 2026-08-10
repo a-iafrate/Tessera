@@ -24,7 +24,7 @@
 <div class="container">
     @if (space is null)
     {
-        <p class="text-soft">@Localizer["Common.Loading"]</p>
+        <p class="text-soft"><span class="spinner" aria-hidden="true"></span> @Localizer["Common.Loading"]</p>
     }
     else
     {
@@ -55,7 +55,8 @@
                                style="padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);" />
                         <input type="date" @bind="newDate"
                                style="padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);" />
-                        <button type="submit" class="btn btn-primary" disabled="@(newAmount is null || newAmount <= 0)">
+                        <button type="submit" class="btn btn-primary" disabled="@(isBusy || newAmount is null || newAmount <= 0)">
+                            @if (isBusy) { <span class="spinner" aria-hidden="true"></span> }
                             @Localizer["Expenses.RecordButton"]
                         </button>
                     </div>
@@ -97,6 +98,7 @@
     private Space? space;
     private Guid userId;
     private bool canWrite;
+    private bool isBusy;
     private IReadOnlyList<Expense> recent = [];
     private IReadOnlyList<Category> categories = [];
     private decimal monthlyTotal;
@@ -133,11 +135,12 @@
 
     private async Task RecordAsync()
     {
-        if (newAmount is null || newAmount <= 0)
+        if (isBusy || newAmount is null || newAmount <= 0)
         {
             return;
         }
 
+        isBusy = true;
         errorMessage = null;
         try
         {
@@ -153,6 +156,10 @@
         catch (UnauthorizedAccessException)
         {
             errorMessage = Localizer["Expenses.GenericError"];
+        }
+        finally
+        {
+            isBusy = false;
         }
     }
 

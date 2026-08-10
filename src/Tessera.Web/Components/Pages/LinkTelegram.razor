@@ -21,13 +21,19 @@
         @if (deepLink is null)
         {
             <p>@Localizer["LinkTelegram.Intro"]</p>
-            <button class="btn btn-primary" @onclick="GenerateLinkAsync">@Localizer["LinkTelegram.GenerateButton"]</button>
+            <button class="btn btn-primary" disabled="@isBusy" @onclick="GenerateLinkAsync">
+                @if (isBusy) { <span class="spinner" aria-hidden="true"></span> }
+                @Localizer["LinkTelegram.GenerateButton"]
+            </button>
         }
         else
         {
             <p>@Localizer["LinkTelegram.OpenInstructions"]</p>
             <p><a href="@deepLink" target="_blank" class="text-mono">@deepLink</a></p>
-            <button class="btn btn-secondary" @onclick="GenerateLinkAsync">@Localizer["LinkTelegram.RegenerateButton"]</button>
+            <button class="btn btn-secondary" disabled="@isBusy" @onclick="GenerateLinkAsync">
+                @if (isBusy) { <span class="spinner" aria-hidden="true"></span> }
+                @Localizer["LinkTelegram.RegenerateButton"]
+            </button>
         }
     </div>
 </div>
@@ -37,14 +43,28 @@
     private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
 
     private string? deepLink;
+    private bool isBusy;
 
     private async Task GenerateLinkAsync()
     {
-        var authState = await AuthenticationStateTask!;
-        var userId = Guid.Parse(authState.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        if (isBusy)
+        {
+            return;
+        }
 
-        var token = await LinkService.CreateTokenAsync(userId, "telegram", CancellationToken.None);
-        var botUsername = Configuration["Telegram:BotUsername"];
-        deepLink = $"https://t.me/{botUsername}?start={token.Token}";
+        isBusy = true;
+        try
+        {
+            var authState = await AuthenticationStateTask!;
+            var userId = Guid.Parse(authState.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+            var token = await LinkService.CreateTokenAsync(userId, "telegram", CancellationToken.None);
+            var botUsername = Configuration["Telegram:BotUsername"];
+            deepLink = $"https://t.me/{botUsername}?start={token.Token}";
+        }
+        finally
+        {
+            isBusy = false;
+        }
     }
 }

@@ -25,7 +25,7 @@
 <div class="container">
     @if (space is null)
     {
-        <p class="text-soft">@Localizer["Common.Loading"]</p>
+        <p class="text-soft"><span class="spinner" aria-hidden="true"></span> @Localizer["Common.Loading"]</p>
     }
     else
     {
@@ -48,7 +48,8 @@
                             <input type="date" @bind="newDate" style="flex: 1; padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);" />
                             <input type="time" @bind="newTime" style="flex: 1; padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);" />
                         </div>
-                        <button type="submit" class="btn btn-primary" disabled="@string.IsNullOrWhiteSpace(newText)">
+                        <button type="submit" class="btn btn-primary" disabled="@(isBusy || string.IsNullOrWhiteSpace(newText))">
+                            @if (isBusy) { <span class="spinner" aria-hidden="true"></span> }
                             @Localizer["Reminders.AddButton"]
                         </button>
                     </div>
@@ -74,7 +75,7 @@
                         <span style="flex: 1;">@reminder.Text</span>
                         @if (canWrite)
                         {
-                            <button class="btn btn-secondary" @onclick="() => CompleteAsync(reminder.Id)">@Localizer["Reminders.DoneButton"]</button>
+                            <button class="btn btn-secondary" disabled="@isBusy" @onclick="() => CompleteAsync(reminder.Id)">@Localizer["Reminders.DoneButton"]</button>
                         }
                     </div>
                 }
@@ -93,6 +94,7 @@
     private Space? space;
     private Guid userId;
     private bool canWrite;
+    private bool isBusy;
     private TimeZoneInfo? timeZone;
     private string timeZoneId = "UTC";
     private IReadOnlyList<Reminder> pending = [];
@@ -129,11 +131,12 @@
 
     private async Task CreateAsync()
     {
-        if (string.IsNullOrWhiteSpace(newText))
+        if (isBusy || string.IsNullOrWhiteSpace(newText))
         {
             return;
         }
 
+        isBusy = true;
         errorMessage = null;
         try
         {
@@ -149,10 +152,20 @@
         {
             errorMessage = Localizer["Reminders.GenericError"];
         }
+        finally
+        {
+            isBusy = false;
+        }
     }
 
     private async Task CompleteAsync(Guid reminderId)
     {
+        if (isBusy)
+        {
+            return;
+        }
+
+        isBusy = true;
         errorMessage = null;
         try
         {
@@ -162,6 +175,10 @@
         catch (UnauthorizedAccessException)
         {
             errorMessage = Localizer["Reminders.GenericError"];
+        }
+        finally
+        {
+            isBusy = false;
         }
     }
 }

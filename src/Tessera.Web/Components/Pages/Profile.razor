@@ -18,17 +18,25 @@
 <div class="container">
     <h1>@Localizer["Profile.Title"]</h1>
 
-    @if (statusMessage is not null)
+    @if (!loaded)
     {
-        <div class="alert alert-success">@statusMessage</div>
+        <p class="text-soft"><span class="spinner" aria-hidden="true"></span> @Localizer["Common.Loading"]</p>
     }
-
-    @if (loaded)
+    else
     {
+        @if (isBusy)
+        {
+            <p class="text-soft"><span class="spinner" aria-hidden="true"></span> @Localizer["Profile.Saving"]</p>
+        }
+        else if (statusMessage is not null)
+        {
+            <div class="alert alert-success">@statusMessage</div>
+        }
+
         <div class="card" style="max-width: 32rem;">
             <h2>@Localizer["Profile.LanguageHeading"]</h2>
             <div class="form-floating mb-3">
-                <select class="form-control" id="culture" value="@culture" @onchange="OnCultureChangedAsync">
+                <select class="form-control" id="culture" value="@culture" disabled="@isBusy" @onchange="OnCultureChangedAsync">
                     <option value="en">English</option>
                     <option value="it">Italiano</option>
                 </select>
@@ -40,7 +48,7 @@
         <div class="card" style="max-width: 32rem;">
             <h2>@Localizer["Profile.TimeZoneHeading"]</h2>
             <div class="form-floating mb-3">
-                <select class="form-control" id="timeZone" value="@(timeZoneId ?? "")" @onchange="OnTimeZoneChangedAsync">
+                <select class="form-control" id="timeZone" value="@(timeZoneId ?? "")" disabled="@isBusy" @onchange="OnTimeZoneChangedAsync">
                     <option value="">@Localizer["Profile.TimeZoneNotSet"]</option>
                     @foreach (var tz in TimeZones)
                     {
@@ -57,7 +65,7 @@
             <div class="card" style="max-width: 32rem;">
                 <h2>@Localizer["Profile.DefaultSpaceHeading"]</h2>
                 <div class="form-floating mb-3">
-                    <select class="form-control" id="defaultSpace" value="@(defaultSpaceId?.ToString() ?? "")" @onchange="OnDefaultSpaceChangedAsync">
+                    <select class="form-control" id="defaultSpace" value="@(defaultSpaceId?.ToString() ?? "")" disabled="@isBusy" @onchange="OnDefaultSpaceChangedAsync">
                         @foreach (var space in spaces)
                         {
                             <option value="@space.Id">@space.Name</option>
@@ -95,6 +103,7 @@
 
     private Guid userId;
     private bool loaded;
+    private bool isBusy;
     private string culture = "en";
     private string? timeZoneId;
     private Guid? defaultSpaceId;
@@ -117,29 +126,68 @@
 
     private async Task OnCultureChangedAsync(ChangeEventArgs e)
     {
-        culture = e.Value?.ToString() ?? "en";
-        await UserProvisioningService.SetPreferredCultureAsync(userId, culture, CancellationToken.None);
-        statusMessage = Localizer["Profile.Saved"];
+        if (isBusy)
+        {
+            return;
+        }
+
+        isBusy = true;
+        try
+        {
+            culture = e.Value?.ToString() ?? "en";
+            await UserProvisioningService.SetPreferredCultureAsync(userId, culture, CancellationToken.None);
+            statusMessage = Localizer["Profile.Saved"];
+        }
+        finally
+        {
+            isBusy = false;
+        }
     }
 
     private async Task OnTimeZoneChangedAsync(ChangeEventArgs e)
     {
-        var value = e.Value?.ToString();
-        timeZoneId = string.IsNullOrEmpty(value) ? null : value;
-        if (timeZoneId is not null)
+        if (isBusy)
         {
-            await UserProvisioningService.SetTimeZoneAsync(userId, timeZoneId, CancellationToken.None);
-            statusMessage = Localizer["Profile.Saved"];
+            return;
+        }
+
+        isBusy = true;
+        try
+        {
+            var value = e.Value?.ToString();
+            timeZoneId = string.IsNullOrEmpty(value) ? null : value;
+            if (timeZoneId is not null)
+            {
+                await UserProvisioningService.SetTimeZoneAsync(userId, timeZoneId, CancellationToken.None);
+                statusMessage = Localizer["Profile.Saved"];
+            }
+        }
+        finally
+        {
+            isBusy = false;
         }
     }
 
     private async Task OnDefaultSpaceChangedAsync(ChangeEventArgs e)
     {
+        if (isBusy)
+        {
+            return;
+        }
+
         if (Guid.TryParse(e.Value?.ToString(), out var spaceId))
         {
-            defaultSpaceId = spaceId;
-            await UserProvisioningService.SetDefaultSpaceAsync(userId, spaceId, CancellationToken.None);
-            statusMessage = Localizer["Profile.Saved"];
+            isBusy = true;
+            try
+            {
+                defaultSpaceId = spaceId;
+                await UserProvisioningService.SetDefaultSpaceAsync(userId, spaceId, CancellationToken.None);
+                statusMessage = Localizer["Profile.Saved"];
+            }
+            finally
+            {
+                isBusy = false;
+            }
         }
     }
 }

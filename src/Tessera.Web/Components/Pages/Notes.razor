@@ -23,7 +23,7 @@
 <div class="container">
     @if (space is null)
     {
-        <p class="text-soft">@Localizer["Common.Loading"]</p>
+        <p class="text-soft"><span class="spinner" aria-hidden="true"></span> @Localizer["Common.Loading"]</p>
     }
     else
     {
@@ -44,7 +44,8 @@
                                style="padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);" />
                         <textarea @bind="newBody" placeholder="@Localizer["Notes.BodyPlaceholder"]" rows="3"
                                   style="padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm); font-family: inherit;"></textarea>
-                        <button type="submit" class="btn btn-primary" disabled="@string.IsNullOrWhiteSpace(newBody)">
+                        <button type="submit" class="btn btn-primary" disabled="@(isBusy || string.IsNullOrWhiteSpace(newBody))">
+                            @if (isBusy) { <span class="spinner" aria-hidden="true"></span> }
                             @Localizer["Notes.AddButton"]
                         </button>
                     </div>
@@ -74,10 +75,11 @@
                                 <textarea @bind="editBody" rows="3"
                                           style="padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm); font-family: inherit;"></textarea>
                                 <div style="display: flex; gap: var(--space-2);">
-                                    <button class="btn btn-primary" disabled="@string.IsNullOrWhiteSpace(editBody)" @onclick="() => SaveEditAsync(note.Id)">
+                                    <button class="btn btn-primary" disabled="@(isBusy || string.IsNullOrWhiteSpace(editBody))" @onclick="() => SaveEditAsync(note.Id)">
+                                        @if (isBusy) { <span class="spinner" aria-hidden="true"></span> }
                                         @Localizer["Notes.SaveButton"]
                                     </button>
-                                    <button class="btn btn-secondary" @onclick="CancelEdit">@Localizer["Notes.CancelButton"]</button>
+                                    <button class="btn btn-secondary" disabled="@isBusy" @onclick="CancelEdit">@Localizer["Notes.CancelButton"]</button>
                                 </div>
                             </div>
                         }
@@ -91,8 +93,8 @@
                             @if (canWrite)
                             {
                                 <div style="display: flex; gap: var(--space-2);">
-                                    <button class="btn btn-secondary" @onclick="() => StartEdit(note)">@Localizer["Notes.EditButton"]</button>
-                                    <button class="btn btn-danger" @onclick="() => DeleteAsync(note.Id)">@Localizer["Notes.DeleteButton"]</button>
+                                    <button class="btn btn-secondary" disabled="@isBusy" @onclick="() => StartEdit(note)">@Localizer["Notes.EditButton"]</button>
+                                    <button class="btn btn-danger" disabled="@isBusy" @onclick="() => DeleteAsync(note.Id)">@Localizer["Notes.DeleteButton"]</button>
                                 </div>
                             }
                         }
@@ -113,6 +115,7 @@
     private Space? space;
     private Guid userId;
     private bool canWrite;
+    private bool isBusy;
     private IReadOnlyList<Note> notes = [];
     private string newTitle = "";
     private string newBody = "";
@@ -144,11 +147,12 @@
 
     private async Task CreateAsync()
     {
-        if (string.IsNullOrWhiteSpace(newBody))
+        if (isBusy || string.IsNullOrWhiteSpace(newBody))
         {
             return;
         }
 
+        isBusy = true;
         errorMessage = null;
         try
         {
@@ -160,6 +164,10 @@
         catch (UnauthorizedAccessException)
         {
             errorMessage = Localizer["Notes.GenericError"];
+        }
+        finally
+        {
+            isBusy = false;
         }
     }
 
@@ -177,11 +185,12 @@
 
     private async Task SaveEditAsync(Guid noteId)
     {
-        if (string.IsNullOrWhiteSpace(editBody))
+        if (isBusy || string.IsNullOrWhiteSpace(editBody))
         {
             return;
         }
 
+        isBusy = true;
         errorMessage = null;
         try
         {
@@ -193,15 +202,20 @@
         {
             errorMessage = Localizer["Notes.GenericError"];
         }
+        finally
+        {
+            isBusy = false;
+        }
     }
 
     private async Task DeleteAsync(Guid noteId)
     {
-        if (!await JsRuntime.InvokeAsync<bool>("confirm", Localizer["Notes.DeleteConfirm"].Value))
+        if (isBusy || !await JsRuntime.InvokeAsync<bool>("confirm", Localizer["Notes.DeleteConfirm"].Value))
         {
             return;
         }
 
+        isBusy = true;
         errorMessage = null;
         try
         {
@@ -211,6 +225,10 @@
         catch (UnauthorizedAccessException)
         {
             errorMessage = Localizer["Notes.GenericError"];
+        }
+        finally
+        {
+            isBusy = false;
         }
     }
 }

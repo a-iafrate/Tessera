@@ -23,7 +23,7 @@
 <div class="container">
     @if (space is null)
     {
-        <p class="text-soft">@Localizer["Common.Loading"]</p>
+        <p class="text-soft"><span class="spinner" aria-hidden="true"></span> @Localizer["Common.Loading"]</p>
     }
     else
     {
@@ -42,7 +42,8 @@
                     <div style="display: flex; gap: var(--space-2);">
                         <input @bind="newItemText" placeholder="@Localizer["ShoppingList.AddPlaceholder"]"
                                style="flex: 1; padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);" />
-                        <button type="submit" class="btn btn-primary" disabled="@string.IsNullOrWhiteSpace(newItemText)">
+                        <button type="submit" class="btn btn-primary" disabled="@(isBusy || string.IsNullOrWhiteSpace(newItemText))">
+                            @if (isBusy) { <span class="spinner" aria-hidden="true"></span> }
                             @Localizer["ShoppingList.AddButton"]
                         </button>
                     </div>
@@ -71,9 +72,9 @@
                         {
                             @if (!item.IsChecked)
                             {
-                                <button class="btn btn-secondary" @onclick="() => CheckAsync(item.Id)">@Localizer["ShoppingList.CheckButton"]</button>
+                                <button class="btn btn-secondary" disabled="@isBusy" @onclick="() => CheckAsync(item.Id)">@Localizer["ShoppingList.CheckButton"]</button>
                             }
-                            <button class="btn btn-danger" @onclick="() => RemoveAsync(item.Id)">@Localizer["ShoppingList.RemoveButton"]</button>
+                            <button class="btn btn-danger" disabled="@isBusy" @onclick="() => RemoveAsync(item.Id)">@Localizer["ShoppingList.RemoveButton"]</button>
                         }
                     </div>
                 }
@@ -81,7 +82,7 @@
 
             @if (canWrite)
             {
-                <button class="btn btn-danger" style="margin-top: var(--space-4);" @onclick="ClearAsync">@Localizer["ShoppingList.ClearButton"]</button>
+                <button class="btn btn-danger" style="margin-top: var(--space-4);" disabled="@isBusy" @onclick="ClearAsync">@Localizer["ShoppingList.ClearButton"]</button>
             }
         }
     }
@@ -97,6 +98,7 @@
     private Space? space;
     private Guid userId;
     private bool canWrite;
+    private bool isBusy;
     private IReadOnlyList<ShoppingItem> items = [];
     private string newItemText = "";
     private string? errorMessage;
@@ -124,11 +126,12 @@
 
     private async Task AddAsync()
     {
-        if (string.IsNullOrWhiteSpace(newItemText))
+        if (isBusy || string.IsNullOrWhiteSpace(newItemText))
         {
             return;
         }
 
+        isBusy = true;
         errorMessage = null;
         try
         {
@@ -140,10 +143,20 @@
         {
             errorMessage = Localizer["ShoppingList.GenericError"];
         }
+        finally
+        {
+            isBusy = false;
+        }
     }
 
     private async Task CheckAsync(Guid itemId)
     {
+        if (isBusy)
+        {
+            return;
+        }
+
+        isBusy = true;
         errorMessage = null;
         try
         {
@@ -154,10 +167,20 @@
         {
             errorMessage = Localizer["ShoppingList.GenericError"];
         }
+        finally
+        {
+            isBusy = false;
+        }
     }
 
     private async Task RemoveAsync(Guid itemId)
     {
+        if (isBusy)
+        {
+            return;
+        }
+
+        isBusy = true;
         errorMessage = null;
         try
         {
@@ -168,15 +191,20 @@
         {
             errorMessage = Localizer["ShoppingList.GenericError"];
         }
+        finally
+        {
+            isBusy = false;
+        }
     }
 
     private async Task ClearAsync()
     {
-        if (!await JsRuntime.InvokeAsync<bool>("confirm", Localizer["ShoppingList.ClearConfirm"].Value))
+        if (isBusy || !await JsRuntime.InvokeAsync<bool>("confirm", Localizer["ShoppingList.ClearConfirm"].Value))
         {
             return;
         }
 
+        isBusy = true;
         errorMessage = null;
         try
         {
@@ -186,6 +214,10 @@
         catch (UnauthorizedAccessException)
         {
             errorMessage = Localizer["ShoppingList.GenericError"];
+        }
+        finally
+        {
+            isBusy = false;
         }
     }
 }

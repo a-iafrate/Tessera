@@ -18,7 +18,7 @@
 <div class="row">
     <div class="col-lg-6">
         <StatusMessage Message="@Message" />
-        <EditForm Model="Input" method="post" OnValidSubmit="RegisterUser" FormName="register">
+        <EditForm Model="Input" method="post" OnValidSubmit="RegisterUser" FormName="register" data-spinner-form="true">
             <DataAnnotationsValidator />
             <h2>Create a new account.</h2>
             <hr />

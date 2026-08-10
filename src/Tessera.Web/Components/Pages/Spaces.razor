@@ -19,7 +19,7 @@
 
     @if (spaces is null)
     {
-        <p class="text-soft">@Localizer["Common.Loading"]</p>
+        <p class="text-soft"><span class="spinner" aria-hidden="true"></span> @Localizer["Common.Loading"]</p>
     }
     else if (spaces.Count == 0)
     {
@@ -50,7 +50,10 @@
         <div class="card" style="display: flex; gap: var(--space-3); align-items: center; max-width: 32rem;">
             <input @bind="newSpaceName" placeholder="@Localizer["Spaces.CreatePlaceholder"]"
                    style="flex: 1; padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);" />
-            <button type="submit" class="btn btn-primary" disabled="@string.IsNullOrWhiteSpace(newSpaceName)">@Localizer["Spaces.CreateButton"]</button>
+            <button type="submit" class="btn btn-primary" disabled="@(isBusy || string.IsNullOrWhiteSpace(newSpaceName))">
+                @if (isBusy) { <span class="spinner" aria-hidden="true"></span> }
+                @Localizer["Spaces.CreateButton"]
+            </button>
         </div>
     </EditForm>
 </div>
@@ -62,6 +65,7 @@
     private IReadOnlyList<Space>? spaces;
     private string newSpaceName = "";
     private Guid userId;
+    private bool isBusy;
 
     protected override async Task OnInitializedAsync()
     {
@@ -72,13 +76,21 @@
 
     private async Task CreateAsync()
     {
-        if (string.IsNullOrWhiteSpace(newSpaceName))
+        if (isBusy || string.IsNullOrWhiteSpace(newSpaceName))
         {
             return;
         }
 
-        await SpaceService.CreateAsync(userId, newSpaceName.Trim(), CancellationToken.None);
-        newSpaceName = "";
-        spaces = await SpaceService.GetForUserAsync(userId, CancellationToken.None);
+        isBusy = true;
+        try
+        {
+            await SpaceService.CreateAsync(userId, newSpaceName.Trim(), CancellationToken.None);
+            newSpaceName = "";
+            spaces = await SpaceService.GetForUserAsync(userId, CancellationToken.None);
+        }
+        finally
+        {
+            isBusy = false;
+        }
     }
 }

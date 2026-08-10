@@ -63,6 +63,23 @@ a:hover { text-decoration: underline; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn:not(:disabled):hover { opacity: 0.9; }
 
+/* Spinner — an async action (API call) is in flight and would otherwise look frozen,
+   since Blazor Server doesn't re-render mid-await without one (docs/12-stile-sito.md). */
+.spinner {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .btn-primary { background: var(--clay); color: #fff; }
 .btn-secondary { background: transparent; color: var(--ink); border: 1px solid var(--line); }
 .btn-secondary:not(:disabled):hover { background: var(--paper-raised); opacity: 1; }
@@ -265,6 +282,8 @@ body > h1 {
   border-color: var(--teal);
   box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--teal);
 }
+
+.form-control:disabled { opacity: 0.6; cursor: wait; }
 
 /* Floating label — Bootstrap's pattern, recreated with our tokens */
 .form-floating { position: relative; }
