@@ -208,7 +208,8 @@ public enum ResourceKind
     Reminders    = 3,
     Calendar     = 4,
     Documents    = 5,   // fase 4
-    Email        = 6    // fase 4
+    Email        = 6,   // fase 4
+    Notes        = 7
 }
 
 public enum AccessLevel
@@ -347,6 +348,26 @@ public class Reminder
 `AssignedToUserId` nullable permette sia "ricordami" che "ricorda a noi": in uno spazio condiviso la differenza conta.
 
 Il parsing della data in linguaggio naturale ("giovedì", "fra due settimane", "il 15") è il caso in cui il fast path si arrende presto — vedi [05-ottimizzazioni.md](05-ottimizzazioni.md).
+
+### Note
+
+```csharp
+public class Note
+{
+    public Guid Id { get; set; }
+    public Guid SpaceId { get; set; }
+    public string? Title { get; set; }
+    public string Body { get; set; } = null!;          // contenuto utente, non si traduce
+    public Guid CreatedByUserId { get; set; }
+    public Guid? LastEditedByUserId { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+```
+
+Testo libero condiviso per spazio — la stessa idea delle liste generiche, ma senza la struttura a voci spuntabili: una nota è un blocco di testo, non un elenco. `Title` è opzionale: molte note sono un pensiero breve senza bisogno di un titolo.
+
+Niente FK da `CreatedByUserId`/`LastEditedByUserId` verso `User`, per lo stesso motivo di `AddedByUserId` su `ShoppingItem` — la resa passa sempre da `ResolveActorName` (vedi sotto).
 
 ### Spese ricorrenti
 

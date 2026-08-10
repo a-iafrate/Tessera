@@ -134,6 +134,24 @@ public sealed class ShoppingListService(TesseraDbContext db, IAccessPolicy acces
         return item;
     }
 
+    // Exact-match counterpart to RemoveItemAsync, same reasoning as CheckItemByIdAsync — the
+    // console list renders specific rows with delete buttons, so it deletes by id rather than
+    // re-running the fuzzy text match against whatever the user last typed.
+    public async Task<ShoppingItem?> RemoveItemByIdAsync(Guid spaceId, Guid userId, Guid itemId, CancellationToken ct)
+    {
+        await EnsureAccessAsync(spaceId, userId, AccessLevel.Write, ct);
+
+        var item = await FindItemInSpaceAsync(spaceId, itemId, ct);
+        if (item is null)
+        {
+            return null;
+        }
+
+        db.ShoppingItems.Remove(item);
+        await db.SaveChangesAsync(ct);
+        return item;
+    }
+
     public async Task<IReadOnlyList<ShoppingItem>> GetItemsAsync(
         Guid spaceId, Guid userId, string? listName, CancellationToken ct)
     {

@@ -93,6 +93,7 @@ dotnet user-secrets set "Telegram:WebhookSecret" "$(openssl rand -hex 32)"
 dotnet user-secrets set "AzureOpenAI:Endpoint"   "https://....openai.azure.com/"
 dotnet user-secrets set "AzureOpenAI:ApiKey"     "..."
 dotnet user-secrets set "AzureOpenAI:Deployment" "gpt-4o-mini"
+dotnet user-secrets set "ApplicationInsights:ConnectionString" "InstrumentationKey=...;IngestionEndpoint=..."
 dotnet user-secrets set "ConnectionStrings:Default" \
   "Server=(localdb)\\MSSQLLocalDB;Database=Tessera;Trusted_Connection=True;"
 ```

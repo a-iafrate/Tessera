@@ -46,6 +46,7 @@
                 <LevelPicker Label="@Localizer["ResourceKind.ShoppingList"].Value" @bind-Level="shoppingListLevel" />
                 <LevelPicker Label="@Localizer["ResourceKind.Expenses"].Value" @bind-Level="expensesLevel" />
                 <LevelPicker Label="@Localizer["ResourceKind.Reminders"].Value" @bind-Level="remindersLevel" />
+                <LevelPicker Label="@Localizer["ResourceKind.Notes"].Value" @bind-Level="notesLevel" />
             </div>
         }
 
@@ -70,6 +71,7 @@
     private AccessLevel shoppingListLevel = AccessLevel.Write;
     private AccessLevel expensesLevel = AccessLevel.Write;
     private AccessLevel remindersLevel = AccessLevel.Write;
+    private AccessLevel notesLevel = AccessLevel.Write;
 
     protected override async Task OnInitializedAsync()
     {
@@ -84,18 +86,19 @@
     }
 
     // Presets per docs/02-modello-dati.md — Calendar isn't usable yet (Fase 2), so "Custom"
-    // has no Calendar control and always leaves it at None.
+    // has no Calendar control and always leaves it at None. Notes mirrors the ShoppingList
+    // column in every preset: same kind of low-stakes shared content.
     private async Task GenerateAsync()
     {
-        var (shopping, expenses, reminders, calendar) = preset switch
+        var (shopping, expenses, reminders, calendar, notes) = preset switch
         {
-            "Partner" => (AccessLevel.Write, AccessLevel.Write, AccessLevel.Write, AccessLevel.Read),
-            "Family" => (AccessLevel.Write, AccessLevel.None, AccessLevel.Write, AccessLevel.Availability),
-            "Friend" => (AccessLevel.None, AccessLevel.None, AccessLevel.None, AccessLevel.Availability),
-            _ => (shoppingListLevel, expensesLevel, remindersLevel, AccessLevel.None),
+            "Partner" => (AccessLevel.Write, AccessLevel.Write, AccessLevel.Write, AccessLevel.Read, AccessLevel.Write),
+            "Family" => (AccessLevel.Write, AccessLevel.None, AccessLevel.Write, AccessLevel.Availability, AccessLevel.Write),
+            "Friend" => (AccessLevel.None, AccessLevel.None, AccessLevel.None, AccessLevel.Availability, AccessLevel.None),
+            _ => (shoppingListLevel, expensesLevel, remindersLevel, AccessLevel.None, notesLevel),
         };
 
-        var invite = await InviteService.CreateAsync(SpaceId, userId, shopping, expenses, reminders, calendar, CancellationToken.None);
+        var invite = await InviteService.CreateAsync(SpaceId, userId, shopping, expenses, reminders, calendar, notes, CancellationToken.None);
         inviteLink = $"{NavigationManager.BaseUri}invite/accept?token={invite.Token}";
     }
 }

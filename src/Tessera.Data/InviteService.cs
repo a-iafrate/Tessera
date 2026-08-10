@@ -10,7 +10,7 @@ public sealed class InviteService(TesseraDbContext db)
 {
     public async Task<InviteToken> CreateAsync(
         Guid spaceId, Guid invitedByUserId, AccessLevel shoppingListLevel, AccessLevel expensesLevel,
-        AccessLevel remindersLevel, AccessLevel calendarLevel, CancellationToken ct)
+        AccessLevel remindersLevel, AccessLevel calendarLevel, AccessLevel notesLevel, CancellationToken ct)
     {
         var membership = await db.Memberships
             .FirstOrDefaultAsync(m => m.SpaceId == spaceId && m.UserId == invitedByUserId, ct);
@@ -29,6 +29,7 @@ public sealed class InviteService(TesseraDbContext db)
             ExpensesLevel = expensesLevel,
             RemindersLevel = remindersLevel,
             CalendarLevel = calendarLevel,
+            NotesLevel = notesLevel,
             ExpiresAt = DateTimeOffset.UtcNow.AddDays(7),
         };
         db.InviteTokens.Add(invite);
@@ -90,8 +91,8 @@ public sealed class InviteService(TesseraDbContext db)
         };
         db.Memberships.Add(membership);
 
-        AccessLevel[] levels = [invite.ShoppingListLevel, invite.ExpensesLevel, invite.RemindersLevel, invite.CalendarLevel];
-        ResourceKind[] resources = [ResourceKind.ShoppingList, ResourceKind.Expenses, ResourceKind.Reminders, ResourceKind.Calendar];
+        AccessLevel[] levels = [invite.ShoppingListLevel, invite.ExpensesLevel, invite.RemindersLevel, invite.CalendarLevel, invite.NotesLevel];
+        ResourceKind[] resources = [ResourceKind.ShoppingList, ResourceKind.Expenses, ResourceKind.Reminders, ResourceKind.Calendar, ResourceKind.Notes];
         for (var i = 0; i < resources.Length; i++)
         {
             if (levels[i] != AccessLevel.None)

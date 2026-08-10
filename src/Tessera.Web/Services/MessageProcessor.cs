@@ -44,6 +44,7 @@ public sealed class MessageProcessor(
         ["/collega"] = "/link",
         ["/lingua"] = "/language",
         ["/aiuto"] = "/help",
+        ["/nota"] = "/note",
     };
 
     private static string ResolveCommandAlias(string text)
@@ -355,6 +356,7 @@ public sealed class MessageProcessor(
         var notifications = scope.ServiceProvider.GetRequiredService<NotificationService>();
         var onboarding = scope.ServiceProvider.GetRequiredService<OnboardingService>();
         var undo = scope.ServiceProvider.GetRequiredService<UndoService>();
+        var notes = scope.ServiceProvider.GetRequiredService<NoteService>();
 
         if (message.CallbackData is { } callbackData)
         {
@@ -442,6 +444,17 @@ public sealed class MessageProcessor(
                 await channel.SendTextAsync(address, monthReply, ct);
                 return;
             }
+
+            case NativeCommand.Note:
+            {
+                var noteReply = await HandleNoteCommandAsync(
+                    notes, undo, onboarding, address, spaceId, user.Id, text["/note".Length..], ct);
+                if (noteReply is not null)
+                {
+                    await channel.SendTextAsync(address, noteReply, ct);
+                }
+                return;
+            }
         }
 
         string? reply;
@@ -470,7 +483,7 @@ public sealed class MessageProcessor(
             // Either nothing matched at all, or a reminder attempt was recognized but its date
             // still needs interpreting — both go to L3 (docs/05-ottimizzazioni.md).
             reply = await HandleLlmFallbackAsync(
-                scope, shopping, expenses, reminders, budgets, notifications, undo, onboarding, address, spaceId, user, culture, text, ct);
+                scope, shopping, expenses, reminders, notes, budgets, notifications, undo, onboarding, address, spaceId, user, culture, text, ct);
         }
 
         if (reply is not null)
@@ -485,7 +498,7 @@ public sealed class MessageProcessor(
     // consistent no matter which router level produced the action.
     private async Task<string?> HandleLlmFallbackAsync(
         AsyncServiceScope scope, ShoppingListService shopping, ExpenseService expenses, ReminderService reminders,
-        BudgetService budgets, NotificationService notifications, UndoService undo, OnboardingService onboarding,
+        NoteService notes, BudgetService budgets, NotificationService notifications, UndoService undo, OnboardingService onboarding,
         ChannelAddress address, Guid spaceId, User user, CultureInfo culture, string? text, CancellationToken ct)
     {
         if (llmFallback is null || string.IsNullOrWhiteSpace(text))
@@ -533,6 +546,12 @@ public sealed class MessageProcessor(
             LlmTools.QueryMonthlyExpenses => await HandleExpensesQueryAsync(expenses, spaceId, user, culture, ct),
             LlmTools.QueryExpenseHistory => await HandleHistoryQueryAsync(expenses, spaceId, user, culture, args, ct),
             LlmTools.CreateReminder => await HandleLlmReminderAsync(scope, address, spaceId, user, culture, args, ct),
+            LlmTools.CreateNote => await CreateNoteAndReplyAsync(
+                notes, undo, onboarding, address, spaceId, user.Id,
+                GetOptionalString(args, "title"), args.GetProperty("body").GetString() ?? "", ct),
+            LlmTools.ShowNotes => await HandleShowNotesAsync(notes, spaceId, user.Id, ct),
+            LlmTools.DeleteNote => await HandleLlmDeleteNoteAsync(
+                notes, spaceId, user.Id, args.GetProperty("search_text").GetString() ?? "", ct),
             LlmTools.CorrectLastShoppingItem when recentAction is not null => await HandleShoppingCorrectionAsync(
                 shopping, address, spaceId, user.Id, recentAction.ItemId, args.GetProperty("corrected_text").GetString() ?? "", ct),
             _ => await SendNotUnderstoodAsync(address, text, culture, ct),
@@ -700,6 +719,7 @@ public sealed class MessageProcessor(
         "shopping" => localizer["Onboarding.HintShopping"],
         "expenses" => localizer["Onboarding.HintExpenses"],
         "reminders" => localizer["Onboarding.HintReminders"],
+        "notes" => localizer["Onboarding.HintNotes"],
         _ => "",
     };
 
@@ -728,6 +748,7 @@ public sealed class MessageProcessor(
         "shopping.clear" => localizer["Undo.ShoppingClear"],
         "expense.record" => localizer["Undo.ExpenseRecord"],
         "reminder.create" => localizer["Undo.ReminderCreate"],
+        "note.create" => localizer["Undo.NoteCreate"],
         _ => localizer["Undo.Generic"],
     };
 
@@ -741,6 +762,7 @@ public sealed class MessageProcessor(
         List,
         Expense,
         Month,
+        Note,
     }
 
     private static NativeCommand DetectNativeCommand(string text) => text switch
@@ -752,6 +774,7 @@ public sealed class MessageProcessor(
         _ when text.StartsWith("/list", StringComparison.OrdinalIgnoreCase) => NativeCommand.List,
         _ when text.StartsWith("/expense", StringComparison.OrdinalIgnoreCase) => NativeCommand.Expense,
         _ when text.StartsWith("/month", StringComparison.OrdinalIgnoreCase) => NativeCommand.Month,
+        _ when text.StartsWith("/note", StringComparison.OrdinalIgnoreCase) => NativeCommand.Note,
         _ => NativeCommand.None,
     };
 
@@ -773,6 +796,7 @@ public sealed class MessageProcessor(
         NativeCommand.Digest => (ResourceKind.ShoppingList, AccessLevel.Read),
         NativeCommand.List => (ResourceKind.ShoppingList, AccessLevel.Read),
         NativeCommand.Month => (ResourceKind.Expenses, AccessLevel.Read),
+        NativeCommand.Note => (ResourceKind.Notes, AccessLevel.Read),
         _ => (ResourceKind.ShoppingList, AccessLevel.Read),
     };
 
@@ -958,6 +982,7 @@ public sealed class MessageProcessor(
         ResourceKind.Expenses => localizer["ResourceKind.Expenses"],
         ResourceKind.Reminders => localizer["ResourceKind.Reminders"],
         ResourceKind.Calendar => localizer["ResourceKind.Calendar"],
+        ResourceKind.Notes => localizer["ResourceKind.Notes"],
         _ => resource.ToString(),
     };
 
@@ -1628,6 +1653,58 @@ public sealed class MessageProcessor(
         return null;
     }
 
+    // /note is a native L1 command: bare lists, anything else is free text saved verbatim as
+    // the body (no title) — the model-driven create_note tool is what fills in a title, when
+    // the phrasing has one to extract.
+    private async Task<string?> HandleNoteCommandAsync(
+        NoteService notes, UndoService undo, OnboardingService onboarding, ChannelAddress address,
+        Guid spaceId, Guid userId, string argsText, CancellationToken ct)
+    {
+        var trimmed = argsText.Trim();
+        return trimmed.Length == 0
+            ? await HandleShowNotesAsync(notes, spaceId, userId, ct)
+            : await CreateNoteAndReplyAsync(notes, undo, onboarding, address, spaceId, userId, title: null, trimmed, ct);
+    }
+
+    private async Task<string?> HandleShowNotesAsync(NoteService notes, Guid spaceId, Guid userId, CancellationToken ct)
+    {
+        var all = await notes.GetNotesAsync(spaceId, userId, ct);
+        if (all.Count == 0)
+        {
+            return localizer["Notes.ListEmpty"];
+        }
+
+        var lines = all.Select(n => n.Title is { Length: > 0 }
+            ? localizer["Notes.ListItemLineTitled", n.Title, n.Body].Value
+            : localizer["Notes.ListItemLine", n.Body].Value);
+        return string.Join('\n', lines);
+    }
+
+    // Shared by the native /note command and the create_note L3 tool — both create-and-confirm
+    // the same way, undo button included (docs/10-conversazione.md).
+    private async Task<string?> CreateNoteAndReplyAsync(
+        NoteService notes, UndoService undo, OnboardingService onboarding, ChannelAddress address,
+        Guid spaceId, Guid userId, string? title, string body, CancellationToken ct)
+    {
+        var note = await notes.CreateAsync(spaceId, userId, title, body, ct);
+        await undo.RecordNoteAsync(userId, spaceId, note.Id, ct);
+        await FinalizeUsefulActionReplyAsync(onboarding, address, userId, "notes", localizer["Notes.Created"].Value, ct);
+        return null;
+    }
+
+    private async Task<string?> HandleLlmDeleteNoteAsync(
+        NoteService notes, Guid spaceId, Guid userId, string searchText, CancellationToken ct)
+    {
+        var note = await notes.FindNoteAsync(spaceId, userId, searchText, ct);
+        if (note is null)
+        {
+            return localizer["Notes.NotFound"];
+        }
+
+        await notes.DeleteAsync(spaceId, userId, note.Id, ct);
+        return localizer["Notes.Deleted"];
+    }
+
     private string GetFrequencyDisplayName(RecurrenceFrequency frequency) => frequency switch
     {
         RecurrenceFrequency.Daily => localizer["Reminders.FrequencyDaily"],
@@ -1825,6 +1902,7 @@ public sealed class MessageProcessor(
         $"/list — {localizer["Commands.List.Description"]}",
         $"/expense — {localizer["Commands.Expense.Description"]}",
         $"/remind — {localizer["Commands.Remind.Description"]}",
+        $"/note — {localizer["Commands.Note.Description"]}",
         $"/month — {localizer["Commands.Month.Description"]}",
         $"/link — {localizer["Commands.Link.Description"]}",
         $"/language — {localizer["Commands.Language.Description"]}",

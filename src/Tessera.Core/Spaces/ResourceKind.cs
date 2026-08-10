@@ -8,4 +8,5 @@ public enum ResourceKind
     Calendar = 4,
     Documents = 5,
     Email = 6,
+    Notes = 7,
 }

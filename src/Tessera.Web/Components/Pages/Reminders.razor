@@ -1,0 +1,167 @@
+@page "/spaces/{SpaceId:guid}/reminders"
+@attribute [Authorize]
+
+@using System.Globalization
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.Extensions.Localization
+@using Tessera.Core.Abstractions
+@using Tessera.Core.Reminders
+@using Tessera.Core.Resources
+@using Tessera.Core.Spaces
+@using Tessera.Data
+@using Tessera.Web.Services
+
+@inject SpaceService SpaceService
+@inject ReminderService ReminderService
+@inject IAccessPolicy AccessPolicy
+@inject UserProvisioningService UserProvisioningService
+@inject NavigationManager NavigationManager
+@inject IStringLocalizer<Messages> Localizer
+
+<PageTitle>@Localizer["Reminders.PageTitle"]</PageTitle>
+
+<div class="container">
+    @if (space is null)
+    {
+        <p class="text-soft">@Localizer["Common.Loading"]</p>
+    }
+    else
+    {
+        <a href="/" class="text-soft">@Localizer["Common.BackToDashboard"]</a>
+        <h1>@Localizer["Reminders.PageTitle"] — @space.Name</h1>
+
+        @if (errorMessage is not null)
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        @if (canWrite)
+        {
+            <div class="card" style="max-width: 32rem; margin-bottom: var(--space-6);">
+                <EditForm Model="this" OnValidSubmit="CreateAsync">
+                    <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+                        <input @bind="newText" placeholder="@Localizer["Reminders.TextPlaceholder"]"
+                               style="padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);" />
+                        <div style="display: flex; gap: var(--space-2);">
+                            <input type="date" @bind="newDate" style="flex: 1; padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);" />
+                            <input type="time" @bind="newTime" style="flex: 1; padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);" />
+                        </div>
+                        <button type="submit" class="btn btn-primary" disabled="@string.IsNullOrWhiteSpace(newText)">
+                            @Localizer["Reminders.AddButton"]
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        }
+
+        <div class="seam" aria-hidden="true">
+            <span></span><span></span><span></span>
+        </div>
+
+        @if (pending.Count == 0)
+        {
+            <p class="text-soft">@Localizer["Reminders.ListEmpty"]</p>
+        }
+        else
+        {
+            <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+                @foreach (var reminder in pending)
+                {
+                    <div class="card" style="display: flex; align-items: center; gap: var(--space-3);">
+                        <span class="text-soft" style="width: 10rem;">@MessageProcessor.FormatDueAt(reminder.DueAt, timeZone!, CultureInfo.CurrentUICulture)</span>
+                        <span style="flex: 1;">@reminder.Text</span>
+                        @if (canWrite)
+                        {
+                            <button class="btn btn-secondary" @onclick="() => CompleteAsync(reminder.Id)">@Localizer["Reminders.DoneButton"]</button>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid SpaceId { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private Space? space;
+    private Guid userId;
+    private bool canWrite;
+    private TimeZoneInfo? timeZone;
+    private string timeZoneId = "UTC";
+    private IReadOnlyList<Reminder> pending = [];
+    private string newText = "";
+    private DateOnly newDate = DateOnly.FromDateTime(DateTime.Today);
+    private TimeOnly newTime = new(9, 0);
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateTask!;
+        userId = Guid.Parse(authState.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        space = await SpaceService.GetByIdAsync(SpaceId, userId, CancellationToken.None);
+        if (space is null || !await AccessPolicy.CanAsync(userId, SpaceId, ResourceKind.Reminders, AccessLevel.Read, CancellationToken.None))
+        {
+            NavigationManager.NavigateTo($"/spaces/{SpaceId}");
+            return;
+        }
+
+        canWrite = await AccessPolicy.CanAsync(userId, SpaceId, ResourceKind.Reminders, AccessLevel.Write, CancellationToken.None);
+
+        var user = await UserProvisioningService.GetAsync(userId, CancellationToken.None);
+        timeZoneId = user.TimeZoneId ?? "UTC";
+        timeZone = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        pending = await ReminderService.GetPendingAsync(SpaceId, userId, CancellationToken.None);
+    }
+
+    private async Task CreateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(newText))
+        {
+            return;
+        }
+
+        errorMessage = null;
+        try
+        {
+            var localDateTime = newDate.ToDateTime(newTime);
+            var dueAt = new DateTimeOffset(localDateTime, timeZone!.GetUtcOffset(localDateTime));
+            await ReminderService.CreateOnceAsync(SpaceId, userId, newText.Trim(), dueAt, timeZoneId, CancellationToken.None);
+            newText = "";
+            newDate = DateOnly.FromDateTime(DateTime.Today);
+            newTime = new(9, 0);
+            await ReloadAsync();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            errorMessage = Localizer["Reminders.GenericError"];
+        }
+    }
+
+    private async Task CompleteAsync(Guid reminderId)
+    {
+        errorMessage = null;
+        try
+        {
+            await ReminderService.CompleteAsync(SpaceId, userId, reminderId, CancellationToken.None);
+            await ReloadAsync();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            errorMessage = Localizer["Reminders.GenericError"];
+        }
+    }
+}

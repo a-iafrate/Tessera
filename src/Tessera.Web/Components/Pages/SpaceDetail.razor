@@ -80,6 +80,10 @@
         </div>
 
         <div style="display: flex; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-8);">
+            <a class="btn btn-secondary" href="@($"/spaces/{SpaceId}/shopping-list")">@Localizer["SpaceDetail.ShoppingListButton"]</a>
+            <a class="btn btn-secondary" href="@($"/spaces/{SpaceId}/expenses")">@Localizer["SpaceDetail.ExpensesButton"]</a>
+            <a class="btn btn-secondary" href="@($"/spaces/{SpaceId}/reminders")">@Localizer["SpaceDetail.RemindersButton"]</a>
+            <a class="btn btn-secondary" href="@($"/spaces/{SpaceId}/notes")">@Localizer["SpaceDetail.NotesButton"]</a>
             @if (isOwner)
             {
                 <a class="btn btn-primary" href="@($"/spaces/{SpaceId}/invite")">@Localizer["SpaceDetail.InviteButton"]</a>
@@ -244,6 +248,7 @@
         ResourceKind.Expenses => Localizer["ResourceKind.Expenses"],
         ResourceKind.Reminders => Localizer["ResourceKind.Reminders"],
         ResourceKind.Calendar => Localizer["ResourceKind.Calendar"],
+        ResourceKind.Notes => Localizer["ResourceKind.Notes"],
         _ => resource.ToString(),
     };
 }

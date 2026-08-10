@@ -44,6 +44,7 @@ Zero OAuth. Tutto vive nel database.
 - [ ] Parsing date in linguaggio naturale via L3, con rilettura in conferma (vedi [05](05-ottimizzazioni.md))
 - [ ] **Spese ricorrenti** con auto-registrazione o promemoria
 - [ ] **Budget per categoria** con avviso alla soglia
+- [ ] **Note**: testo libero condiviso per spazio — crea, mostra, modifica, elimina
 - [ ] **Digest quotidiano**: promemoria di oggi, cosa manca in lista, stato del budget
 - [ ] `IScheduledJob` + worker temporizzato per promemoria, digest, ricorrenze
 - [ ] Comandi nativi: `/list`, `/expense`, `/remind`, `/month`, `/link`, `/language`, `/help` + alias italiani
@@ -88,6 +89,7 @@ Pesa più di qualsiasi funzione aggiuntiva: è ciò che determina se qualcuno us
 - [ ] Selettore di lingua e fuso orario nel profilo (scrive `User.PreferredCulture`)
 - [ ] Scelta dello spazio di default
 - [ ] Console localizzata IT/EN
+- [ ] Dashboard con anteprima dati live per spazio: promemoria imminenti, voci in lista, note recenti — non solo link di navigazione
 - [ ] **Homepage pubblica, privacy policy, termini** — prerequisito per la Fase 2
 - [ ] **Privacy policy tradotta in tutte le lingue dichiarate come supportate**
 

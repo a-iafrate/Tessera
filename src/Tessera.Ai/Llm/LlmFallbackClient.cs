@@ -14,7 +14,7 @@ namespace Tessera.Ai.Llm;
 // (docs/09-localizzazione.md) — and stay first in the request so the cacheable prefix never
 // shifts. Anything that varies (language, time zone, current time, space name) goes in a
 // second system message, never into the first.
-public sealed class LlmFallbackClient(ChatClient chatClient, ILogger<LlmFallbackClient> logger, TelemetryClient telemetry)
+public sealed class LlmFallbackClient(ChatClient chatClient, ILogger<LlmFallbackClient> logger, TelemetryClient? telemetry = null)
 {
     private const string SystemPrompt = """
         You are Tessera, a personal assistant for a household's shared shopping list, expenses
@@ -96,11 +96,11 @@ public sealed class LlmFallbackClient(ChatClient chatClient, ILogger<LlmFallback
     // value, Application Insights computes the percentiles afterward.
     private void TrackTurn(LlmContext context, TimeSpan elapsed, ChatTokenUsage? usage)
     {
-        telemetry.TrackMetric(new MetricTelemetry("L3LatencyMs", elapsed.TotalMilliseconds) { Properties = { ["Culture"] = context.Culture } });
+        telemetry?.TrackMetric(new MetricTelemetry("L3LatencyMs", elapsed.TotalMilliseconds) { Properties = { ["Culture"] = context.Culture } });
 
         if (usage is not null)
         {
-            telemetry.TrackMetric(new MetricTelemetry("L3TokensTotal", usage.TotalTokenCount) { Properties = { ["Culture"] = context.Culture } });
+            telemetry?.TrackMetric(new MetricTelemetry("L3TokensTotal", usage.TotalTokenCount) { Properties = { ["Culture"] = context.Culture } });
         }
     }
 

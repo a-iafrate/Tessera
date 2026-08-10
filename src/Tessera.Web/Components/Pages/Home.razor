@@ -1,8 +1,25 @@
 @page "/"
+@using System.Globalization
+@using System.Security.Claims
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.Extensions.Localization
+@using Tessera.Core.Abstractions
+@using Tessera.Core.Expenses
+@using Tessera.Core.Notes
+@using Tessera.Core.Reminders
 @using Tessera.Core.Resources
+@using Tessera.Core.Shopping
+@using Tessera.Core.Spaces
+@using Tessera.Data
+@using Tessera.Web.Services
 
+@inject SpaceService SpaceService
+@inject ShoppingListService ShoppingListService
+@inject ReminderService ReminderService
+@inject ExpenseService ExpenseService
+@inject NoteService NoteService
+@inject IAccessPolicy AccessPolicy
+@inject UserProvisioningService UserProvisioningService
 @inject IStringLocalizer<Messages> Localizer
 
 <PageTitle>Tessera</PageTitle>
@@ -16,6 +33,104 @@
             <div class="seam" aria-hidden="true">
                 <span></span><span></span><span></span>
             </div>
+
+            @if (previews is null)
+            {
+                <p class="text-soft">@Localizer["Common.Loading"]</p>
+            }
+            else if (previews.Count == 0)
+            {
+                <p class="text-soft">@Localizer["Dashboard.NoPreviews"]</p>
+            }
+            else
+            {
+                <div style="display: flex; flex-direction: column; gap: var(--space-4); margin-bottom: var(--space-6);">
+                    @foreach (var preview in previews)
+                    {
+                        <div class="card">
+                            <a href="@($"/spaces/{preview.Space.Id}")" style="color: var(--ink);">
+                                <h3 style="margin-bottom: var(--space-3);">@preview.Space.Name</h3>
+                            </a>
+
+                            @if (preview.Reminders is not null)
+                            {
+                                <p class="text-soft" style="margin: var(--space-2) 0 var(--space-1);"><strong>@Localizer["Dashboard.RemindersHeading"]</strong></p>
+                                @if (preview.Reminders.Count > 0)
+                                {
+                                    <ul style="margin: 0 0 var(--space-2);">
+                                        @foreach (var reminder in preview.Reminders)
+                                        {
+                                            <li>@MessageProcessor.FormatDueAt(reminder.DueAt, timeZone!, CultureInfo.CurrentUICulture) — @reminder.Text</li>
+                                        }
+                                    </ul>
+                                }
+                                else
+                                {
+                                    <p class="text-soft" style="margin: 0 0 var(--space-2);">@Localizer["Reminders.ListEmpty"]</p>
+                                }
+                                <a href="@($"/spaces/{preview.Space.Id}/reminders")">@Localizer["Dashboard.ViewAllReminders"]</a>
+                            }
+
+                            @if (preview.ShoppingItems is not null)
+                            {
+                                <p class="text-soft" style="margin: var(--space-2) 0 var(--space-1);"><strong>@Localizer["Dashboard.ShoppingHeading"]</strong></p>
+                                @if (preview.ShoppingItems.Count > 0)
+                                {
+                                    <ul style="margin: 0 0 var(--space-2);">
+                                        @foreach (var item in preview.ShoppingItems)
+                                        {
+                                            <li>@item.RawText</li>
+                                        }
+                                    </ul>
+                                }
+                                else
+                                {
+                                    <p class="text-soft" style="margin: 0 0 var(--space-2);">@Localizer["ShoppingList.Empty"]</p>
+                                }
+                                <a href="@($"/spaces/{preview.Space.Id}/shopping-list")">@Localizer["Dashboard.ViewAllShoppingList"]</a>
+                            }
+
+                            @if (preview.Expenses is not null)
+                            {
+                                <p class="text-soft" style="margin: var(--space-2) 0 var(--space-1);"><strong>@Localizer["Dashboard.ExpensesHeading"]</strong></p>
+                                @if (preview.Expenses.Count > 0)
+                                {
+                                    <ul style="margin: 0 0 var(--space-2);">
+                                        @foreach (var expense in preview.Expenses)
+                                        {
+                                            <li>@MoneyFormatter.Format(expense.Amount, expense.Currency, CultureInfo.CurrentUICulture.Name) — @(expense.Merchant ?? Localizer["Expenses.NoCategory"].Value)</li>
+                                        }
+                                    </ul>
+                                }
+                                else
+                                {
+                                    <p class="text-soft" style="margin: 0 0 var(--space-2);">@Localizer["Expenses.Empty"]</p>
+                                }
+                                <a href="@($"/spaces/{preview.Space.Id}/expenses")">@Localizer["Dashboard.ViewAllExpenses"]</a>
+                            }
+
+                            @if (preview.Notes is not null)
+                            {
+                                <p class="text-soft" style="margin: var(--space-2) 0 var(--space-1);"><strong>@Localizer["Dashboard.NotesHeading"]</strong></p>
+                                @if (preview.Notes.Count > 0)
+                                {
+                                    <ul style="margin: 0 0 var(--space-2);">
+                                        @foreach (var note in preview.Notes)
+                                        {
+                                            <li>@(string.IsNullOrEmpty(note.Title) ? Truncate(note.Body) : note.Title)</li>
+                                        }
+                                    </ul>
+                                }
+                                else
+                                {
+                                    <p class="text-soft" style="margin: 0 0 var(--space-2);">@Localizer["Notes.Empty"]</p>
+                                }
+                                <a href="@($"/spaces/{preview.Space.Id}/notes")">@Localizer["Dashboard.ViewAllNotes"]</a>
+                            }
+                        </div>
+                    }
+                </div>
+            }
 
             <div style="display: flex; gap: var(--space-4); flex-wrap: wrap;">
                 <a class="card" href="/spaces" style="flex: 1; min-width: 14rem; color: var(--ink);">
@@ -46,3 +161,57 @@
         </div>
     </NotAuthorized>
 </AuthorizeView>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    // A null list means the user has no Read access to that resource in the space — the
+    // section is hidden entirely. An empty (non-null) list means access exists but there's
+    // nothing yet — the section still renders, with an empty-state message and a link into
+    // the full page, so an empty category never disappears along with the way to fill it.
+    private sealed record SpacePreview(
+        Space Space, IReadOnlyList<Reminder>? Reminders, IReadOnlyList<ShoppingItem>? ShoppingItems,
+        IReadOnlyList<Expense>? Expenses, IReadOnlyList<Note>? Notes);
+
+    private IReadOnlyList<SpacePreview>? previews;
+    private TimeZoneInfo? timeZone;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateTask!;
+        if (authState.User.Identity?.IsAuthenticated != true)
+        {
+            return;
+        }
+
+        var userId = Guid.Parse(authState.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var user = await UserProvisioningService.GetAsync(userId, CancellationToken.None);
+        timeZone = TimeZoneInfo.FindSystemTimeZoneById(user.TimeZoneId ?? "UTC");
+
+        var spaces = await SpaceService.GetForUserAsync(userId, CancellationToken.None);
+        var result = new List<SpacePreview>();
+        foreach (var space in spaces)
+        {
+            IReadOnlyList<Reminder>? reminders = await AccessPolicy.CanAsync(userId, space.Id, ResourceKind.Reminders, AccessLevel.Read, CancellationToken.None)
+                ? (await ReminderService.GetPendingAsync(space.Id, userId, CancellationToken.None)).Take(3).ToList()
+                : null;
+            IReadOnlyList<ShoppingItem>? shoppingItems = await AccessPolicy.CanAsync(userId, space.Id, ResourceKind.ShoppingList, AccessLevel.Read, CancellationToken.None)
+                ? (await ShoppingListService.GetItemsAsync(space.Id, userId, listName: null, CancellationToken.None))
+                    .Where(i => !i.IsChecked).Take(5).ToList()
+                : null;
+            IReadOnlyList<Expense>? expenses = await AccessPolicy.CanAsync(userId, space.Id, ResourceKind.Expenses, AccessLevel.Read, CancellationToken.None)
+                ? (await ExpenseService.GetRecentAsync(space.Id, userId, 3, CancellationToken.None)).ToList()
+                : null;
+            IReadOnlyList<Note>? notes = await AccessPolicy.CanAsync(userId, space.Id, ResourceKind.Notes, AccessLevel.Read, CancellationToken.None)
+                ? (await NoteService.GetNotesAsync(space.Id, userId, CancellationToken.None)).Take(3).ToList()
+                : null;
+
+            result.Add(new SpacePreview(space, reminders, shoppingItems, expenses, notes));
+        }
+
+        previews = result;
+    }
+
+    private static string Truncate(string text) => text.Length <= 60 ? text : text[..60] + "…";
+}

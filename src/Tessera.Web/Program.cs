@@ -123,6 +123,7 @@ builder.Services.AddScoped<ShoppingListService>();
 builder.Services.AddScoped<LinkService>();
 builder.Services.AddScoped<ExpenseService>();
 builder.Services.AddScoped<ReminderService>();
+builder.Services.AddScoped<NoteService>();
 builder.Services.AddScoped<RecurringExpenseService>();
 builder.Services.AddScoped<BudgetService>();
 builder.Services.AddScoped<DigestService>();
@@ -219,6 +220,7 @@ else
             new("list", commandsLocalizer["Commands.List.Description"]),
             new("expense", commandsLocalizer["Commands.Expense.Description"]),
             new("remind", commandsLocalizer["Commands.Remind.Description"]),
+            new("note", commandsLocalizer["Commands.Note.Description"]),
             new("month", commandsLocalizer["Commands.Month.Description"]),
             new("link", commandsLocalizer["Commands.Link.Description"]),
             new("language", commandsLocalizer["Commands.Language.Description"]),

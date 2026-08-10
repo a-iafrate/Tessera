@@ -146,6 +146,19 @@ public sealed class ExpenseService(TesseraDbContext db, IAccessPolicy accessPoli
             .OrderBy(x => x.Id)
             .ToListAsync(ct);
 
+    // The console list view (no equivalent exists on the bot side, which only ever shows
+    // aggregates) — most recent first, capped by the caller.
+    public async Task<IReadOnlyList<Expense>> GetRecentAsync(Guid spaceId, Guid userId, int take, CancellationToken ct)
+    {
+        await EnsureAccessAsync(spaceId, userId, AccessLevel.Read, ct);
+        return await db.Expenses
+            .Where(x => x.SpaceId == spaceId)
+            .OrderByDescending(x => x.Date)
+            .Take(take)
+            .AsNoTracking()
+            .ToListAsync(ct);
+    }
+
     public async Task<(decimal Amount, string Currency)> GetMonthlyTotalAsync(
         Guid spaceId, Guid userId, int year, int month, CancellationToken ct)
     {

@@ -1,0 +1,164 @@
+@page "/spaces/{SpaceId:guid}/expenses"
+@attribute [Authorize]
+
+@using System.Globalization
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.Extensions.Localization
+@using Tessera.Core.Abstractions
+@using Tessera.Core.Expenses
+@using Tessera.Core.Resources
+@using Tessera.Core.Spaces
+@using Tessera.Data
+@using Tessera.Web.Services
+
+@inject SpaceService SpaceService
+@inject ExpenseService ExpenseService
+@inject IAccessPolicy AccessPolicy
+@inject NavigationManager NavigationManager
+@inject IStringLocalizer<Messages> Localizer
+
+<PageTitle>@Localizer["Expenses.PageTitle"]</PageTitle>
+
+<div class="container">
+    @if (space is null)
+    {
+        <p class="text-soft">@Localizer["Common.Loading"]</p>
+    }
+    else
+    {
+        <a href="/" class="text-soft">@Localizer["Common.BackToDashboard"]</a>
+        <h1>@Localizer["Expenses.PageTitle"] — @space.Name</h1>
+        <p class="text-soft">@Localizer["Expenses.MonthlyTotal", MoneyFormatter.Format(monthlyTotal, currency, CultureInfo.CurrentUICulture.Name)]</p>
+
+        @if (errorMessage is not null)
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        @if (canWrite)
+        {
+            <div class="card" style="max-width: 32rem; margin-bottom: var(--space-6);">
+                <EditForm Model="this" OnValidSubmit="RecordAsync">
+                    <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+                        <input type="number" step="0.01" min="0" @bind="newAmount" placeholder="@Localizer["Expenses.AmountPlaceholder"]"
+                               style="padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);" />
+                        <select @bind="newCategoryId" style="padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);">
+                            <option value="">@Localizer["Expenses.NoCategory"]</option>
+                            @foreach (var category in categories)
+                            {
+                                <option value="@category.Id">@MessageProcessor.GetCategoryDisplayName(category, Localizer)</option>
+                            }
+                        </select>
+                        <input @bind="newMerchant" placeholder="@Localizer["Expenses.MerchantPlaceholder"]"
+                               style="padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);" />
+                        <input type="date" @bind="newDate"
+                               style="padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);" />
+                        <button type="submit" class="btn btn-primary" disabled="@(newAmount is null || newAmount <= 0)">
+                            @Localizer["Expenses.RecordButton"]
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        }
+
+        <div class="seam" aria-hidden="true">
+            <span></span><span></span><span></span>
+        </div>
+
+        @if (recent.Count == 0)
+        {
+            <p class="text-soft">@Localizer["Expenses.Empty"]</p>
+        }
+        else
+        {
+            <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+                @foreach (var expense in recent)
+                {
+                    <div class="card" style="display: flex; align-items: center; gap: var(--space-3);">
+                        <span class="text-soft" style="width: 6rem;">@expense.Date.ToString("d", CultureInfo.CurrentUICulture)</span>
+                        <span style="flex: 1;">@(expense.Merchant ?? CategoryName(expense.CategoryId))</span>
+                        <strong>@MoneyFormatter.Format(expense.Amount, expense.Currency, CultureInfo.CurrentUICulture.Name)</strong>
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid SpaceId { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private Space? space;
+    private Guid userId;
+    private bool canWrite;
+    private IReadOnlyList<Expense> recent = [];
+    private IReadOnlyList<Category> categories = [];
+    private decimal monthlyTotal;
+    private string currency = "EUR";
+    private decimal? newAmount;
+    private Guid? newCategoryId;
+    private string newMerchant = "";
+    private DateOnly newDate = DateOnly.FromDateTime(DateTime.Today);
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateTask!;
+        userId = Guid.Parse(authState.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        space = await SpaceService.GetByIdAsync(SpaceId, userId, CancellationToken.None);
+        if (space is null || !await AccessPolicy.CanAsync(userId, SpaceId, ResourceKind.Expenses, AccessLevel.Read, CancellationToken.None))
+        {
+            NavigationManager.NavigateTo($"/spaces/{SpaceId}");
+            return;
+        }
+
+        canWrite = await AccessPolicy.CanAsync(userId, SpaceId, ResourceKind.Expenses, AccessLevel.Write, CancellationToken.None);
+        categories = await ExpenseService.GetCategoriesAsync(SpaceId, CancellationToken.None);
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        recent = await ExpenseService.GetRecentAsync(SpaceId, userId, 20, CancellationToken.None);
+        var now = DateTime.UtcNow;
+        (monthlyTotal, currency) = await ExpenseService.GetMonthlyTotalAsync(SpaceId, userId, now.Year, now.Month, CancellationToken.None);
+    }
+
+    private async Task RecordAsync()
+    {
+        if (newAmount is null || newAmount <= 0)
+        {
+            return;
+        }
+
+        errorMessage = null;
+        try
+        {
+            await ExpenseService.RecordAsync(
+                SpaceId, userId, newAmount.Value, newCategoryId,
+                string.IsNullOrWhiteSpace(newMerchant) ? null : newMerchant.Trim(), newDate, CancellationToken.None);
+            newAmount = null;
+            newCategoryId = null;
+            newMerchant = "";
+            newDate = DateOnly.FromDateTime(DateTime.Today);
+            await ReloadAsync();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            errorMessage = Localizer["Expenses.GenericError"];
+        }
+    }
+
+    private string CategoryName(Guid? categoryId)
+    {
+        var category = categories.FirstOrDefault(c => c.Id == categoryId);
+        return category is null ? Localizer["Expenses.NoCategory"] : MessageProcessor.GetCategoryDisplayName(category, Localizer);
+    }
+}

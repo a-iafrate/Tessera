@@ -23,6 +23,8 @@ internal sealed record ExpenseRecordUndoPayload(Guid ExpenseId);
 
 internal sealed record ReminderCreateUndoPayload(Guid ReminderId);
 
+internal sealed record NoteCreateUndoPayload(Guid NoteId);
+
 internal sealed record ClearedItem(
     string RawText, string NormalizedName, decimal? Quantity, string? Unit,
     Guid AddedByUserId, DateTimeOffset AddedAt, bool IsChecked, Guid? CheckedByUserId, DateTimeOffset? CheckedAt);
@@ -84,6 +86,9 @@ public sealed class UndoService(TesseraDbContext db)
     public Task RecordReminderAsync(Guid userId, Guid spaceId, Guid reminderId, CancellationToken ct) =>
         SaveAsync(userId, spaceId, "reminder.create", new ReminderCreateUndoPayload(reminderId), ct);
 
+    public Task RecordNoteAsync(Guid userId, Guid spaceId, Guid noteId, CancellationToken ct) =>
+        SaveAsync(userId, spaceId, "note.create", new NoteCreateUndoPayload(noteId), ct);
+
     public async Task<UndoOutcome> TryUndoLastAsync(Guid userId, CancellationToken ct)
     {
         var op = await db.LastOperations.FirstOrDefaultAsync(x => x.UserId == userId, ct);
@@ -99,6 +104,7 @@ public sealed class UndoService(TesseraDbContext db)
             "shopping.clear" => await UndoShoppingClearAsync(op, ct),
             "expense.record" => await UndoExpenseAsync(op, ct),
             "reminder.create" => await UndoReminderAsync(op, ct),
+            "note.create" => await UndoNoteAsync(op, ct),
             _ => false,
         };
 
@@ -215,6 +221,20 @@ public sealed class UndoService(TesseraDbContext db)
         }
 
         db.Reminders.Remove(reminder);
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
+
+    private async Task<bool> UndoNoteAsync(LastOperation op, CancellationToken ct)
+    {
+        var payload = JsonSerializer.Deserialize<NoteCreateUndoPayload>(op.UndoPayloadJson)!;
+        var note = await db.Notes.FirstOrDefaultAsync(x => x.Id == payload.NoteId, ct);
+        if (note is null)
+        {
+            return false;
+        }
+
+        db.Notes.Remove(note);
         await db.SaveChangesAsync(ct);
         return true;
     }

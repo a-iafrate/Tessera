@@ -14,6 +14,7 @@ public class InviteToken
     public AccessLevel ExpensesLevel { get; set; }
     public AccessLevel RemindersLevel { get; set; }
     public AccessLevel CalendarLevel { get; set; }
+    public AccessLevel NotesLevel { get; set; }
     public DateTimeOffset ExpiresAt { get; set; }
     public DateTimeOffset? ConsumedAt { get; set; }
 }

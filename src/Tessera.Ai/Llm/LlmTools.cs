@@ -18,6 +18,9 @@ public static class LlmTools
     public const string QueryMonthlyExpenses = "query_monthly_expenses";
     public const string QueryExpenseHistory = "query_expense_history";
     public const string CreateReminder = "create_reminder";
+    public const string CreateNote = "create_note";
+    public const string ShowNotes = "show_notes";
+    public const string DeleteNote = "delete_note";
     public const string CorrectLastShoppingItem = "correct_last_shopping_item";
 
     // Tools filtered per context (docs/05-ottimizzazioni.md) — the correction tool only makes
@@ -160,6 +163,36 @@ public static class LlmTools
                     "due_at": { "type": "string", "description": "The date and time the reminder is due, as an ISO 8601 date-time (e.g. 2026-08-13T09:00:00), worked out from the current date and time zone given in the context." }
                   },
                   "required": ["text", "due_at"]
+                }
+                """)),
+        ChatTool.CreateFunctionTool(
+            CreateNote,
+            "Save a free-text note shared with the space — a shopping list item, reminder, or " +
+            "expense (something structured), never use this instead.",
+            BinaryData.FromString("""
+                {
+                  "type": "object",
+                  "properties": {
+                    "title": { "type": "string", "description": "A short title, only if the phrasing clearly implies one (e.g. \"note: wifi password, it's 1234\" has title \"wifi password\")." },
+                    "body": { "type": "string", "description": "The note's content, in the user's own words." }
+                  },
+                  "required": ["body"]
+                }
+                """)),
+        ChatTool.CreateFunctionTool(
+            ShowNotes,
+            "List the notes saved in this space.",
+            BinaryData.FromString("""{ "type": "object", "properties": {} }""")),
+        ChatTool.CreateFunctionTool(
+            DeleteNote,
+            "Delete a note.",
+            BinaryData.FromString("""
+                {
+                  "type": "object",
+                  "properties": {
+                    "search_text": { "type": "string", "description": "Free text to match against the note's title or body." }
+                  },
+                  "required": ["search_text"]
                 }
                 """)),
     ];

@@ -1,0 +1,216 @@
+@page "/spaces/{SpaceId:guid}/notes"
+@attribute [Authorize]
+
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.Extensions.Localization
+@using Tessera.Core.Abstractions
+@using Tessera.Core.Notes
+@using Tessera.Core.Resources
+@using Tessera.Core.Spaces
+@using Tessera.Data
+
+@inject SpaceService SpaceService
+@inject NoteService NoteService
+@inject IAccessPolicy AccessPolicy
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JsRuntime
+@inject IStringLocalizer<Messages> Localizer
+
+<PageTitle>@Localizer["Notes.PageTitle"]</PageTitle>
+
+<div class="container">
+    @if (space is null)
+    {
+        <p class="text-soft">@Localizer["Common.Loading"]</p>
+    }
+    else
+    {
+        <a href="/" class="text-soft">@Localizer["Common.BackToDashboard"]</a>
+        <h1>@Localizer["Notes.PageTitle"] — @space.Name</h1>
+
+        @if (errorMessage is not null)
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        @if (canWrite)
+        {
+            <div class="card" style="max-width: 32rem; margin-bottom: var(--space-6);">
+                <EditForm Model="this" OnValidSubmit="CreateAsync">
+                    <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+                        <input @bind="newTitle" placeholder="@Localizer["Notes.TitlePlaceholder"]"
+                               style="padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);" />
+                        <textarea @bind="newBody" placeholder="@Localizer["Notes.BodyPlaceholder"]" rows="3"
+                                  style="padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm); font-family: inherit;"></textarea>
+                        <button type="submit" class="btn btn-primary" disabled="@string.IsNullOrWhiteSpace(newBody)">
+                            @Localizer["Notes.AddButton"]
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        }
+
+        <div class="seam" aria-hidden="true">
+            <span></span><span></span><span></span>
+        </div>
+
+        @if (notes.Count == 0)
+        {
+            <p class="text-soft">@Localizer["Notes.Empty"]</p>
+        }
+        else
+        {
+            <div style="display: flex; flex-direction: column; gap: var(--space-3);">
+                @foreach (var note in notes)
+                {
+                    <div class="card">
+                        @if (editingNoteId == note.Id)
+                        {
+                            <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+                                <input @bind="editTitle" placeholder="@Localizer["Notes.TitlePlaceholder"]"
+                                       style="padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);" />
+                                <textarea @bind="editBody" rows="3"
+                                          style="padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm); font-family: inherit;"></textarea>
+                                <div style="display: flex; gap: var(--space-2);">
+                                    <button class="btn btn-primary" disabled="@string.IsNullOrWhiteSpace(editBody)" @onclick="() => SaveEditAsync(note.Id)">
+                                        @Localizer["Notes.SaveButton"]
+                                    </button>
+                                    <button class="btn btn-secondary" @onclick="CancelEdit">@Localizer["Notes.CancelButton"]</button>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            @if (!string.IsNullOrEmpty(note.Title))
+                            {
+                                <strong>@note.Title</strong>
+                            }
+                            <p style="white-space: pre-wrap; margin: var(--space-2) 0;">@note.Body</p>
+                            @if (canWrite)
+                            {
+                                <div style="display: flex; gap: var(--space-2);">
+                                    <button class="btn btn-secondary" @onclick="() => StartEdit(note)">@Localizer["Notes.EditButton"]</button>
+                                    <button class="btn btn-danger" @onclick="() => DeleteAsync(note.Id)">@Localizer["Notes.DeleteButton"]</button>
+                                </div>
+                            }
+                        }
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid SpaceId { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private Space? space;
+    private Guid userId;
+    private bool canWrite;
+    private IReadOnlyList<Note> notes = [];
+    private string newTitle = "";
+    private string newBody = "";
+    private Guid? editingNoteId;
+    private string editTitle = "";
+    private string editBody = "";
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateTask!;
+        userId = Guid.Parse(authState.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        space = await SpaceService.GetByIdAsync(SpaceId, userId, CancellationToken.None);
+        if (space is null || !await AccessPolicy.CanAsync(userId, SpaceId, ResourceKind.Notes, AccessLevel.Read, CancellationToken.None))
+        {
+            NavigationManager.NavigateTo($"/spaces/{SpaceId}");
+            return;
+        }
+
+        canWrite = await AccessPolicy.CanAsync(userId, SpaceId, ResourceKind.Notes, AccessLevel.Write, CancellationToken.None);
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        notes = await NoteService.GetNotesAsync(SpaceId, userId, CancellationToken.None);
+    }
+
+    private async Task CreateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(newBody))
+        {
+            return;
+        }
+
+        errorMessage = null;
+        try
+        {
+            await NoteService.CreateAsync(SpaceId, userId, string.IsNullOrWhiteSpace(newTitle) ? null : newTitle.Trim(), newBody.Trim(), CancellationToken.None);
+            newTitle = "";
+            newBody = "";
+            await ReloadAsync();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            errorMessage = Localizer["Notes.GenericError"];
+        }
+    }
+
+    private void StartEdit(Note note)
+    {
+        editingNoteId = note.Id;
+        editTitle = note.Title ?? "";
+        editBody = note.Body;
+    }
+
+    private void CancelEdit()
+    {
+        editingNoteId = null;
+    }
+
+    private async Task SaveEditAsync(Guid noteId)
+    {
+        if (string.IsNullOrWhiteSpace(editBody))
+        {
+            return;
+        }
+
+        errorMessage = null;
+        try
+        {
+            await NoteService.UpdateAsync(SpaceId, userId, noteId, string.IsNullOrWhiteSpace(editTitle) ? null : editTitle.Trim(), editBody.Trim(), CancellationToken.None);
+            editingNoteId = null;
+            await ReloadAsync();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            errorMessage = Localizer["Notes.GenericError"];
+        }
+    }
+
+    private async Task DeleteAsync(Guid noteId)
+    {
+        if (!await JsRuntime.InvokeAsync<bool>("confirm", Localizer["Notes.DeleteConfirm"].Value))
+        {
+            return;
+        }
+
+        errorMessage = null;
+        try
+        {
+            await NoteService.DeleteAsync(SpaceId, userId, noteId, CancellationToken.None);
+            await ReloadAsync();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            errorMessage = Localizer["Notes.GenericError"];
+        }
+    }
+}

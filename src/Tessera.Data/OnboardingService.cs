@@ -13,7 +13,7 @@ public sealed class OnboardingService(TesseraDbContext db)
     private const int MaxShownCount = 3;
 
     // Order matters: this is also the priority when more than one hint is still eligible.
-    private static readonly string[] HintOrder = ["shopping", "expenses", "reminders"];
+    private static readonly string[] HintOrder = ["shopping", "expenses", "reminders", "notes"];
 
     public async Task<int> RecordUsefulActionAsync(Guid userId, CancellationToken ct)
     {
@@ -72,6 +72,7 @@ public sealed class OnboardingService(TesseraDbContext db)
         "shopping" => await db.ShoppingItems.AnyAsync(i => i.AddedByUserId == userId, ct),
         "expenses" => await db.Expenses.AnyAsync(e => e.CreatedByUserId == userId, ct),
         "reminders" => await db.Reminders.AnyAsync(r => r.CreatedByUserId == userId, ct),
+        "notes" => await db.Notes.AnyAsync(n => n.CreatedByUserId == userId, ct),
         _ => true,
     };
 }

@@ -1,0 +1,191 @@
+@page "/spaces/{SpaceId:guid}/shopping-list"
+@attribute [Authorize]
+
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.Extensions.Localization
+@using Tessera.Core.Abstractions
+@using Tessera.Core.Resources
+@using Tessera.Core.Shopping
+@using Tessera.Core.Spaces
+@using Tessera.Data
+
+@inject SpaceService SpaceService
+@inject ShoppingListService ShoppingListService
+@inject IAccessPolicy AccessPolicy
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JsRuntime
+@inject IStringLocalizer<Messages> Localizer
+
+<PageTitle>@Localizer["ShoppingList.PageTitle"]</PageTitle>
+
+<div class="container">
+    @if (space is null)
+    {
+        <p class="text-soft">@Localizer["Common.Loading"]</p>
+    }
+    else
+    {
+        <a href="/" class="text-soft">@Localizer["Common.BackToDashboard"]</a>
+        <h1>@Localizer["ShoppingList.PageTitle"] — @space.Name</h1>
+
+        @if (errorMessage is not null)
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        @if (canWrite)
+        {
+            <div class="card" style="max-width: 32rem; margin-bottom: var(--space-6);">
+                <EditForm Model="this" OnValidSubmit="AddAsync">
+                    <div style="display: flex; gap: var(--space-2);">
+                        <input @bind="newItemText" placeholder="@Localizer["ShoppingList.AddPlaceholder"]"
+                               style="flex: 1; padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);" />
+                        <button type="submit" class="btn btn-primary" disabled="@string.IsNullOrWhiteSpace(newItemText)">
+                            @Localizer["ShoppingList.AddButton"]
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        }
+
+        <div class="seam" aria-hidden="true">
+            <span></span><span></span><span></span>
+        </div>
+
+        @if (items.Count == 0)
+        {
+            <p class="text-soft">@Localizer["ShoppingList.Empty"]</p>
+        }
+        else
+        {
+            <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+                @foreach (var item in items)
+                {
+                    <div class="card" style="display: flex; align-items: center; gap: var(--space-3);">
+                        <span style="flex: 1; @(item.IsChecked ? "text-decoration: line-through; color: var(--text-soft);" : "")">
+                            @item.RawText
+                        </span>
+                        @if (canWrite)
+                        {
+                            @if (!item.IsChecked)
+                            {
+                                <button class="btn btn-secondary" @onclick="() => CheckAsync(item.Id)">@Localizer["ShoppingList.CheckButton"]</button>
+                            }
+                            <button class="btn btn-danger" @onclick="() => RemoveAsync(item.Id)">@Localizer["ShoppingList.RemoveButton"]</button>
+                        }
+                    </div>
+                }
+            </div>
+
+            @if (canWrite)
+            {
+                <button class="btn btn-danger" style="margin-top: var(--space-4);" @onclick="ClearAsync">@Localizer["ShoppingList.ClearButton"]</button>
+            }
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid SpaceId { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private Space? space;
+    private Guid userId;
+    private bool canWrite;
+    private IReadOnlyList<ShoppingItem> items = [];
+    private string newItemText = "";
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateTask!;
+        userId = Guid.Parse(authState.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        space = await SpaceService.GetByIdAsync(SpaceId, userId, CancellationToken.None);
+        if (space is null || !await AccessPolicy.CanAsync(userId, SpaceId, ResourceKind.ShoppingList, AccessLevel.Read, CancellationToken.None))
+        {
+            NavigationManager.NavigateTo($"/spaces/{SpaceId}");
+            return;
+        }
+
+        canWrite = await AccessPolicy.CanAsync(userId, SpaceId, ResourceKind.ShoppingList, AccessLevel.Write, CancellationToken.None);
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        items = await ShoppingListService.GetItemsAsync(SpaceId, userId, listName: null, CancellationToken.None);
+    }
+
+    private async Task AddAsync()
+    {
+        if (string.IsNullOrWhiteSpace(newItemText))
+        {
+            return;
+        }
+
+        errorMessage = null;
+        try
+        {
+            await ShoppingListService.AddItemAsync(SpaceId, userId, newItemText.Trim(), listName: null, CancellationToken.None);
+            newItemText = "";
+            await ReloadAsync();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            errorMessage = Localizer["ShoppingList.GenericError"];
+        }
+    }
+
+    private async Task CheckAsync(Guid itemId)
+    {
+        errorMessage = null;
+        try
+        {
+            await ShoppingListService.CheckItemByIdAsync(SpaceId, userId, itemId, CancellationToken.None);
+            await ReloadAsync();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            errorMessage = Localizer["ShoppingList.GenericError"];
+        }
+    }
+
+    private async Task RemoveAsync(Guid itemId)
+    {
+        errorMessage = null;
+        try
+        {
+            await ShoppingListService.RemoveItemByIdAsync(SpaceId, userId, itemId, CancellationToken.None);
+            await ReloadAsync();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            errorMessage = Localizer["ShoppingList.GenericError"];
+        }
+    }
+
+    private async Task ClearAsync()
+    {
+        if (!await JsRuntime.InvokeAsync<bool>("confirm", Localizer["ShoppingList.ClearConfirm"].Value))
+        {
+            return;
+        }
+
+        errorMessage = null;
+        try
+        {
+            await ShoppingListService.ClearAsync(SpaceId, userId, listName: null, CancellationToken.None);
+            await ReloadAsync();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            errorMessage = Localizer["ShoppingList.GenericError"];
+        }
+    }
+}

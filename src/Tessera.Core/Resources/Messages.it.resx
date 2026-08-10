@@ -211,6 +211,27 @@
   <data name="Reminders.ConfirmCancelled" xml:space="preserve">
     <value>Ok, lascio stare.</value>
   </data>
+  <data name="Notes.Usage" xml:space="preserve">
+    <value>Prova: /note la password del wifi è 1234, oppure solo /note per vedere le tue note.</value>
+  </data>
+  <data name="Notes.ListEmpty" xml:space="preserve">
+    <value>Ancora nessuna nota</value>
+  </data>
+  <data name="Notes.ListItemLine" xml:space="preserve">
+    <value>{0}</value>
+  </data>
+  <data name="Notes.ListItemLineTitled" xml:space="preserve">
+    <value>{0} — {1}</value>
+  </data>
+  <data name="Notes.Created" xml:space="preserve">
+    <value>Nota salvata.</value>
+  </data>
+  <data name="Notes.NotFound" xml:space="preserve">
+    <value>Non ho trovato una nota che corrisponda.</value>
+  </data>
+  <data name="Notes.Deleted" xml:space="preserve">
+    <value>Nota eliminata.</value>
+  </data>
   <data name="RecurringExpenses.CreatedAutoRegister" xml:space="preserve">
     <value>Spesa ricorrente impostata: {0} — {1}, {2}</value>
   </data>
@@ -307,6 +328,9 @@
   <data name="Commands.Remind.Description" xml:space="preserve">
     <value>Promemoria</value>
   </data>
+  <data name="Commands.Note.Description" xml:space="preserve">
+    <value>Note</value>
+  </data>
   <data name="Commands.Month.Description" xml:space="preserve">
     <value>Riepilogo mensile</value>
   </data>
@@ -392,6 +416,33 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   <data name="Dashboard.TelegramDescription" xml:space="preserve">
     <value>Collega il tuo account Telegram per iniziare a chattare con il bot.</value>
   </data>
+  <data name="Dashboard.NoPreviews" xml:space="preserve">
+    <value>Ancora nulla in vista — qui compariranno promemoria, voci della lista della spesa e note.</value>
+  </data>
+  <data name="Dashboard.RemindersHeading" xml:space="preserve">
+    <value>Promemoria in arrivo</value>
+  </data>
+  <data name="Dashboard.ShoppingHeading" xml:space="preserve">
+    <value>Lista della spesa</value>
+  </data>
+  <data name="Dashboard.NotesHeading" xml:space="preserve">
+    <value>Note recenti</value>
+  </data>
+  <data name="Dashboard.ViewAllNotes" xml:space="preserve">
+    <value>Vedi tutte le note →</value>
+  </data>
+  <data name="Dashboard.ViewAllReminders" xml:space="preserve">
+    <value>Vedi tutti i promemoria →</value>
+  </data>
+  <data name="Dashboard.ViewAllShoppingList" xml:space="preserve">
+    <value>Vedi la lista della spesa →</value>
+  </data>
+  <data name="Dashboard.ExpensesHeading" xml:space="preserve">
+    <value>Spese recenti</value>
+  </data>
+  <data name="Dashboard.ViewAllExpenses" xml:space="preserve">
+    <value>Vedi tutte le spese →</value>
+  </data>
   <data name="LinkTelegram.Title" xml:space="preserve">
     <value>Collega Telegram</value>
   </data>
@@ -409,6 +460,9 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   </data>
   <data name="Common.Loading" xml:space="preserve">
     <value>Caricamento…</value>
+  </data>
+  <data name="Common.BackToDashboard" xml:space="preserve">
+    <value>← Torna alla dashboard</value>
   </data>
   <data name="Spaces.Title" xml:space="preserve">
     <value>I tuoi spazi</value>
@@ -439,6 +493,18 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   </data>
   <data name="SpaceDetail.InviteButton" xml:space="preserve">
     <value>Invita un membro</value>
+  </data>
+  <data name="SpaceDetail.NotesButton" xml:space="preserve">
+    <value>Note</value>
+  </data>
+  <data name="SpaceDetail.ShoppingListButton" xml:space="preserve">
+    <value>Lista della spesa</value>
+  </data>
+  <data name="SpaceDetail.ExpensesButton" xml:space="preserve">
+    <value>Spese</value>
+  </data>
+  <data name="SpaceDetail.RemindersButton" xml:space="preserve">
+    <value>Promemoria</value>
   </data>
   <data name="SpaceDetail.YouTag" xml:space="preserve">
     <value>(tu)</value>
@@ -584,6 +650,9 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   <data name="ResourceKind.Calendar" xml:space="preserve">
     <value>Calendario</value>
   </data>
+  <data name="ResourceKind.Notes" xml:space="preserve">
+    <value>Note</value>
+  </data>
   <data name="InviteMember.Title" xml:space="preserve">
     <value>Invita un membro</value>
   </data>
@@ -643,6 +712,9 @@ Provami subito:</value>
   <data name="Onboarding.HintReminders" xml:space="preserve">
     <value>Posso anche impostare promemoria — prova "ricordami di chiamare la mamma domani".</value>
   </data>
+  <data name="Onboarding.HintNotes" xml:space="preserve">
+    <value>Posso anche tenere note condivise — prova "nota: la password del wifi è 1234".</value>
+  </data>
   <data name="Onboarding.SharePrompt" xml:space="preserve">
     <value>Vuoi condividerlo con qualcuno? Chi inviti vede gli aggiornamenti in tempo reale.</value>
   </data>
@@ -681,6 +753,9 @@ Provami subito:</value>
   </data>
   <data name="Undo.ReminderCreate" xml:space="preserve">
     <value>↩ Annullato: promemoria rimosso.</value>
+  </data>
+  <data name="Undo.NoteCreate" xml:space="preserve">
+    <value>↩ Annullato: nota rimossa.</value>
   </data>
   <data name="Undo.Generic" xml:space="preserve">
     <value>↩ Annullato.</value>
@@ -864,5 +939,104 @@ Provami subito:</value>
   </data>
   <data name="Terms.ContactBody" xml:space="preserve">
     <value>Domande su questi termini: [legal@example.com — segnaposto].</value>
+  </data>
+  <data name="Notes.PageTitle" xml:space="preserve">
+    <value>Note</value>
+  </data>
+  <data name="Notes.Empty" xml:space="preserve">
+    <value>Ancora nessuna nota.</value>
+  </data>
+  <data name="Notes.TitlePlaceholder" xml:space="preserve">
+    <value>Titolo (opzionale)</value>
+  </data>
+  <data name="Notes.BodyPlaceholder" xml:space="preserve">
+    <value>Scrivi una nota...</value>
+  </data>
+  <data name="Notes.AddButton" xml:space="preserve">
+    <value>Aggiungi nota</value>
+  </data>
+  <data name="Notes.EditButton" xml:space="preserve">
+    <value>Modifica</value>
+  </data>
+  <data name="Notes.SaveButton" xml:space="preserve">
+    <value>Salva</value>
+  </data>
+  <data name="Notes.CancelButton" xml:space="preserve">
+    <value>Annulla</value>
+  </data>
+  <data name="Notes.DeleteButton" xml:space="preserve">
+    <value>Elimina</value>
+  </data>
+  <data name="Notes.DeleteConfirm" xml:space="preserve">
+    <value>Eliminare questa nota?</value>
+  </data>
+  <data name="Notes.GenericError" xml:space="preserve">
+    <value>Qualcosa è andato storto. Riprova.</value>
+  </data>
+  <data name="ShoppingList.PageTitle" xml:space="preserve">
+    <value>Lista della spesa</value>
+  </data>
+  <data name="ShoppingList.Empty" xml:space="preserve">
+    <value>La lista è vuota.</value>
+  </data>
+  <data name="ShoppingList.AddPlaceholder" xml:space="preserve">
+    <value>Aggiungi una voce...</value>
+  </data>
+  <data name="ShoppingList.AddButton" xml:space="preserve">
+    <value>Aggiungi</value>
+  </data>
+  <data name="ShoppingList.CheckButton" xml:space="preserve">
+    <value>Fatto</value>
+  </data>
+  <data name="ShoppingList.RemoveButton" xml:space="preserve">
+    <value>Rimuovi</value>
+  </data>
+  <data name="ShoppingList.ClearButton" xml:space="preserve">
+    <value>Svuota lista</value>
+  </data>
+  <data name="ShoppingList.ClearConfirm" xml:space="preserve">
+    <value>Rimuovere tutte le voci dalla lista?</value>
+  </data>
+  <data name="ShoppingList.GenericError" xml:space="preserve">
+    <value>Qualcosa è andato storto. Riprova.</value>
+  </data>
+  <data name="Expenses.PageTitle" xml:space="preserve">
+    <value>Spese</value>
+  </data>
+  <data name="Expenses.MonthlyTotal" xml:space="preserve">
+    <value>Questo mese: {0}</value>
+  </data>
+  <data name="Expenses.AmountPlaceholder" xml:space="preserve">
+    <value>Importo</value>
+  </data>
+  <data name="Expenses.NoCategory" xml:space="preserve">
+    <value>Nessuna categoria</value>
+  </data>
+  <data name="Expenses.MerchantPlaceholder" xml:space="preserve">
+    <value>Esercente (opzionale)</value>
+  </data>
+  <data name="Expenses.RecordButton" xml:space="preserve">
+    <value>Registra spesa</value>
+  </data>
+  <data name="Expenses.Empty" xml:space="preserve">
+    <value>Ancora nessuna spesa.</value>
+  </data>
+  <data name="Expenses.GenericError" xml:space="preserve">
+    <value>Qualcosa è andato storto. Riprova.</value>
+  </data>
+  <data name="Reminders.PageTitle" xml:space="preserve">
+    <value>Promemoria</value>
+  </data>
+  <data name="Reminders.TextPlaceholder" xml:space="preserve">
+    <value>Di cosa vuoi essere avvisato?</value>
+  </data>
+  <data name="Reminders.AddButton" xml:space="preserve">
+    <value>Aggiungi promemoria</value>
+  </data>
+  <data name="Reminders.DoneButton" xml:space="preserve">
+    <value>Fatto</value>
+  </data>
+  <data name="Reminders.GenericError" xml:space="preserve">
+    <value>Qualcosa è andato storto. Riprova.</value>
   </data>
 </root>
