@@ -14,21 +14,40 @@ public sealed class SpaceResolver(TesseraDbContext db, IAccessPolicy accessPolic
         Guid userId, ResourceKind resource, AccessLevel required, string? messageText, CancellationToken ct)
     {
         var accessibleSpaceIds = await GetAccessibleSpaceIdsAsync(userId, resource, required, ct);
+
+        // Explicit space in the message ("aggiungi latte in Casa") is checked against every
+        // space the user belongs to, not just the ones with enough permission — naming a real
+        // space you're just not allowed to use here is a different situation (and a different
+        // reply) from not naming one at all (docs/10-conversazione.md).
+        if (messageText is not null)
+        {
+            var allMemberSpaceIds = await db.Memberships.Where(m => m.UserId == userId).Select(m => m.SpaceId).ToListAsync(ct);
+            var explicitMatch = await TryMatchExplicitSpaceAsync(allMemberSpaceIds, messageText, ct);
+            if (explicitMatch is { } found)
+            {
+                if (accessibleSpaceIds.Contains(found.SpaceId))
+                {
+                    await SetActiveSpaceAsync(userId, found.SpaceId, ct);
+                    return new SpaceResolution(found.SpaceId, found.RemainingText, []);
+                }
+
+                // Named a real space, but it doesn't have the permission this needs — resolve
+                // a fallback from the accessible ones (steps 2-4 below, using the *stripped*
+                // text) instead of silently acting in whichever space came out on top.
+                var fallback = await ResolveAmongAccessibleAsync(userId, accessibleSpaceIds, found.RemainingText, ct);
+                return fallback with { PermissionDeniedSpaceId = found.SpaceId };
+            }
+        }
+
+        return await ResolveAmongAccessibleAsync(userId, accessibleSpaceIds, messageText, ct);
+    }
+
+    private async Task<SpaceResolution> ResolveAmongAccessibleAsync(
+        Guid userId, IReadOnlyList<Guid> accessibleSpaceIds, string? messageText, CancellationToken ct)
+    {
         if (accessibleSpaceIds.Count == 0)
         {
             return new SpaceResolution(null, messageText, []);
-        }
-
-        // 1. Explicit space in the message ("aggiungi latte in Casa") — only worth checking
-        // when there's more than one candidate to disambiguate between.
-        if (messageText is not null && accessibleSpaceIds.Count > 1)
-        {
-            var explicitMatch = await TryMatchExplicitSpaceAsync(accessibleSpaceIds, messageText, ct);
-            if (explicitMatch is { } found)
-            {
-                await SetActiveSpaceAsync(userId, found.SpaceId, ct);
-                return new SpaceResolution(found.SpaceId, found.RemainingText, []);
-            }
         }
 
         // 2. ConversationState.ActiveSpaceId within TTL — already disambiguated recently.

@@ -4,6 +4,8 @@ public static class Matchers
 {
     public static IReadOnlyList<IIntentMatcher> All { get; } =
     [
+        new ItUndoMatcher(),
+        new EnUndoMatcher(),
         new ItShoppingAddMatcher(),
         new ItShoppingShowMatcher(),
         new ItShoppingCheckMatcher(),

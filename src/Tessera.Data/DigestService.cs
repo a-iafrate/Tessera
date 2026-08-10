@@ -22,7 +22,7 @@ public sealed class DigestService(ReminderService reminders, ShoppingListService
             .Where(r => DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(r.DueAt, timeZone).DateTime) == today)
             .ToList();
 
-        var items = await shopping.GetItemsAsync(spaceId, userId, ct);
+        var items = await shopping.GetItemsAsync(spaceId, userId, listName: null, ct);
         var missingItems = items.Where(i => !i.IsChecked).ToList();
 
         var budgetStatuses = await budgets.GetStatusAsync(spaceId, userId, today.Year, today.Month, ct);

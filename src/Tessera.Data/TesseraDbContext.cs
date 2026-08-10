@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Tessera.Core.Channels;
 using Tessera.Core.Conversations;
 using Tessera.Core.Expenses;
+using Tessera.Core.Onboarding;
 using Tessera.Core.Reminders;
 using Tessera.Core.Shopping;
 using Tessera.Core.Spaces;
@@ -55,6 +56,10 @@ public sealed class TesseraDbContext(DbContextOptions<TesseraDbContext> options)
     public DbSet<InviteToken> InviteTokens => Set<InviteToken>();
 
     public DbSet<MembershipArchive> MembershipArchives => Set<MembershipArchive>();
+
+    public DbSet<OnboardingHint> OnboardingHints => Set<OnboardingHint>();
+
+    public DbSet<LastOperation> LastOperations => Set<LastOperation>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

@@ -30,6 +30,9 @@ public class IntentRouterTests
         { "it", "quanto ho speso per la spesa alimentare?", "expenses.query.category" },
         { "it", "ricordami di comprare il latte domani", "reminders.natural" },
         { "it", "ricordati che serve il pane", "reminders.natural" },
+        { "it", "annulla", "undo" },
+        { "it", "annulla operazione", "undo" },
+        { "it", "no aspetta", "undo" },
 
         // italiano — devono cadere a L3
         { "it", "finito il detersivo", null },
@@ -53,6 +56,9 @@ public class IntentRouterTests
         { "en", "how much did I spend on groceries?", "expenses.query.category" },
         { "en", "remind me to buy milk tomorrow", "reminders.natural" },
         { "en", "remind me that the rent is due", "reminders.natural" },
+        { "en", "undo", "undo" },
+        { "en", "cancel that", "undo" },
+        { "en", "no wait", "undo" },
 
         // inglese — L3
         { "en", "we're out of detergent", null },

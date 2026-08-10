@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Threading.RateLimiting;
+using Microsoft.ApplicationInsights;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Tessera.Ai.Commands;
@@ -29,6 +30,7 @@ public sealed class MessageProcessor(
     PartitionedRateLimiter<string> rateLimiter,
     IStringLocalizer<Messages> localizer,
     ILogger<MessageProcessor> logger,
+    TelemetryClient? telemetry = null,
     LlmFallbackClient? llmFallback = null) : BackgroundService
 {
     // Command names are canonical English and never shown localized in the menu — these are
@@ -63,9 +65,27 @@ public sealed class MessageProcessor(
             }
             catch (Exception ex)
             {
+                // A dead end is the worst reply (docs/10-conversazione.md) — even an internal
+                // error gets a brief, non-technical apology instead of leaving the chat silent.
+                // The correlation id ties that apology back to this exact log entry.
+                var correlationId = Guid.NewGuid().ToString("N")[..8];
                 logger.LogError(ex,
-                    "Failed to process message {ChannelName}/{ProviderMessageId}",
-                    message.ChannelName, message.ProviderMessageId);
+                    "Failed to process message {ChannelName}/{ProviderMessageId} (correlation {CorrelationId})",
+                    message.ChannelName, message.ProviderMessageId, correlationId);
+
+                if (message.ExternalChatId is not null)
+                {
+                    try
+                    {
+                        await channel.SendTextAsync(
+                            new ChannelAddress(message.ChannelName, message.ExternalChatId),
+                            localizer["Errors.Internal", correlationId], stoppingToken);
+                    }
+                    catch (Exception sendEx)
+                    {
+                        logger.LogError(sendEx, "Failed to send internal-error reply (correlation {CorrelationId})", correlationId);
+                    }
+                }
             }
         }
     }
@@ -133,6 +153,16 @@ public sealed class MessageProcessor(
             "Received {ChannelName} message from {DisplayName} (culture {Culture}): {Text}",
             message.ChannelName, user.DisplayName ?? user.Email, culture.Name, message.Text);
 
+        // Retention at day 7 and day 14 (docs/05-ottimizzazioni.md, docs/06-roadmap.md) is
+        // computed from these raw events afterward — one per message is enough, no local
+        // pre-aggregation needed.
+        telemetry?.TrackEvent("MessageProcessed", new Dictionary<string, string>
+        {
+            ["UserId"] = user.Id.ToString(),
+            ["Culture"] = culture.Name,
+            ["Channel"] = message.ChannelName,
+        });
+
         var address = new ChannelAddress(message.ChannelName, message.ExternalChatId);
 
         // Italian aliases resolve to the canonical English command before any dispatch below
@@ -154,6 +184,50 @@ public sealed class MessageProcessor(
         if (message.CallbackData is { } remindConfirmCallback && remindConfirmCallback.StartsWith("remind.llmconfirm:", StringComparison.Ordinal))
         {
             await HandleLlmReminderConfirmCallbackAsync(scope, address, user, remindConfirmCallback["remind.llmconfirm:".Length..], ct);
+            return;
+        }
+
+        // Undo, onboarding's sample button and the sharing prompt all resolve against
+        // LastOperation/the user row directly — none of them need a space resolved first.
+        if (message.CallbackData == "undo:tap")
+        {
+            var undoTapReply = await HandleUndoAsync(scope, user.Id, ct);
+            await channel.SendTextAsync(address, undoTapReply, ct);
+            return;
+        }
+
+        if (message.CallbackData == "onboarding.trysample")
+        {
+            var sampleReplay = message with
+            {
+                Text = localizer["Onboarding.SampleAction"].Value,
+                CallbackData = null,
+                ProviderMessageId = $"replay:{message.ProviderMessageId}",
+            };
+            await ProcessAsync(sampleReplay, ct);
+            return;
+        }
+
+        if (message.CallbackData is { } shareCallback && shareCallback.StartsWith("onboarding.share:", StringComparison.Ordinal))
+        {
+            var shareReply = shareCallback["onboarding.share:".Length..] == "invite"
+                ? localizer["Onboarding.ShareInviteInstructions"]
+                : localizer["Onboarding.ShareDismissed"];
+            await channel.SendTextAsync(address, shareReply, ct);
+            return;
+        }
+
+        // The fallback space is already fixed in the pending payload — no need to resolve
+        // one again here, same reasoning as space.choose above.
+        if (message.CallbackData is { } permissionCallback && permissionCallback.StartsWith("permission.fallback:", StringComparison.Ordinal))
+        {
+            await HandlePermissionFallbackCallbackAsync(scope, message, user, permissionCallback["permission.fallback:".Length..], ct);
+            return;
+        }
+
+        if (message.CallbackData == "help.show")
+        {
+            await channel.SendTextAsync(address, HandleHelpCommand(), ct);
             return;
         }
 
@@ -229,8 +303,32 @@ public sealed class MessageProcessor(
             return;
         }
 
+        // Router level distribution, overall and per language (docs/05-ottimizzazioni.md): if
+        // L3 creeps past 40%, or one language sits almost entirely on L3, that's the signal to
+        // improve the router rather than guess at it.
+        var routerLevel = message.CallbackData is not null || nativeCommand != NativeCommand.None
+            ? "L1"
+            : match is not null ? "L2" : "L3";
+        telemetry?.TrackEvent($"Router{routerLevel}", new Dictionary<string, string> { ["Culture"] = culture.Name });
+
+        // Touches no resource of its own — the space to act on is whatever LastOperation
+        // already recorded, not something to (re-)resolve here (docs/10-conversazione.md).
+        if ((text is not null && text.StartsWith("/undo", StringComparison.OrdinalIgnoreCase)) || match?.Intent == "undo")
+        {
+            var undoCommandReply = await HandleUndoAsync(scope, user.Id, ct);
+            await channel.SendTextAsync(address, undoCommandReply, ct);
+            return;
+        }
+
         var spaces = scope.ServiceProvider.GetRequiredService<SpaceResolver>();
         var resolution = await spaces.ResolveAsync(user.Id, resourceKind, requiredLevel, text, ct);
+
+        if (resolution.PermissionDeniedSpaceId is { } deniedSpaceId)
+        {
+            await AskPermissionFallbackAsync(
+                scope, address, user.Id, message, deniedSpaceId, resolution, resourceKind, requiredLevel, ct);
+            return;
+        }
 
         if (resolution.IsAmbiguous)
         {
@@ -255,12 +353,14 @@ public sealed class MessageProcessor(
         var budgets = scope.ServiceProvider.GetRequiredService<BudgetService>();
         var digest = scope.ServiceProvider.GetRequiredService<DigestService>();
         var notifications = scope.ServiceProvider.GetRequiredService<NotificationService>();
+        var onboarding = scope.ServiceProvider.GetRequiredService<OnboardingService>();
+        var undo = scope.ServiceProvider.GetRequiredService<UndoService>();
 
         if (message.CallbackData is { } callbackData)
         {
             // L1 (docs/05-ottimizzazioni.md): an inline-keyboard tap is already a
             // structured action — it never goes through the intent matcher.
-            await HandleCallbackAsync(shopping, expenses, reminders, budgets, notifications, address, spaceId, user, culture, callbackData, ct);
+            await HandleCallbackAsync(shopping, expenses, reminders, budgets, notifications, undo, onboarding, address, spaceId, user, culture, callbackData, ct);
             return;
         }
 
@@ -276,7 +376,7 @@ public sealed class MessageProcessor(
             case NativeCommand.Remind:
             {
                 var remindReply = await HandleRemindCommandAsync(
-                    reminders, address, spaceId, user, culture, text["/remind".Length..], ct);
+                    reminders, undo, onboarding, address, spaceId, user, culture, text["/remind".Length..], ct);
                 if (remindReply is not null)
                 {
                     await channel.SendTextAsync(address, remindReply, ct);
@@ -317,7 +417,7 @@ public sealed class MessageProcessor(
 
             case NativeCommand.List:
             {
-                var listReply = await HandleShowAsync(shopping, address, spaceId, user.Id, ct);
+                var listReply = await HandleShowAsync(shopping, address, spaceId, user.Id, listName: null, ct);
                 if (listReply is not null)
                 {
                     await channel.SendTextAsync(address, listReply, ct);
@@ -328,7 +428,7 @@ public sealed class MessageProcessor(
             case NativeCommand.Expense:
             {
                 var expenseReply = await HandleExpenseCommandAsync(
-                    expenses, budgets, notifications, address, spaceId, user, culture, text["/expense".Length..], ct);
+                    expenses, budgets, notifications, undo, onboarding, address, spaceId, user, culture, text["/expense".Length..], ct);
                 if (expenseReply is not null)
                 {
                     await channel.SendTextAsync(address, expenseReply, ct);
@@ -349,14 +449,16 @@ public sealed class MessageProcessor(
         {
             reply = match.Intent switch
             {
-                "shopping.add" => await HandleAddAsync(shopping, notifications, address, spaceId, user.Id, match.Slots["item"], ct),
-                "shopping.show" => await HandleShowAsync(shopping, address, spaceId, user.Id, ct),
-                "shopping.check" => await HandleCheckAsync(shopping, notifications, address, spaceId, user.Id, match.Slots["item"], ct),
-                "shopping.remove" => await HandleRemoveAsync(shopping, spaceId, user.Id, match.Slots["item"], ct),
-                "shopping.clear" => await HandleClearAsync(shopping, spaceId, user.Id, ct),
+                "shopping.add" => await HandleAddAsync(
+                    shopping, notifications, undo, onboarding, address, spaceId, user.Id, match.Slots["item"], listName: null, ct),
+                "shopping.show" => await HandleShowAsync(shopping, address, spaceId, user.Id, listName: null, ct),
+                "shopping.check" => await HandleCheckAsync(
+                    shopping, notifications, undo, address, spaceId, user.Id, match.Slots["item"], listName: null, ct),
+                "shopping.remove" => await HandleRemoveAsync(shopping, spaceId, user.Id, match.Slots["item"], listName: null, ct),
+                "shopping.clear" => await HandleClearAsync(shopping, undo, address, spaceId, user.Id, listName: null, ct),
                 "expenses.add" => await HandleExpenseAddAsync(
-                    expenses, budgets, notifications, address, spaceId, user, culture, match.Slots["amount"],
-                    match.Slots.GetValueOrDefault("category"), match.Slots.GetValueOrDefault("merchant"), ct),
+                    expenses, budgets, notifications, undo, onboarding, address, spaceId, user, culture,
+                    match.Slots["amount"], match.Slots.GetValueOrDefault("category"), match.Slots.GetValueOrDefault("merchant"), ct),
                 "expenses.query" => await HandleExpensesQueryAsync(expenses, spaceId, user, culture, ct),
                 "expenses.query.category" => await HandleExpensesQueryByCategoryAsync(
                     expenses, spaceId, user, culture, match.Slots["category"], ct),
@@ -368,7 +470,7 @@ public sealed class MessageProcessor(
             // Either nothing matched at all, or a reminder attempt was recognized but its date
             // still needs interpreting — both go to L3 (docs/05-ottimizzazioni.md).
             reply = await HandleLlmFallbackAsync(
-                scope, shopping, expenses, reminders, budgets, notifications, address, spaceId, user, culture, text, ct);
+                scope, shopping, expenses, reminders, budgets, notifications, undo, onboarding, address, spaceId, user, culture, text, ct);
         }
 
         if (reply is not null)
@@ -383,52 +485,102 @@ public sealed class MessageProcessor(
     // consistent no matter which router level produced the action.
     private async Task<string?> HandleLlmFallbackAsync(
         AsyncServiceScope scope, ShoppingListService shopping, ExpenseService expenses, ReminderService reminders,
-        BudgetService budgets, NotificationService notifications, ChannelAddress address, Guid spaceId, User user,
-        CultureInfo culture, string? text, CancellationToken ct)
+        BudgetService budgets, NotificationService notifications, UndoService undo, OnboardingService onboarding,
+        ChannelAddress address, Guid spaceId, User user, CultureInfo culture, string? text, CancellationToken ct)
     {
         if (llmFallback is null || string.IsNullOrWhiteSpace(text))
         {
-            return localizer["Errors.NotUnderstood"];
+            return await SendNotUnderstoodAsync(address, text, culture, ct);
         }
 
         var db = scope.ServiceProvider.GetRequiredService<TesseraDbContext>();
         var space = await db.Spaces.AsNoTracking().FirstAsync(s => s.Id == spaceId, ct);
-        var context = new LlmContext(culture.Name, user.TimeZoneId ?? "UTC", DateTimeOffset.UtcNow, space.Name);
+        var recentAction = await undo.GetRecentCorrectableActionAsync(user.Id, ct);
+        var context = new LlmContext(culture.Name, user.TimeZoneId ?? "UTC", DateTimeOffset.UtcNow, space.Name, recentAction?.Description);
 
         var result = await llmFallback.TryCompleteAsync(text, context, ct);
         if (result is null)
         {
             // The deterministic paths must survive an Azure OpenAI outage
             // (docs/06-roadmap.md) — this is the same honest reply as "not configured".
-            return localizer["Errors.NotUnderstood"];
+            return await SendNotUnderstoodAsync(address, text, culture, ct);
         }
 
         if (result.ToolCall is null)
         {
-            return result.ReplyText ?? localizer["Errors.NotUnderstood"];
+            return result.ReplyText ?? await SendNotUnderstoodAsync(address, text, culture, ct);
         }
 
         var args = result.ToolCall.Arguments;
         return result.ToolCall.Name switch
         {
             LlmTools.AddShoppingItem => await HandleAddAsync(
-                shopping, notifications, address, spaceId, user.Id, args.GetProperty("item").GetString() ?? "", ct),
+                shopping, notifications, undo, onboarding, address, spaceId, user.Id,
+                args.GetProperty("item").GetString() ?? "", GetOptionalString(args, "list"), ct),
             LlmTools.CheckShoppingItem => await HandleCheckAsync(
-                shopping, notifications, address, spaceId, user.Id, args.GetProperty("item").GetString() ?? "", ct),
+                shopping, notifications, undo, address, spaceId, user.Id,
+                args.GetProperty("item").GetString() ?? "", GetOptionalString(args, "list"), ct),
             LlmTools.RemoveShoppingItem => await HandleRemoveAsync(
-                shopping, spaceId, user.Id, args.GetProperty("item").GetString() ?? "", ct),
-            LlmTools.ShowShoppingList => await HandleShowAsync(shopping, address, spaceId, user.Id, ct),
-            LlmTools.ClearShoppingList => await HandleClearAsync(shopping, spaceId, user.Id, ct),
+                shopping, spaceId, user.Id, args.GetProperty("item").GetString() ?? "", GetOptionalString(args, "list"), ct),
+            LlmTools.ShowShoppingList => await HandleShowAsync(shopping, address, spaceId, user.Id, GetOptionalString(args, "list"), ct),
+            LlmTools.ClearShoppingList => await HandleClearAsync(shopping, undo, address, spaceId, user.Id, GetOptionalString(args, "list"), ct),
+            LlmTools.ListShoppingLists => await HandleListShoppingListsAsync(shopping, spaceId, user.Id, ct),
             LlmTools.RecordExpense => await RecordExpenseAndReplyAsync(
-                expenses, budgets, notifications, address, spaceId, user, culture,
+                expenses, budgets, notifications, undo, onboarding, address, spaceId, user, culture,
                 args.GetProperty("amount").GetDecimal(),
                 args.TryGetProperty("category", out var categoryProp) ? categoryProp.GetString() : null,
                 args.TryGetProperty("merchant", out var merchantProp) ? merchantProp.GetString() : null, ct),
             LlmTools.QueryMonthlyExpenses => await HandleExpensesQueryAsync(expenses, spaceId, user, culture, ct),
+            LlmTools.QueryExpenseHistory => await HandleHistoryQueryAsync(expenses, spaceId, user, culture, args, ct),
             LlmTools.CreateReminder => await HandleLlmReminderAsync(scope, address, spaceId, user, culture, args, ct),
-            _ => localizer["Errors.NotUnderstood"],
+            LlmTools.CorrectLastShoppingItem when recentAction is not null => await HandleShoppingCorrectionAsync(
+                shopping, address, spaceId, user.Id, recentAction.ItemId, args.GetProperty("corrected_text").GetString() ?? "", ct),
+            _ => await SendNotUnderstoodAsync(address, text, culture, ct),
         };
     }
+
+    // The single most useful weekly signal in the product (docs/10-conversazione.md: "leggere
+    // le frasi che il bot non ha capito e trasformarle in test") — logged with its own event
+    // name so it's easy to grep for review, distinct from the generic message-received line.
+    // Always offers a way out via a Help button rather than a bare "I didn't understand"
+    // (docs/10-conversazione.md: never a dead end).
+    private async Task<string?> SendNotUnderstoodAsync(ChannelAddress address, string? originalText, CultureInfo culture, CancellationToken ct)
+    {
+        logger.LogInformation("NotUnderstood [{Culture}]: {Text}", culture.Name, originalText);
+        telemetry?.TrackEvent("NotUnderstood", new Dictionary<string, string> { ["Culture"] = culture.Name });
+
+        var choices = new[] { new Choice(localizer["Commands.Help.Description"].Value, "help.show") };
+        await channel.SendChoicesAsync(address, localizer["Errors.NotUnderstood"], choices, ct);
+        return null;
+    }
+
+    private async Task<string?> HandleShoppingCorrectionAsync(
+        ShoppingListService shopping, ChannelAddress address, Guid spaceId, Guid userId, Guid itemId,
+        string correctedText, CancellationToken ct)
+    {
+        var item = await shopping.CorrectItemAsync(spaceId, userId, itemId, correctedText, ct);
+        if (item is null)
+        {
+            return localizer["Correction.Conflict"];
+        }
+
+        await SendWithUndoAsync(address, localizer["Shopping.ItemAdded", item.RawText], ct);
+        return null;
+    }
+
+    // Generic lists beyond groceries (docs/10-conversazione.md) — ShoppingList.Name already
+    // supported this; "which list?" only needs answering when the model asks about it.
+    private async Task<string> HandleListShoppingListsAsync(
+        ShoppingListService shopping, Guid spaceId, Guid userId, CancellationToken ct)
+    {
+        var lists = await shopping.GetListsAsync(spaceId, userId, ct);
+        return lists.Count == 0
+            ? localizer["Shopping.NoLists"]
+            : string.Join(", ", lists.Select(l => string.IsNullOrEmpty(l.Name) ? localizer["Shopping.DefaultListName"].Value : l.Name));
+    }
+
+    private static string? GetOptionalString(JsonElement args, string propertyName) =>
+        args.TryGetProperty(propertyName, out var value) ? value.GetString() : null;
 
     private sealed record PendingLlmReminder(Guid SpaceId, string Text, DateTimeOffset DueAt, string TimeZoneId);
 
@@ -507,10 +659,77 @@ public sealed class MessageProcessor(
         var reminders = scope.ServiceProvider.GetRequiredService<ReminderService>();
         var reminder = await reminders.CreateOnceAsync(payload.SpaceId, user.Id, payload.Text, payload.DueAt, payload.TimeZoneId, ct);
 
+        var undo = scope.ServiceProvider.GetRequiredService<UndoService>();
+        await undo.RecordReminderAsync(user.Id, payload.SpaceId, reminder.Id, ct);
+
+        var onboarding = scope.ServiceProvider.GetRequiredService<OnboardingService>();
         var culture = new CultureInfo(user.PreferredCulture);
         var timeZone = TimeZoneInfo.FindSystemTimeZoneById(payload.TimeZoneId);
-        await channel.SendTextAsync(address, localizer["Reminders.CreatedOnce", FormatDueAt(reminder.DueAt, timeZone, culture)], ct);
+        var confirmReply = localizer["Reminders.CreatedOnce", FormatDueAt(reminder.DueAt, timeZone, culture)].Value;
+        await FinalizeUsefulActionReplyAsync(onboarding, address, user.Id, "reminders", confirmReply, ct);
     }
+
+    // Records the action's undo button on the confirmation, and — before sending — folds in
+    // whichever onboarding nudge (if any) applies: a discovery hint appended to the same
+    // message, or the one-time sharing prompt as a separate follow-up
+    // (docs/10-conversazione.md: one novelty at a time).
+    private async Task FinalizeUsefulActionReplyAsync(
+        OnboardingService onboarding, ChannelAddress address, Guid userId, string featureKey, string baseReply, CancellationToken ct)
+    {
+        var count = await onboarding.RecordUsefulActionAsync(userId, ct);
+
+        if (count == 3 && await onboarding.TryShowSharingPromptOnceAsync(userId, ct))
+        {
+            await SendWithUndoAsync(address, baseReply, ct);
+            var shareChoices = new[]
+            {
+                new Choice(localizer["Onboarding.ShareInvite"].Value, "onboarding.share:invite"),
+                new Choice(localizer["Onboarding.ShareLater"].Value, "onboarding.share:later"),
+            };
+            await channel.SendChoicesAsync(address, localizer["Onboarding.SharePrompt"], shareChoices, ct);
+            return;
+        }
+
+        var hintKey = await onboarding.NextDiscoveryHintKeyAsync(userId, featureKey, ct);
+        var finalReply = hintKey is null ? baseReply : $"{baseReply}\n\n{DescribeHint(hintKey)}";
+        await SendWithUndoAsync(address, finalReply, ct);
+    }
+
+    private string DescribeHint(string hintKey) => hintKey switch
+    {
+        "shopping" => localizer["Onboarding.HintShopping"],
+        "expenses" => localizer["Onboarding.HintExpenses"],
+        "reminders" => localizer["Onboarding.HintReminders"],
+        _ => "",
+    };
+
+    private async Task SendWithUndoAsync(ChannelAddress address, string text, CancellationToken ct)
+    {
+        var choices = new[] { new Choice(localizer["Undo.Button"].Value, "undo:tap") };
+        await channel.SendChoicesAsync(address, text, choices, ct);
+    }
+
+    private async Task<string> HandleUndoAsync(AsyncServiceScope scope, Guid userId, CancellationToken ct)
+    {
+        var undo = scope.ServiceProvider.GetRequiredService<UndoService>();
+        var outcome = await undo.TryUndoLastAsync(userId, ct);
+        return outcome switch
+        {
+            UndoSucceeded s => DescribeUndone(s.OperationType),
+            UndoConflict => localizer["Undo.Conflict"],
+            _ => localizer["Undo.Nothing"],
+        };
+    }
+
+    private string DescribeUndone(string operationType) => operationType switch
+    {
+        "shopping.add" => localizer["Undo.ShoppingAdd"],
+        "shopping.check" => localizer["Undo.ShoppingCheck"],
+        "shopping.clear" => localizer["Undo.ShoppingClear"],
+        "expense.record" => localizer["Undo.ExpenseRecord"],
+        "reminder.create" => localizer["Undo.ReminderCreate"],
+        _ => localizer["Undo.Generic"],
+    };
 
     private enum NativeCommand
     {
@@ -644,16 +863,124 @@ public sealed class MessageProcessor(
         await ProcessAsync(replay, ct);
     }
 
+    private sealed record PendingPermissionFallback(Guid FallbackSpaceId, string? OriginalText, string? OriginalCallbackData);
+
+    // The user named a real space they belong to, but it doesn't have the permission this
+    // needs — name the space and the missing permission, and offer the plausible alternative
+    // instead of silently acting somewhere else (docs/10-conversazione.md).
+    private async Task AskPermissionFallbackAsync(
+        AsyncServiceScope scope, ChannelAddress address, Guid userId, InboundMessage message, Guid deniedSpaceId,
+        SpaceResolution resolution, ResourceKind resourceKind, AccessLevel requiredLevel, CancellationToken ct)
+    {
+        var db = scope.ServiceProvider.GetRequiredService<TesseraDbContext>();
+        var deniedSpace = await db.Spaces.AsNoTracking().FirstAsync(s => s.Id == deniedSpaceId, ct);
+
+        var memberships = scope.ServiceProvider.GetRequiredService<IMembershipRepository>();
+        var membership = await memberships.FindAsync(userId, deniedSpaceId, ct);
+        var currentLevel = membership?.Permissions.FirstOrDefault(p => p.Resource == resourceKind)?.Level ?? AccessLevel.None;
+
+        if (resolution.SpaceId is not { } fallbackSpaceId)
+        {
+            // No plausible alternative to offer — practically unreachable, since the personal
+            // space always qualifies, but state the problem rather than guess if it happens.
+            await channel.SendTextAsync(address, localizer["Permission.DeniedNoAlternative",
+                deniedSpace.Name, ResourceDisplayName(resourceKind), LevelDisplayName(currentLevel)], ct);
+            return;
+        }
+
+        var fallbackSpace = await db.Spaces.AsNoTracking().FirstAsync(s => s.Id == fallbackSpaceId, ct);
+
+        var payload = new PendingPermissionFallback(fallbackSpaceId, resolution.RemainingText, message.CallbackData);
+        var state = await db.ConversationStates.FirstOrDefaultAsync(s => s.UserId == userId, ct);
+        if (state is null)
+        {
+            state = new ConversationState { Id = Guid.NewGuid(), UserId = userId };
+            db.ConversationStates.Add(state);
+        }
+
+        state.PendingIntent = "permission.fallback";
+        state.StateJson = JsonSerializer.Serialize(payload);
+        state.UpdatedAt = DateTimeOffset.UtcNow;
+        state.ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(30);
+        await db.SaveChangesAsync(ct);
+
+        var prompt = localizer["Permission.DeniedWithAlternative",
+            deniedSpace.Name, ResourceDisplayName(resourceKind), LevelDisplayName(currentLevel), fallbackSpace.Name];
+        var choices = new[]
+        {
+            new Choice(localizer["Permission.UseAlternative", fallbackSpace.Name].Value, "permission.fallback:yes"),
+            new Choice(localizer["Permission.Cancel"].Value, "permission.fallback:no"),
+        };
+        await channel.SendChoicesAsync(address, prompt, choices, ct);
+    }
+
+    private async Task HandlePermissionFallbackCallbackAsync(
+        AsyncServiceScope scope, InboundMessage message, User user, string choice, CancellationToken ct)
+    {
+        var db = scope.ServiceProvider.GetRequiredService<TesseraDbContext>();
+        var state = await db.ConversationStates.FirstOrDefaultAsync(
+            s => s.UserId == user.Id && s.PendingIntent == "permission.fallback" && s.ExpiresAt > DateTimeOffset.UtcNow, ct);
+        if (state is null)
+        {
+            // Expired, or already answered by a previous tap — the button is stale.
+            return;
+        }
+
+        state.PendingIntent = null;
+        await db.SaveChangesAsync(ct);
+
+        if (choice != "yes")
+        {
+            return;
+        }
+
+        var payload = JsonSerializer.Deserialize<PendingPermissionFallback>(state.StateJson);
+        if (payload is null)
+        {
+            return;
+        }
+
+        var spaces = scope.ServiceProvider.GetRequiredService<SpaceResolver>();
+        await spaces.SetActiveSpaceAsync(user.Id, payload.FallbackSpaceId, ct);
+
+        var replay = message with
+        {
+            Text = payload.OriginalText,
+            CallbackData = payload.OriginalCallbackData,
+            ProviderMessageId = $"replay:{message.ProviderMessageId}",
+        };
+        await ProcessAsync(replay, ct);
+    }
+
+    private string ResourceDisplayName(ResourceKind resource) => resource switch
+    {
+        ResourceKind.ShoppingList => localizer["ResourceKind.ShoppingList"],
+        ResourceKind.Expenses => localizer["ResourceKind.Expenses"],
+        ResourceKind.Reminders => localizer["ResourceKind.Reminders"],
+        ResourceKind.Calendar => localizer["ResourceKind.Calendar"],
+        _ => resource.ToString(),
+    };
+
+    private string LevelDisplayName(AccessLevel level) => level switch
+    {
+        AccessLevel.None => localizer["AccessLevel.None"],
+        AccessLevel.Availability => localizer["AccessLevel.Availability"],
+        AccessLevel.Read => localizer["AccessLevel.Read"],
+        AccessLevel.Write => localizer["AccessLevel.Write"],
+        AccessLevel.Admin => localizer["AccessLevel.Admin"],
+        _ => localizer["AccessLevel.None"],
+    };
+
     private async Task HandleCallbackAsync(
         ShoppingListService shopping, ExpenseService expenses, ReminderService reminders, BudgetService budgets,
-        NotificationService notifications, ChannelAddress address, Guid spaceId, User user, CultureInfo culture,
-        string callbackData, CancellationToken ct)
+        NotificationService notifications, UndoService undo, OnboardingService onboarding, ChannelAddress address,
+        Guid spaceId, User user, CultureInfo culture, string callbackData, CancellationToken ct)
     {
         var parts = callbackData.Split(':');
 
         if (parts.Length == 2 && parts[0] == "shopping.check" && Guid.TryParse(parts[1], out var itemId))
         {
-            await HandleShoppingCheckCallbackAsync(shopping, notifications, address, spaceId, user.Id, itemId, ct);
+            await HandleShoppingCheckCallbackAsync(shopping, notifications, undo, address, spaceId, user.Id, itemId, ct);
             return;
         }
 
@@ -666,7 +993,8 @@ public sealed class MessageProcessor(
 
         if (parts.Length == 3 && parts[0] == "expconfirm" && Guid.TryParse(parts[1], out var pendingId))
         {
-            await HandleExpenseConfirmCallbackAsync(expenses, budgets, notifications, address, spaceId, user, culture, pendingId, parts[2], ct);
+            await HandleExpenseConfirmCallbackAsync(
+                expenses, budgets, notifications, undo, onboarding, address, spaceId, user, culture, pendingId, parts[2], ct);
             return;
         }
 
@@ -690,8 +1018,8 @@ public sealed class MessageProcessor(
     }
 
     private async Task HandleShoppingCheckCallbackAsync(
-        ShoppingListService shopping, NotificationService notifications, ChannelAddress address, Guid spaceId,
-        Guid userId, Guid itemId, CancellationToken ct)
+        ShoppingListService shopping, NotificationService notifications, UndoService undo, ChannelAddress address,
+        Guid spaceId, Guid userId, Guid itemId, CancellationToken ct)
     {
         var item = await shopping.CheckItemByIdAsync(spaceId, userId, itemId, ct);
         if (item is null)
@@ -704,7 +1032,8 @@ public sealed class MessageProcessor(
 
         await notifications.NotifyAsync(
             new ShoppingItemChecked(spaceId, userId, item.RawText, address.ExternalChatId, DateTimeOffset.UtcNow), ct);
-        await channel.SendTextAsync(address, localizer["Shopping.ItemChecked", item.RawText], ct);
+        await undo.RecordShoppingCheckAsync(userId, spaceId, item.Id, ct);
+        await SendWithUndoAsync(address, localizer["Shopping.ItemChecked", item.RawText], ct);
     }
 
     private async Task HandleExpenseCategorizeCallbackAsync(
@@ -744,15 +1073,29 @@ public sealed class MessageProcessor(
         CultureInfo.CurrentCulture = culture;
         CultureInfo.CurrentUICulture = culture;
 
-        var reply = linkedUser is null
-            ? localizer["Link.Invalid"]
-            : localizer["Link.Success", linkedUser.DisplayName ?? linkedUser.Email];
-
         logger.LogInformation("Link attempt for {ChannelName} identity {ExternalUserId}: {Result}",
             message.ChannelName, message.ExternalUserId, linkedUser is null ? "invalid/expired" : "success");
 
         var address = new ChannelAddress(message.ChannelName, message.ExternalChatId);
-        await channel.SendTextAsync(address, reply, ct);
+
+        if (linkedUser is null)
+        {
+            await channel.SendTextAsync(address, localizer["Link.Invalid"], ct);
+            return;
+        }
+
+        // First value before configuration (docs/10-conversazione.md): someone who's never
+        // done anything useful yet gets the onboarding welcome with a one-tap sample action
+        // instead of the bare "linked as" line — a returning/relinking user already knows how
+        // this works.
+        if (linkedUser.UsefulActionCount == 0)
+        {
+            var choices = new[] { new Choice(localizer["Onboarding.SampleButtonLabel"].Value, "onboarding.trysample") };
+            await channel.SendChoicesAsync(address, localizer["Onboarding.Welcome"], choices, ct);
+            return;
+        }
+
+        await channel.SendTextAsync(address, localizer["Link.Success", linkedUser.DisplayName ?? linkedUser.Email], ct);
     }
 
     private async Task HandleGroupLifecycleEventAsync(AsyncServiceScope scope, InboundMessage message, CancellationToken ct)
@@ -836,20 +1179,22 @@ public sealed class MessageProcessor(
         await channel.SendTextAsync(address, localizer["Group.Welcome", adder.DisplayName ?? adder.Email], ct);
     }
 
-    private async Task<string> HandleAddAsync(
-        ShoppingListService shopping, NotificationService notifications, ChannelAddress address, Guid spaceId,
-        Guid userId, string itemText, CancellationToken ct)
+    private async Task<string?> HandleAddAsync(
+        ShoppingListService shopping, NotificationService notifications, UndoService undo, OnboardingService onboarding,
+        ChannelAddress address, Guid spaceId, Guid userId, string itemText, string? listName, CancellationToken ct)
     {
-        var item = await shopping.AddItemAsync(spaceId, userId, itemText, ct);
+        var item = await shopping.AddItemAsync(spaceId, userId, itemText, listName, ct);
         await notifications.NotifyAsync(
             new ShoppingItemAdded(spaceId, userId, item.RawText, address.ExternalChatId, DateTimeOffset.UtcNow), ct);
-        return localizer["Shopping.ItemAdded", item.RawText];
+        await undo.RecordShoppingAddAsync(userId, spaceId, item.Id, ct);
+        await FinalizeUsefulActionReplyAsync(onboarding, address, userId, "shopping", localizer["Shopping.ItemAdded", item.RawText].Value, ct);
+        return null;
     }
 
     private async Task<string?> HandleShowAsync(
-        ShoppingListService shopping, ChannelAddress address, Guid spaceId, Guid userId, CancellationToken ct)
+        ShoppingListService shopping, ChannelAddress address, Guid spaceId, Guid userId, string? listName, CancellationToken ct)
     {
-        var items = await shopping.GetItemsAsync(spaceId, userId, ct);
+        var items = await shopping.GetItemsAsync(spaceId, userId, listName, ct);
         if (items.Count == 0)
         {
             return localizer["Shopping.ListEmpty"];
@@ -878,11 +1223,15 @@ public sealed class MessageProcessor(
         return null;
     }
 
-    private async Task<string> HandleCheckAsync(
-        ShoppingListService shopping, NotificationService notifications, ChannelAddress address, Guid spaceId,
-        Guid userId, string itemText, CancellationToken ct)
+    // Checking off an item doesn't count toward onboarding progression (docs/10-conversazione.md
+    // frames it around content-creating actions — add, expense, reminder — not state changes on
+    // things already there; counting every check would fire the sharing prompt after one trip
+    // through the shopping list). It still gets the undo button.
+    private async Task<string?> HandleCheckAsync(
+        ShoppingListService shopping, NotificationService notifications, UndoService undo,
+        ChannelAddress address, Guid spaceId, Guid userId, string itemText, string? listName, CancellationToken ct)
     {
-        var item = await shopping.CheckItemAsync(spaceId, userId, itemText, ct);
+        var item = await shopping.CheckItemAsync(spaceId, userId, itemText, listName, ct);
         if (item is null)
         {
             return localizer["Shopping.ItemNotFound", itemText];
@@ -890,28 +1239,34 @@ public sealed class MessageProcessor(
 
         await notifications.NotifyAsync(
             new ShoppingItemChecked(spaceId, userId, item.RawText, address.ExternalChatId, DateTimeOffset.UtcNow), ct);
-        return localizer["Shopping.ItemChecked", item.RawText];
+        await undo.RecordShoppingCheckAsync(userId, spaceId, item.Id, ct);
+        await SendWithUndoAsync(address, localizer["Shopping.ItemChecked", item.RawText], ct);
+        return null;
     }
 
     private async Task<string> HandleRemoveAsync(
-        ShoppingListService shopping, Guid spaceId, Guid userId, string itemText, CancellationToken ct)
+        ShoppingListService shopping, Guid spaceId, Guid userId, string itemText, string? listName, CancellationToken ct)
     {
-        var item = await shopping.RemoveItemAsync(spaceId, userId, itemText, ct);
+        var item = await shopping.RemoveItemAsync(spaceId, userId, itemText, listName, ct);
         return item is null
             ? localizer["Shopping.ItemNotFound", itemText]
             : localizer["Shopping.ItemRemoved", item.RawText];
     }
 
-    private async Task<string> HandleClearAsync(ShoppingListService shopping, Guid spaceId, Guid userId, CancellationToken ct)
+    private async Task<string?> HandleClearAsync(
+        ShoppingListService shopping, UndoService undo, ChannelAddress address, Guid spaceId, Guid userId,
+        string? listName, CancellationToken ct)
     {
-        await shopping.ClearAsync(spaceId, userId, ct);
-        return localizer["Shopping.ListCleared"];
+        var cleared = await shopping.ClearAsync(spaceId, userId, listName, ct);
+        await undo.RecordShoppingClearAsync(userId, spaceId, cleared, ct);
+        await SendWithUndoAsync(address, localizer["Shopping.ListCleared"], ct);
+        return null;
     }
 
     private async Task<string?> HandleExpenseAddAsync(
-        ExpenseService expenses, BudgetService budgets, NotificationService notifications, ChannelAddress address,
-        Guid spaceId, User user, CultureInfo culture, string amountText, string? categoryText, string? merchantText,
-        CancellationToken ct)
+        ExpenseService expenses, BudgetService budgets, NotificationService notifications, UndoService undo,
+        OnboardingService onboarding, ChannelAddress address, Guid spaceId, User user, CultureInfo culture,
+        string amountText, string? categoryText, string? merchantText, CancellationToken ct)
     {
         if (!decimal.TryParse(amountText, NumberStyles.Number, culture, out var amount))
         {
@@ -938,14 +1293,15 @@ public sealed class MessageProcessor(
         }
 
         return await RecordExpenseAndReplyAsync(
-            expenses, budgets, notifications, address, spaceId, user, culture, amount, categoryText, merchantText, ct);
+            expenses, budgets, notifications, undo, onboarding, address, spaceId, user, culture, amount, categoryText, merchantText, ct);
     }
 
     // The trivial form of the /expense menu command — amount plus an optional free-text
     // category, no merchant slot (that's the natural-language path's job).
     private async Task<string?> HandleExpenseCommandAsync(
-        ExpenseService expenses, BudgetService budgets, NotificationService notifications, ChannelAddress address,
-        Guid spaceId, User user, CultureInfo culture, string argsText, CancellationToken ct)
+        ExpenseService expenses, BudgetService budgets, NotificationService notifications, UndoService undo,
+        OnboardingService onboarding, ChannelAddress address, Guid spaceId, User user, CultureInfo culture,
+        string argsText, CancellationToken ct)
     {
         var command = ExpenseCommandParser.Parse(argsText);
         if (command is null)
@@ -953,13 +1309,14 @@ public sealed class MessageProcessor(
             return localizer["Expenses.Usage"];
         }
 
-        return await HandleExpenseAddAsync(expenses, budgets, notifications, address, spaceId, user, culture,
+        return await HandleExpenseAddAsync(expenses, budgets, notifications, undo, onboarding, address, spaceId, user, culture,
             command.AmountText, command.CategoryText, merchantText: null, ct);
     }
 
     private async Task HandleExpenseConfirmCallbackAsync(
-        ExpenseService expenses, BudgetService budgets, NotificationService notifications, ChannelAddress address,
-        Guid spaceId, User user, CultureInfo culture, Guid pendingId, string choice, CancellationToken ct)
+        ExpenseService expenses, BudgetService budgets, NotificationService notifications, UndoService undo,
+        OnboardingService onboarding, ChannelAddress address, Guid spaceId, User user, CultureInfo culture,
+        Guid pendingId, string choice, CancellationToken ct)
     {
         var pending = await expenses.ConsumePendingConfirmationAsync(spaceId, pendingId, ct);
         if (pending is null)
@@ -969,65 +1326,70 @@ public sealed class MessageProcessor(
         }
 
         var amount = choice == "g" ? pending.CandidateAsGrouped : pending.CandidateAsDecimal;
-        var reply = await RecordExpenseAndReplyAsync(
-            expenses, budgets, notifications, address, spaceId, user, culture, amount, pending.CategoryText, pending.MerchantText, ct);
-        if (reply is not null)
-        {
-            await channel.SendTextAsync(address, reply, ct);
-        }
+        await RecordExpenseAndReplyAsync(
+            expenses, budgets, notifications, undo, onboarding, address, spaceId, user, culture,
+            amount, pending.CategoryText, pending.MerchantText, ct);
     }
 
     // Shared by the direct (unambiguous) path and the post-confirmation path, so recording
     // and the categorization precedence (docs/02-modello-dati.md) can't drift between them.
+    // Single exit point: every branch converges on (expense, reply) before recording the undo
+    // and sending, so the undo button and onboarding hint attach no matter which path was taken.
     private async Task<string?> RecordExpenseAndReplyAsync(
-        ExpenseService expenses, BudgetService budgets, NotificationService notifications, ChannelAddress address,
-        Guid spaceId, User user, CultureInfo culture, decimal amount, string? categoryText, string? merchantText,
-        CancellationToken ct)
+        ExpenseService expenses, BudgetService budgets, NotificationService notifications, UndoService undo,
+        OnboardingService onboarding, ChannelAddress address, Guid spaceId, User user, CultureInfo culture,
+        decimal amount, string? categoryText, string? merchantText, CancellationToken ct)
     {
         var today = GetUserToday(user);
+        Expense expense;
+        string reply;
 
         // An explicit category always wins — there is nothing to resolve or learn.
         if (categoryText is not null)
         {
             var category = await ResolveCategoryAsync(expenses, spaceId, categoryText, ct);
-            var expense = await expenses.RecordAsync(spaceId, user.Id, amount, category?.Id, merchant: null, today, ct);
+            expense = await expenses.RecordAsync(spaceId, user.Id, amount, category?.Id, merchant: null, today, ct);
             await NotifyExpenseRecordedAsync(notifications, spaceId, user.Id, expense, address, ct);
             var formatted = MoneyFormatter.Format(expense.Amount, expense.Currency, culture.Name);
-            var reply = category is null
+            reply = category is null
                 ? localizer["Expenses.Recorded", formatted]
                 : localizer["Expenses.RecordedWithCategory", formatted, GetCategoryDisplayName(category, localizer)];
-            return await AppendBudgetAlertsAsync(expenses, budgets, spaceId, user.Id, culture, expense, reply, ct);
         }
-
-        // No merchant either: nothing to categorize, nothing to learn from.
-        if (merchantText is null)
+        else if (merchantText is null)
         {
-            var expense = await expenses.RecordAsync(spaceId, user.Id, amount, categoryId: null, merchant: null, today, ct);
+            // No merchant either: nothing to categorize, nothing to learn from.
+            expense = await expenses.RecordAsync(spaceId, user.Id, amount, categoryId: null, merchant: null, today, ct);
             await NotifyExpenseRecordedAsync(notifications, spaceId, user.Id, expense, address, ct);
-            var reply = localizer["Expenses.Recorded", MoneyFormatter.Format(expense.Amount, expense.Currency, culture.Name)];
-            return await AppendBudgetAlertsAsync(expenses, budgets, spaceId, user.Id, culture, expense, reply, ct);
+            reply = localizer["Expenses.Recorded", MoneyFormatter.Format(expense.Amount, expense.Currency, culture.Name)];
         }
-
-        // Categorization strategy, in order of precedence (docs/02-modello-dati.md):
-        // 1. learned merchant → category mapping, applied silently;
-        // 4. unknown merchant → ask once via inline keyboard, and the answer feeds back
-        //    into the mapping so this merchant is never asked about again.
-        var learnedCategory = await expenses.FindMerchantCategoryAsync(spaceId, merchantText, ct);
-        var recorded = await expenses.RecordAsync(spaceId, user.Id, amount, learnedCategory?.Id, merchantText, today, ct);
-        await NotifyExpenseRecordedAsync(notifications, spaceId, user.Id, recorded, address, ct);
-        var recordedFormatted = MoneyFormatter.Format(recorded.Amount, recorded.Currency, culture.Name);
-
-        if (learnedCategory is not null)
+        else
         {
-            var reply = localizer["Expenses.RecordedWithMerchantAndCategory",
-                recordedFormatted, merchantText, GetCategoryDisplayName(learnedCategory, localizer)];
-            return await AppendBudgetAlertsAsync(expenses, budgets, spaceId, user.Id, culture, recorded, reply, ct);
+            // Categorization strategy, in order of precedence (docs/02-modello-dati.md):
+            // 1. learned merchant → category mapping, applied silently;
+            // 4. unknown merchant → ask once via inline keyboard, and the answer feeds back
+            //    into the mapping so this merchant is never asked about again.
+            var learnedCategory = await expenses.FindMerchantCategoryAsync(spaceId, merchantText, ct);
+            expense = await expenses.RecordAsync(spaceId, user.Id, amount, learnedCategory?.Id, merchantText, today, ct);
+            await NotifyExpenseRecordedAsync(notifications, spaceId, user.Id, expense, address, ct);
+            var recordedFormatted = MoneyFormatter.Format(expense.Amount, expense.Currency, culture.Name);
+
+            if (learnedCategory is not null)
+            {
+                reply = localizer["Expenses.RecordedWithMerchantAndCategory",
+                    recordedFormatted, merchantText, GetCategoryDisplayName(learnedCategory, localizer)];
+            }
+            else
+            {
+                await SendCategoryPickerAsync(expenses, address, spaceId, expense.Id, merchantText, ct);
+                // No category yet — nothing to check against a per-category budget, only the overall one.
+                reply = localizer["Expenses.RecordedWithMerchant", recordedFormatted, merchantText];
+            }
         }
 
-        await SendCategoryPickerAsync(expenses, address, spaceId, recorded.Id, merchantText, ct);
-        // No category yet — nothing to check against a per-category budget, only the overall one.
-        return await AppendBudgetAlertsAsync(expenses, budgets, spaceId, user.Id, culture, recorded,
-            localizer["Expenses.RecordedWithMerchant", recordedFormatted, merchantText], ct);
+        await undo.RecordExpenseAsync(user.Id, spaceId, expense.Id, ct);
+        var replyWithAlerts = await AppendBudgetAlertsAsync(expenses, budgets, spaceId, user.Id, culture, expense, reply, ct);
+        await FinalizeUsefulActionReplyAsync(onboarding, address, user.Id, "expenses", replyWithAlerts, ct);
+        return null;
     }
 
     private static async Task NotifyExpenseRecordedAsync(
@@ -1107,6 +1469,48 @@ public sealed class MessageProcessor(
         return localizer["Expenses.CategoryTotal", formatted, GetCategoryDisplayName(category, localizer)];
     }
 
+    // Historical search (docs/10-conversazione.md) — always an L3 tool, never pattern
+    // matching: "the variety of phrasings is too high". The reply is a computed aggregate,
+    // read through resx like everything else — the model supplies parameters, not prose.
+    private async Task<string> HandleHistoryQueryAsync(
+        ExpenseService expenses, Guid spaceId, User user, CultureInfo culture, JsonElement args, CancellationToken ct)
+    {
+        var aggregationText = args.GetProperty("aggregation").GetString();
+        if (!Enum.TryParse<HistoryAggregation>(aggregationText, ignoreCase: true, out var aggregation))
+        {
+            aggregation = HistoryAggregation.Total;
+        }
+
+        Guid? categoryId = null;
+        if (GetOptionalString(args, "category") is { } categoryText)
+        {
+            categoryId = (await ResolveCategoryAsync(expenses, spaceId, categoryText, ct))?.Id;
+        }
+
+        var dateFrom = ParseOptionalDate(GetOptionalString(args, "date_from"));
+        var dateTo = ParseOptionalDate(GetOptionalString(args, "date_to"));
+        var searchText = GetOptionalString(args, "search_text");
+
+        var result = await expenses.QueryHistoryAsync(spaceId, user.Id, searchText, categoryId, dateFrom, dateTo, aggregation, ct);
+
+        return aggregation switch
+        {
+            HistoryAggregation.MostRecentDate => result.MostRecentDate is { } date
+                ? localizer["History.MostRecentDate", date.ToString("d MMMM yyyy", culture)]
+                : localizer["History.NotFound"],
+            HistoryAggregation.Count => localizer["History.Count", result.Count],
+            HistoryAggregation.Average => result.Amount is { } average
+                ? localizer["History.Average", MoneyFormatter.Format(average, result.Currency!, culture.Name)]
+                : localizer["History.NotFound"],
+            _ => localizer["History.Total", MoneyFormatter.Format(result.Amount ?? 0m, result.Currency ?? "EUR", culture.Name)],
+        };
+    }
+
+    private static DateOnly? ParseOptionalDate(string? text) =>
+        text is not null && DateOnly.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
+            ? date
+            : null;
+
     private async Task<Category?> ResolveCategoryAsync(ExpenseService expenses, Guid spaceId, string text, CancellationToken ct)
     {
         var categories = await expenses.GetCategoriesAsync(spaceId, ct);
@@ -1140,8 +1544,8 @@ public sealed class MessageProcessor(
     }
 
     private async Task<string?> HandleRemindCommandAsync(
-        ReminderService reminders, ChannelAddress address, Guid spaceId, User user, CultureInfo culture,
-        string argsText, CancellationToken ct)
+        ReminderService reminders, UndoService undo, OnboardingService onboarding, ChannelAddress address,
+        Guid spaceId, User user, CultureInfo culture, string argsText, CancellationToken ct)
     {
         var command = RemindCommandParser.Parse(argsText);
         if (command is null)
@@ -1173,7 +1577,10 @@ public sealed class MessageProcessor(
                 }
 
                 var reminder = await reminders.CreateOnceAsync(spaceId, user.Id, once.Text, dueAt, timeZoneId, ct);
-                return localizer["Reminders.CreatedOnce", FormatDueAt(reminder.DueAt, timeZone, culture)];
+                await undo.RecordReminderAsync(user.Id, spaceId, reminder.Id, ct);
+                var onceReply = localizer["Reminders.CreatedOnce", FormatDueAt(reminder.DueAt, timeZone, culture)].Value;
+                await FinalizeUsefulActionReplyAsync(onboarding, address, user.Id, "reminders", onceReply, ct);
+                return null;
             }
 
             case RemindCommand.CreateRecurring recurring:
@@ -1188,8 +1595,11 @@ public sealed class MessageProcessor(
 
                 var reminder = await reminders.CreateRecurringAsync(
                     spaceId, user.Id, recurring.Text, firstDueAt, timeZoneId, recurring.Frequency, ct);
-                return localizer["Reminders.CreatedRecurring",
-                    GetFrequencyDisplayName(recurring.Frequency), FormatDueAt(reminder.DueAt, timeZone, culture)];
+                await undo.RecordReminderAsync(user.Id, spaceId, reminder.Id, ct);
+                var recurringReply = localizer["Reminders.CreatedRecurring",
+                    GetFrequencyDisplayName(recurring.Frequency), FormatDueAt(reminder.DueAt, timeZone, culture)].Value;
+                await FinalizeUsefulActionReplyAsync(onboarding, address, user.Id, "reminders", recurringReply, ct);
+                return null;
             }
 
             default:

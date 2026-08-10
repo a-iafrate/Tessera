@@ -34,6 +34,18 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
 });
 
+// Custom metrics from day one (docs/05-ottimizzazioni.md): router level distribution, tokens
+// per turn, not-understood rate. Unlike Telegram/AzureOpenAI, this SDK throws at startup if
+// registered with no connection string configured — so it's registered only when one exists;
+// MessageProcessor/LlmFallbackClient take TelemetryClient as optional and skip tracking
+// without it, the same shape as the other optional pieces here.
+var applicationInsightsEnabled = !string.IsNullOrWhiteSpace(builder.Configuration["ApplicationInsights:ConnectionString"])
+    || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING"));
+if (applicationInsightsEnabled)
+{
+    builder.Services.AddApplicationInsightsTelemetry();
+}
+
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -120,6 +132,8 @@ builder.Services.AddScoped<SpaceService>();
 builder.Services.AddScoped<InviteService>();
 builder.Services.AddScoped<ActorNameResolver>();
 builder.Services.AddScoped<AccountDeletionService>();
+builder.Services.AddScoped<OnboardingService>();
+builder.Services.AddScoped<UndoService>();
 builder.Services.AddSingleton(new IntentRouter(Matchers.All));
 
 // L3 fallback (docs/05-ottimizzazioni.md) — optional, like the Telegram pipeline below: the
@@ -173,6 +187,11 @@ if (telegramEnabled)
 }
 
 var app = builder.Build();
+
+if (!applicationInsightsEnabled)
+{
+    app.Logger.LogWarning("Application Insights is not configured — custom metrics won't be collected.");
+}
 
 if (!azureOpenAiEnabled)
 {

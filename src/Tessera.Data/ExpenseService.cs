@@ -174,6 +174,76 @@ public sealed class ExpenseService(TesseraDbContext db, IAccessPolicy accessPoli
         return (total, space.Currency);
     }
 
+    // Historical search (docs/10-conversazione.md): "the variety of phrasings is too high for
+    // pattern matching", so this exists to be composed from L3-extracted parameters — never
+    // called with raw user text. Always returns one aggregate, never the matching rows.
+    public async Task<HistoryQueryResult> QueryHistoryAsync(
+        Guid spaceId, Guid userId, string? searchText, Guid? categoryId, DateOnly? dateFrom, DateOnly? dateTo,
+        HistoryAggregation aggregation, CancellationToken ct)
+    {
+        await EnsureAccessAsync(spaceId, userId, AccessLevel.Read, ct);
+        var space = await db.Spaces.AsNoTracking().FirstAsync(x => x.Id == spaceId, ct);
+
+        var query = db.Expenses.Where(x => x.SpaceId == spaceId);
+        if (searchText is { Length: > 0 })
+        {
+            var target = searchText.Trim().ToLower();
+            query = query.Where(x =>
+                (x.Merchant != null && x.Merchant.ToLower().Contains(target)) ||
+                (x.Note != null && x.Note.ToLower().Contains(target)));
+        }
+
+        if (categoryId is not null)
+        {
+            query = query.Where(x => x.CategoryId == categoryId);
+        }
+
+        if (dateFrom is not null)
+        {
+            query = query.Where(x => x.Date >= dateFrom.Value);
+        }
+
+        if (dateTo is not null)
+        {
+            query = query.Where(x => x.Date <= dateTo.Value);
+        }
+
+        switch (aggregation)
+        {
+            case HistoryAggregation.Total:
+            {
+                var total = await query.SumAsync(x => (decimal?)x.Amount, ct) ?? 0m;
+                return new HistoryQueryResult(total, space.Currency, 0, null);
+            }
+
+            case HistoryAggregation.Average:
+            {
+                var amounts = query.Select(x => x.Amount);
+                var count = await amounts.CountAsync(ct);
+                decimal? average = count == 0 ? null : await amounts.AverageAsync(ct);
+                return new HistoryQueryResult(average, space.Currency, count, null);
+            }
+
+            case HistoryAggregation.Count:
+            {
+                var count = await query.CountAsync(ct);
+                return new HistoryQueryResult(null, null, count, null);
+            }
+
+            case HistoryAggregation.MostRecentDate:
+            {
+                var mostRecent = await query
+                    .OrderByDescending(x => x.Date)
+                    .Select(x => (DateOnly?)x.Date)
+                    .FirstOrDefaultAsync(ct);
+                return new HistoryQueryResult(null, null, 0, mostRecent);
+            }
+
+            default:
+                throw new ArgumentOutOfRangeException(nameof(aggregation));
+        }
+    }
+
     private async Task EnsureAccessAsync(Guid spaceId, Guid userId, AccessLevel required, CancellationToken ct)
     {
         var allowed = await accessPolicy.CanAsync(userId, spaceId, ResourceKind.Expenses, required, ct);
