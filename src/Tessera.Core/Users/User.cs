@@ -26,5 +26,6 @@ public class User
     public bool SharingPromptShown { get; set; }
 
     public ICollection<ChannelIdentity> ChannelIdentities { get; set; } = [];
+    public ICollection<LinkedAccount> LinkedAccounts { get; set; } = [];
     public ICollection<Membership> Memberships { get; set; } = [];
 }

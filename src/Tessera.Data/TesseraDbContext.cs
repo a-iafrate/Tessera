@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Tessera.Core.Calendars;
 using Tessera.Core.Channels;
 using Tessera.Core.Conversations;
 using Tessera.Core.Expenses;
@@ -11,6 +12,7 @@ using Tessera.Core.Shopping;
 using Tessera.Core.Spaces;
 using DomainUser = Tessera.Core.Users.User;
 using ChannelIdentity = Tessera.Core.Users.ChannelIdentity;
+using LinkedAccount = Tessera.Core.Users.LinkedAccount;
 using LinkToken = Tessera.Core.Users.LinkToken;
 
 namespace Tessera.Data;
@@ -63,6 +65,12 @@ public sealed class TesseraDbContext(DbContextOptions<TesseraDbContext> options)
     public DbSet<LastOperation> LastOperations => Set<LastOperation>();
 
     public DbSet<Note> Notes => Set<Note>();
+
+    public DbSet<LinkedAccount> LinkedAccounts => Set<LinkedAccount>();
+
+    public DbSet<ExternalCalendar> ExternalCalendars => Set<ExternalCalendar>();
+
+    public DbSet<CalendarSpaceMapping> CalendarSpaceMappings => Set<CalendarSpaceMapping>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

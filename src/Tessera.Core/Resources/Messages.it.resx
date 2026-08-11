@@ -548,6 +548,9 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   <data name="Nav.Account" xml:space="preserve">
     <value>Account</value>
   </data>
+  <data name="Nav.Calendars" xml:space="preserve">
+    <value>Calendari</value>
+  </data>
   <data name="Profile.Title" xml:space="preserve">
     <value>Account</value>
   </data>
@@ -1041,5 +1044,38 @@ Provami subito:</value>
   </data>
   <data name="Reminders.GenericError" xml:space="preserve">
     <value>Qualcosa è andato storto. Riprova.</value>
+  </data>
+  <data name="Calendars.PageTitle" xml:space="preserve">
+    <value>Calendari</value>
+  </data>
+  <data name="Calendars.NotConfigured" xml:space="preserve">
+    <value>Il collegamento dei calendari non è ancora disponibile.</value>
+  </data>
+  <data name="Calendars.LinkIntro" xml:space="preserve">
+    <value>Collega il tuo account Google per vedere qui i tuoi calendari.</value>
+  </data>
+  <data name="Calendars.LinkButton" xml:space="preserve">
+    <value>Collega Google Calendar</value>
+  </data>
+  <data name="Calendars.RelinkButton" xml:space="preserve">
+    <value>Ricollega Google Calendar</value>
+  </data>
+  <data name="Calendars.LinkedNote" xml:space="preserve">
+    <value>Solo i calendari che abiliti qui sotto sono visibili ai tuoi spazi.</value>
+  </data>
+  <data name="Calendars.Empty" xml:space="preserve">
+    <value>Nessun calendario trovato su questo account.</value>
+  </data>
+  <data name="Calendars.PrimaryBadge" xml:space="preserve">
+    <value>Principale</value>
+  </data>
+  <data name="Calendars.Error.Denied" xml:space="preserve">
+    <value>L'accesso con Google è stato annullato.</value>
+  </data>
+  <data name="Calendars.Error.State" xml:space="preserve">
+    <value>La richiesta di collegamento è scaduta. Riprova.</value>
+  </data>
+  <data name="Calendars.Error.Exchange" xml:space="preserve">
+    <value>Qualcosa è andato storto nel collegare il tuo account Google. Riprova.</value>
   </data>
 </root>

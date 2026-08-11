@@ -2,6 +2,8 @@ using System.Globalization;
 using System.Threading.RateLimiting;
 using Azure;
 using Azure.AI.OpenAI;
+using Azure.Identity;
+using Azure.Security.KeyVault.Secrets;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
@@ -19,6 +21,7 @@ using Tessera.Core.Channels;
 using Tessera.Core.Resources;
 using Tessera.Core.Spaces;
 using Tessera.Data;
+using Tessera.Integrations;
 using Tessera.Web.Components;
 using Tessera.Web.Components.Account;
 using Tessera.Web.Endpoints;
@@ -156,6 +159,32 @@ if (azureOpenAiEnabled)
     builder.Services.AddSingleton<LlmFallbackClient>();
 }
 
+// Refresh tokens may only ever live in Key Vault, never the database (hard rule 4,
+// docs/07-compliance.md) — so calendar linking has no fallback path the way L3/Telegram do;
+// without a vault, ITokenVault simply isn't registered and Google linking can't proceed.
+var keyVaultName = builder.Configuration["KeyVault:Name"];
+var keyVaultEnabled = !string.IsNullOrWhiteSpace(keyVaultName);
+if (keyVaultEnabled)
+{
+    builder.Services.AddSingleton(new SecretClient(
+        new Uri($"https://{keyVaultName}.vault.azure.net/"), new DefaultAzureCredential()));
+    builder.Services.AddScoped<ITokenVault, KeyVaultTokenVault>();
+}
+
+// Google Calendar linking (docs/02-modello-dati.md, docs/03-integrazioni.md) — optional like
+// the other external integrations here; the console and bot work fully without it.
+var googleClientId = builder.Configuration["Google:ClientId"];
+var googleClientSecret = builder.Configuration["Google:ClientSecret"];
+var googleCalendarEnabled = keyVaultEnabled
+    && !string.IsNullOrWhiteSpace(googleClientId)
+    && !string.IsNullOrWhiteSpace(googleClientSecret);
+if (googleCalendarEnabled)
+{
+    builder.Services.AddHttpClient();
+    builder.Services.AddSingleton<ICalendarProvider, GoogleCalendarClient>();
+    builder.Services.AddScoped<LinkedAccountService>();
+}
+
 // The bot pipeline is only wired up once a bot token is configured, so the console works
 // standalone during development before a Telegram bot exists (dotnet user-secrets set
 // "Telegram:BotToken" ... / "Telegram:WebhookSecret" ..., see docs/08-setup-sviluppo.md).
@@ -192,6 +221,15 @@ var app = builder.Build();
 if (!applicationInsightsEnabled)
 {
     app.Logger.LogWarning("Application Insights is not configured — custom metrics won't be collected.");
+}
+
+if (!keyVaultEnabled)
+{
+    app.Logger.LogWarning("KeyVault:Name is not configured — Google Calendar linking is disabled.");
+}
+else if (!googleCalendarEnabled)
+{
+    app.Logger.LogWarning("Google:ClientId/ClientSecret are not configured — Google Calendar linking is disabled.");
 }
 
 if (!azureOpenAiEnabled)
@@ -273,6 +311,11 @@ app.MapAdditionalIdentityEndpoints();
 if (telegramEnabled)
 {
     app.MapTelegramWebhook();
+}
+
+if (googleCalendarEnabled)
+{
+    app.MapGoogleCalendarEndpoints();
 }
 
 app.Run();

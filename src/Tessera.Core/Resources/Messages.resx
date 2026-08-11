@@ -548,6 +548,9 @@ Note: I only read messages that start with / or mention me.</value>
   <data name="Nav.Account" xml:space="preserve">
     <value>Account</value>
   </data>
+  <data name="Nav.Calendars" xml:space="preserve">
+    <value>Calendars</value>
+  </data>
   <data name="Profile.Title" xml:space="preserve">
     <value>Account</value>
   </data>
@@ -1041,5 +1044,38 @@ Try it now:</value>
   </data>
   <data name="Reminders.GenericError" xml:space="preserve">
     <value>Something went wrong. Please try again.</value>
+  </data>
+  <data name="Calendars.PageTitle" xml:space="preserve">
+    <value>Calendars</value>
+  </data>
+  <data name="Calendars.NotConfigured" xml:space="preserve">
+    <value>Calendar linking isn't available yet.</value>
+  </data>
+  <data name="Calendars.LinkIntro" xml:space="preserve">
+    <value>Link your Google account to see your calendars here.</value>
+  </data>
+  <data name="Calendars.LinkButton" xml:space="preserve">
+    <value>Link Google Calendar</value>
+  </data>
+  <data name="Calendars.RelinkButton" xml:space="preserve">
+    <value>Re-link Google Calendar</value>
+  </data>
+  <data name="Calendars.LinkedNote" xml:space="preserve">
+    <value>Only the calendars you enable below are visible to your spaces.</value>
+  </data>
+  <data name="Calendars.Empty" xml:space="preserve">
+    <value>No calendars found on this account.</value>
+  </data>
+  <data name="Calendars.PrimaryBadge" xml:space="preserve">
+    <value>Primary</value>
+  </data>
+  <data name="Calendars.Error.Denied" xml:space="preserve">
+    <value>Google sign-in was cancelled.</value>
+  </data>
+  <data name="Calendars.Error.State" xml:space="preserve">
+    <value>The link request expired. Please try again.</value>
+  </data>
+  <data name="Calendars.Error.Exchange" xml:space="preserve">
+    <value>Something went wrong linking your Google account. Please try again.</value>
   </data>
 </root>

@@ -4,4 +4,9 @@
     <ProjectReference Include="..\Tessera.Core\Tessera.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Google.Apis.Auth" Version="1.75.0" />
+    <PackageReference Include="Google.Apis.Calendar.v3" Version="1.75.0.4206" />
+  </ItemGroup>
+
 </Project>

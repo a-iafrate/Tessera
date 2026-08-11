@@ -1,0 +1,145 @@
+@page "/calendars"
+@attribute [Authorize]
+
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.Extensions.Localization
+@using Tessera.Core.Calendars
+@using Tessera.Core.Resources
+@using Tessera.Data
+
+@inject IServiceProvider ServiceProvider
+@inject NavigationManager NavigationManager
+@inject IStringLocalizer<Messages> Localizer
+
+<PageTitle>@Localizer["Calendars.PageTitle"]</PageTitle>
+
+<div class="container">
+    <a href="/" class="text-soft">@Localizer["Common.BackToDashboard"]</a>
+    <h1>@Localizer["Calendars.PageTitle"]</h1>
+
+    @if (linkedAccounts is null)
+    {
+        <p class="text-soft">@Localizer["Calendars.NotConfigured"]</p>
+    }
+    else if (!loaded)
+    {
+        <p class="text-soft"><span class="spinner" aria-hidden="true"></span> @Localizer["Common.Loading"]</p>
+    }
+    else
+    {
+        @if (errorKey is not null)
+        {
+            <div class="alert alert-danger">@Localizer[$"Calendars.Error.{errorKey}"]</div>
+        }
+
+        @if (!isLinked)
+        {
+            <div class="card" style="max-width: 32rem;">
+                <p class="text-soft">@Localizer["Calendars.LinkIntro"]</p>
+                <a class="btn btn-primary" href="/oauth/google/link">@Localizer["Calendars.LinkButton"]</a>
+            </div>
+        }
+        else
+        {
+            <p class="text-soft">@Localizer["Calendars.LinkedNote"]</p>
+
+            <div class="seam" aria-hidden="true">
+                <span></span><span></span><span></span>
+            </div>
+
+            @if (calendars.Count == 0)
+            {
+                <p class="text-soft">@Localizer["Calendars.Empty"]</p>
+            }
+            else
+            {
+                <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+                    @foreach (var calendar in calendars)
+                    {
+                        <div class="card" style="display: flex; align-items: center; gap: var(--space-3);">
+                            <label style="display: flex; align-items: center; gap: var(--space-2); flex: 1; cursor: pointer;">
+                                <input type="checkbox" checked="@calendar.IsEnabled" disabled="@isBusy"
+                                       @onchange="e => ToggleAsync(calendar.Id, (bool)e.Value!)" />
+                                <span>@calendar.Name</span>
+                                @if (calendar.IsPrimary)
+                                {
+                                    <span class="badge badge-admin">@Localizer["Calendars.PrimaryBadge"]</span>
+                                }
+                            </label>
+                        </div>
+                    }
+                </div>
+            }
+
+            <a class="btn btn-secondary" style="margin-top: var(--space-4);" href="/oauth/google/link">@Localizer["Calendars.RelinkButton"]</a>
+        }
+    }
+</div>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    [SupplyParameterFromQuery]
+    private string? Error { get; set; }
+
+    private LinkedAccountService? linkedAccounts;
+    private Guid userId;
+    private bool loaded;
+    private bool isLinked;
+    private bool isBusy;
+    private IReadOnlyList<ExternalCalendar> calendars = [];
+    private string? errorKey;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Only registered when Key Vault + Google credentials are configured
+        // (Program.cs) — resolved via the service provider rather than @inject so a missing
+        // registration renders a message instead of throwing.
+        linkedAccounts = ServiceProvider.GetService<LinkedAccountService>();
+        if (linkedAccounts is null)
+        {
+            return;
+        }
+
+        errorKey = Error switch
+        {
+            "denied" => "Denied",
+            "state" => "State",
+            "exchange" => "Exchange",
+            _ => null,
+        };
+
+        var authState = await AuthenticationStateTask!;
+        userId = Guid.Parse(authState.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        isLinked = await linkedAccounts.IsGoogleLinkedAsync(userId, CancellationToken.None);
+        if (isLinked)
+        {
+            calendars = await linkedAccounts.GetCalendarsAsync(userId, CancellationToken.None);
+        }
+
+        loaded = true;
+    }
+
+    private async Task ToggleAsync(Guid externalCalendarId, bool enabled)
+    {
+        if (isBusy || linkedAccounts is null)
+        {
+            return;
+        }
+
+        isBusy = true;
+        try
+        {
+            await linkedAccounts.SetCalendarEnabledAsync(userId, externalCalendarId, enabled, CancellationToken.None);
+            calendars = await linkedAccounts.GetCalendarsAsync(userId, CancellationToken.None);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+}
