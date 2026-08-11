@@ -497,6 +497,9 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   <data name="SpaceDetail.NotesButton" xml:space="preserve">
     <value>Note</value>
   </data>
+  <data name="SpaceDetail.CalendarsButton" xml:space="preserve">
+    <value>Calendari</value>
+  </data>
   <data name="SpaceDetail.ShoppingListButton" xml:space="preserve">
     <value>Lista della spesa</value>
   </data>
@@ -1067,7 +1070,10 @@ Provami subito:</value>
     <value>Scollegare il tuo account Google? I tuoi spazi non vedranno più nessuno dei suoi calendari.</value>
   </data>
   <data name="Calendars.LinkedNote" xml:space="preserve">
-    <value>Solo i calendari che abiliti qui sotto sono visibili ai tuoi spazi.</value>
+    <value>Abilitare un calendario qui lo rende disponibile ai tuoi spazi — vai poi nella pagina Calendari di uno spazio per mostrarlo davvero lì.</value>
+  </data>
+  <data name="Calendars.GoToSpacesButton" xml:space="preserve">
+    <value>Vai ai tuoi spazi per scegliere la visibilità →</value>
   </data>
   <data name="Calendars.Empty" xml:space="preserve">
     <value>Nessun calendario trovato su questo account.</value>
@@ -1083,5 +1089,53 @@ Provami subito:</value>
   </data>
   <data name="Calendars.Error.Exchange" xml:space="preserve">
     <value>Qualcosa è andato storto nel collegare il tuo account Google. Riprova.</value>
+  </data>
+  <data name="SpaceCalendars.PageTitle" xml:space="preserve">
+    <value>Calendari</value>
+  </data>
+  <data name="SpaceCalendars.NoLinkedCalendars" xml:space="preserve">
+    <value>Non hai ancora collegato nessun calendario.</value>
+  </data>
+  <data name="SpaceCalendars.GoLinkButton" xml:space="preserve">
+    <value>Collega un calendario</value>
+  </data>
+  <data name="SpaceCalendars.Intro" xml:space="preserve">
+    <value>Scegli cosa ciascuno dei tuoi calendari mostra a questo spazio.</value>
+  </data>
+  <data name="SpaceCalendars.LevelNone" xml:space="preserve">
+    <value>Non condiviso</value>
+  </data>
+  <data name="SpaceCalendars.LevelAvailability" xml:space="preserve">
+    <value>Solo disponibilità (libero/occupato)</value>
+  </data>
+  <data name="SpaceCalendars.LevelDetails" xml:space="preserve">
+    <value>Dettagli (titoli e orari)</value>
+  </data>
+  <data name="SpaceCalendars.LevelWrite" xml:space="preserve">
+    <value>Dettagli + può creare eventi</value>
+  </data>
+  <data name="SpaceCalendars.DefaultWriteTarget" xml:space="preserve">
+    <value>Crea qui i nuovi eventi per impostazione predefinita</value>
+  </data>
+  <data name="Calendars.EventsEmpty" xml:space="preserve">
+    <value>Niente in calendario in quel periodo.</value>
+  </data>
+  <data name="Calendars.EventLine" xml:space="preserve">
+    <value>{0} — {1}</value>
+  </data>
+  <data name="Calendars.FreeBusyAllFree" xml:space="preserve">
+    <value>Nessuno è impegnato in quel periodo.</value>
+  </data>
+  <data name="Calendars.BusyLine" xml:space="preserve">
+    <value>Impegnato {0} – {1}</value>
+  </data>
+  <data name="Calendars.ConfirmEventPrompt" xml:space="preserve">
+    <value>Ok, {0} — {1}. Lo aggiungo?</value>
+  </data>
+  <data name="Calendars.CreateEventFailed" xml:space="preserve">
+    <value>Non sono riuscito a creare l'evento — verifica che un calendario sia impostato come predefinito per creare eventi in questo spazio.</value>
+  </data>
+  <data name="Calendars.EventCreated" xml:space="preserve">
+    <value>Aggiunto "{0}" — {1}.</value>
   </data>
 </root>

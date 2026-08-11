@@ -21,6 +21,9 @@ public static class LlmTools
     public const string CreateNote = "create_note";
     public const string ShowNotes = "show_notes";
     public const string DeleteNote = "delete_note";
+    public const string QueryCalendarEvents = "query_calendar_events";
+    public const string QueryCalendarFreeBusy = "query_calendar_freebusy";
+    public const string CreateCalendarEvent = "create_calendar_event";
     public const string CorrectLastShoppingItem = "correct_last_shopping_item";
 
     // Tools filtered per context (docs/05-ottimizzazioni.md) — the correction tool only makes
@@ -193,6 +196,49 @@ public static class LlmTools
                     "search_text": { "type": "string", "description": "Free text to match against the note's title or body." }
                   },
                   "required": ["search_text"]
+                }
+                """)),
+        ChatTool.CreateFunctionTool(
+            QueryCalendarEvents,
+            "List calendar events (with titles) in a date/time range — use for \"what do I have " +
+            "tomorrow\", \"what's on the calendar this week\". Not for availability-only questions.",
+            BinaryData.FromString("""
+                {
+                  "type": "object",
+                  "properties": {
+                    "from": { "type": "string", "description": "Start of the range as an ISO 8601 date-time, worked out from the current date and time zone given in the context." },
+                    "to": { "type": "string", "description": "End of the range as an ISO 8601 date-time." }
+                  },
+                  "required": ["from", "to"]
+                }
+                """)),
+        ChatTool.CreateFunctionTool(
+            QueryCalendarFreeBusy,
+            "Check when the space is free or busy in a date/time range, without event titles — " +
+            "use for \"when are we free\", \"am I busy tomorrow afternoon\".",
+            BinaryData.FromString("""
+                {
+                  "type": "object",
+                  "properties": {
+                    "from": { "type": "string", "description": "Start of the range as an ISO 8601 date-time, worked out from the current date and time zone given in the context." },
+                    "to": { "type": "string", "description": "End of the range as an ISO 8601 date-time." }
+                  },
+                  "required": ["from", "to"]
+                }
+                """)),
+        ChatTool.CreateFunctionTool(
+            CreateCalendarEvent,
+            "Create a calendar event with a specific start and end time — use for \"add dentist " +
+            "appointment tomorrow at 5pm\". Never use this for a plain reminder, which has no duration.",
+            BinaryData.FromString("""
+                {
+                  "type": "object",
+                  "properties": {
+                    "title": { "type": "string", "description": "The event title, in the user's own words." },
+                    "start": { "type": "string", "description": "Start date-time as ISO 8601, worked out from the current date and time zone given in the context." },
+                    "end": { "type": "string", "description": "End date-time as ISO 8601. If the user gave no duration, default to one hour after start." }
+                  },
+                  "required": ["title", "start", "end"]
                 }
                 """)),
     ];

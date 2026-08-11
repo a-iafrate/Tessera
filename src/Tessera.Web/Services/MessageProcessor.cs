@@ -188,6 +188,14 @@ public sealed class MessageProcessor(
             return;
         }
 
+        // Same reasoning as the reminder confirmation just above — the space is already fixed
+        // in the pending payload.
+        if (message.CallbackData is { } calendarConfirmCallback && calendarConfirmCallback.StartsWith("calendarEvent.llmconfirm:", StringComparison.Ordinal))
+        {
+            await HandleLlmCalendarEventConfirmCallbackAsync(scope, address, user, calendarConfirmCallback["calendarEvent.llmconfirm:".Length..], ct);
+            return;
+        }
+
         // Undo, onboarding's sample button and the sharing prompt all resolve against
         // LastOperation/the user row directly — none of them need a space resolved first.
         if (message.CallbackData == "undo:tap")
@@ -458,7 +466,7 @@ public sealed class MessageProcessor(
         }
 
         string? reply;
-        if (match is not null && match.Intent != "reminders.natural")
+        if (match is not null && match.Intent != "reminders.natural" && match.Intent != "calendar.natural")
         {
             reply = match.Intent switch
             {
@@ -480,8 +488,9 @@ public sealed class MessageProcessor(
         }
         else
         {
-            // Either nothing matched at all, or a reminder attempt was recognized but its date
-            // still needs interpreting — both go to L3 (docs/05-ottimizzazioni.md).
+            // Either nothing matched at all, or a reminder/calendar-event attempt was
+            // recognized but its date still needs interpreting — all go to L3
+            // (docs/05-ottimizzazioni.md).
             reply = await HandleLlmFallbackAsync(
                 scope, shopping, expenses, reminders, notes, budgets, notifications, undo, onboarding, address, spaceId, user, culture, text, ct);
         }
@@ -552,6 +561,9 @@ public sealed class MessageProcessor(
             LlmTools.ShowNotes => await HandleShowNotesAsync(notes, spaceId, user.Id, ct),
             LlmTools.DeleteNote => await HandleLlmDeleteNoteAsync(
                 notes, spaceId, user.Id, args.GetProperty("search_text").GetString() ?? "", ct),
+            LlmTools.QueryCalendarEvents => await HandleCalendarEventsQueryAsync(scope, spaceId, user, culture, args, ct),
+            LlmTools.QueryCalendarFreeBusy => await HandleCalendarFreeBusyQueryAsync(scope, spaceId, user, culture, args, ct),
+            LlmTools.CreateCalendarEvent => await HandleLlmCreateCalendarEventAsync(scope, address, spaceId, user, culture, args, ct),
             LlmTools.CorrectLastShoppingItem when recentAction is not null => await HandleShoppingCorrectionAsync(
                 shopping, address, spaceId, user.Id, recentAction.ItemId, args.GetProperty("corrected_text").GetString() ?? "", ct),
             _ => await SendNotUnderstoodAsync(address, text, culture, ct),
@@ -688,6 +700,162 @@ public sealed class MessageProcessor(
         await FinalizeUsefulActionReplyAsync(onboarding, address, user.Id, "reminders", confirmReply, ct);
     }
 
+    // Read-only, so no confirmation round trip is needed — only creating something from an
+    // interpreted date goes through that (hard rule 14).
+    private async Task<string> HandleCalendarEventsQueryAsync(
+        AsyncServiceScope scope, Guid spaceId, User user, CultureInfo culture, JsonElement args, CancellationToken ct)
+    {
+        var calendarQuery = scope.ServiceProvider.GetService<CalendarQueryService>();
+        if (calendarQuery is null)
+        {
+            return localizer["Calendars.NotConfigured"];
+        }
+
+        var timeZone = TimeZoneInfo.FindSystemTimeZoneById(user.TimeZoneId ?? "UTC");
+        if (!TryParseLocalDateTime(GetOptionalString(args, "from"), timeZone, out var from)
+            || !TryParseLocalDateTime(GetOptionalString(args, "to"), timeZone, out var to))
+        {
+            return localizer["Errors.NotUnderstood"];
+        }
+
+        var events = await calendarQuery.GetEventsAsync(spaceId, user.Id, from, to, ct);
+        if (events.Count == 0)
+        {
+            return localizer["Calendars.EventsEmpty"];
+        }
+
+        return string.Join('\n', events.Select(e =>
+            localizer["Calendars.EventLine", FormatDueAt(e.Start, timeZone, culture), e.Title].Value));
+    }
+
+    private async Task<string> HandleCalendarFreeBusyQueryAsync(
+        AsyncServiceScope scope, Guid spaceId, User user, CultureInfo culture, JsonElement args, CancellationToken ct)
+    {
+        var calendarQuery = scope.ServiceProvider.GetService<CalendarQueryService>();
+        if (calendarQuery is null)
+        {
+            return localizer["Calendars.NotConfigured"];
+        }
+
+        var timeZone = TimeZoneInfo.FindSystemTimeZoneById(user.TimeZoneId ?? "UTC");
+        if (!TryParseLocalDateTime(GetOptionalString(args, "from"), timeZone, out var from)
+            || !TryParseLocalDateTime(GetOptionalString(args, "to"), timeZone, out var to))
+        {
+            return localizer["Errors.NotUnderstood"];
+        }
+
+        var busy = await calendarQuery.GetFreeBusyAsync(spaceId, user.Id, from, to, ct);
+        if (busy.Count == 0)
+        {
+            return localizer["Calendars.FreeBusyAllFree"];
+        }
+
+        return string.Join('\n', busy.Select(b =>
+            localizer["Calendars.BusyLine", FormatDueAt(b.Start, timeZone, culture), FormatDueAt(b.End, timeZone, culture)].Value));
+    }
+
+    private sealed record PendingLlmCalendarEvent(Guid SpaceId, string Title, DateTimeOffset Start, DateTimeOffset End);
+
+    // Same read-back-before-committing pattern as HandleLlmReminderAsync (hard rule 14) — an
+    // event actually created on the user's real Google Calendar is much more visible (and
+    // awkward to silently undo) than a reminder, so misreading the date matters even more here.
+    private async Task<string?> HandleLlmCreateCalendarEventAsync(
+        AsyncServiceScope scope, ChannelAddress address, Guid spaceId, User user, CultureInfo culture, JsonElement args, CancellationToken ct)
+    {
+        if (scope.ServiceProvider.GetService<CalendarQueryService>() is null)
+        {
+            return localizer["Calendars.NotConfigured"];
+        }
+
+        var title = args.GetProperty("title").GetString();
+        var timeZone = TimeZoneInfo.FindSystemTimeZoneById(user.TimeZoneId ?? "UTC");
+        if (string.IsNullOrWhiteSpace(title)
+            || !TryParseLocalDateTime(GetOptionalString(args, "start"), timeZone, out var start)
+            || !TryParseLocalDateTime(GetOptionalString(args, "end"), timeZone, out var end))
+        {
+            return localizer["Errors.NotUnderstood"];
+        }
+
+        var db = scope.ServiceProvider.GetRequiredService<TesseraDbContext>();
+        var payload = new PendingLlmCalendarEvent(spaceId, title, start, end);
+        var state = await db.ConversationStates.FirstOrDefaultAsync(s => s.UserId == user.Id, ct);
+        if (state is null)
+        {
+            state = new ConversationState { Id = Guid.NewGuid(), UserId = user.Id };
+            db.ConversationStates.Add(state);
+        }
+
+        state.PendingIntent = "calendarEvent.llmConfirm";
+        state.StateJson = JsonSerializer.Serialize(payload);
+        state.UpdatedAt = DateTimeOffset.UtcNow;
+        state.ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(30);
+        await db.SaveChangesAsync(ct);
+
+        var prompt = localizer["Calendars.ConfirmEventPrompt", title, FormatDueAt(start, timeZone, culture)];
+        var choices = new[]
+        {
+            new Choice(localizer["Reminders.ConfirmYes"].Value, "calendarEvent.llmconfirm:yes"),
+            new Choice(localizer["Reminders.ConfirmNo"].Value, "calendarEvent.llmconfirm:no"),
+        };
+        await channel.SendChoicesAsync(address, prompt, choices, ct);
+        return null;
+    }
+
+    private async Task HandleLlmCalendarEventConfirmCallbackAsync(
+        AsyncServiceScope scope, ChannelAddress address, User user, string choice, CancellationToken ct)
+    {
+        var db = scope.ServiceProvider.GetRequiredService<TesseraDbContext>();
+        var state = await db.ConversationStates.FirstOrDefaultAsync(
+            s => s.UserId == user.Id && s.PendingIntent == "calendarEvent.llmConfirm" && s.ExpiresAt > DateTimeOffset.UtcNow, ct);
+        if (state is null)
+        {
+            return;
+        }
+
+        state.PendingIntent = null;
+        await db.SaveChangesAsync(ct);
+
+        if (choice != "yes")
+        {
+            await channel.SendTextAsync(address, localizer["Reminders.ConfirmCancelled"], ct);
+            return;
+        }
+
+        var payload = JsonSerializer.Deserialize<PendingLlmCalendarEvent>(state.StateJson);
+        if (payload is null)
+        {
+            return;
+        }
+
+        var calendarQuery = scope.ServiceProvider.GetRequiredService<CalendarQueryService>();
+        var created = await calendarQuery.CreateEventAsync(payload.SpaceId, user.Id, payload.Title, payload.Start, payload.End, ct);
+        if (created is null)
+        {
+            await channel.SendTextAsync(address, localizer["Calendars.CreateEventFailed"], ct);
+            return;
+        }
+
+        var timeZone = TimeZoneInfo.FindSystemTimeZoneById(user.TimeZoneId ?? "UTC");
+        var culture = new CultureInfo(user.PreferredCulture);
+        var confirmReply = localizer["Calendars.EventCreated", created.Title, FormatDueAt(created.Start, timeZone, culture)].Value;
+        await channel.SendTextAsync(address, confirmReply, ct);
+    }
+
+    // Same parsing rule as reminders' due_at (docs/05-ottimizzazioni.md): the model gives a
+    // naive local date-time already worked out from the context's current date/time zone, and
+    // this attaches the user's actual UTC offset to it.
+    private static bool TryParseLocalDateTime(string? text, TimeZoneInfo timeZone, out DateTimeOffset result)
+    {
+        if (text is null || !DateTime.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None, out var localDateTime))
+        {
+            result = default;
+            return false;
+        }
+
+        result = new DateTimeOffset(localDateTime, timeZone.GetUtcOffset(localDateTime));
+        return true;
+    }
+
     // Records the action's undo button on the confirmation, and — before sending — folds in
     // whichever onboarding nudge (if any) applies: a discovery hint appended to the same
     // message, or the one-time sharing prompt as a separate follow-up
@@ -806,6 +974,13 @@ public sealed class MessageProcessor(
         "shopping.show" => (ResourceKind.ShoppingList, AccessLevel.Read),
         "expenses.add" => (ResourceKind.Expenses, AccessLevel.Write),
         "expenses.query" or "expenses.query.category" => (ResourceKind.Expenses, AccessLevel.Read),
+        // Read, not Write: this only picks which space is a candidate, same reasoning as
+        // ResourceForNativeCommand — the actual Write requirement for creating an event is
+        // enforced later, in CalendarQueryService.CreateEventAsync. Without this case,
+        // "calendar.natural" fell into the default ShoppingList anchor below, resolving to
+        // whichever space has the widest shopping-list access rather than the one where a
+        // calendar is actually mapped.
+        "calendar.natural" => (ResourceKind.Calendar, AccessLevel.Read),
         _ => (ResourceKind.ShoppingList, AccessLevel.Read),
     };
 

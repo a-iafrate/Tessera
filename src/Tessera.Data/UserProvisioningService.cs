@@ -6,7 +6,12 @@ namespace Tessera.Data;
 
 public sealed class UserProvisioningService(TesseraDbContext db)
 {
-    public async Task ProvisionAsync(Guid userId, string email, CancellationToken ct)
+    // timeZoneId can be null only because not every signup surface can collect it yet
+    // (social login has no form of its own) — left unset, every reminder/digest/calendar
+    // computation silently falls back to UTC until the person finds Profile and sets it
+    // (the bug this parameter exists to prevent). Register.razor always passes one, detected
+    // from the browser (docs/09-localizzazione.md).
+    public async Task ProvisionAsync(Guid userId, string email, string? timeZoneId, CancellationToken ct)
     {
         var now = DateTimeOffset.UtcNow;
         var space = new Space
@@ -24,6 +29,7 @@ public sealed class UserProvisioningService(TesseraDbContext db)
             Email = email,
             CreatedAt = now,
             DefaultSpaceId = space.Id,
+            TimeZoneId = timeZoneId,
         };
         var membership = new Membership
         {

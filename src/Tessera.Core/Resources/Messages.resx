@@ -497,6 +497,9 @@ Note: I only read messages that start with / or mention me.</value>
   <data name="SpaceDetail.NotesButton" xml:space="preserve">
     <value>Notes</value>
   </data>
+  <data name="SpaceDetail.CalendarsButton" xml:space="preserve">
+    <value>Calendars</value>
+  </data>
   <data name="SpaceDetail.ShoppingListButton" xml:space="preserve">
     <value>Shopping list</value>
   </data>
@@ -1067,7 +1070,10 @@ Try it now:</value>
     <value>Unlink your Google account? Your spaces will stop seeing any of its calendars.</value>
   </data>
   <data name="Calendars.LinkedNote" xml:space="preserve">
-    <value>Only the calendars you enable below are visible to your spaces.</value>
+    <value>Enabling a calendar here makes it available to your spaces — go to a space's own Calendars page to actually show it there.</value>
+  </data>
+  <data name="Calendars.GoToSpacesButton" xml:space="preserve">
+    <value>Go to your spaces to choose visibility →</value>
   </data>
   <data name="Calendars.Empty" xml:space="preserve">
     <value>No calendars found on this account.</value>
@@ -1083,5 +1089,53 @@ Try it now:</value>
   </data>
   <data name="Calendars.Error.Exchange" xml:space="preserve">
     <value>Something went wrong linking your Google account. Please try again.</value>
+  </data>
+  <data name="SpaceCalendars.PageTitle" xml:space="preserve">
+    <value>Calendars</value>
+  </data>
+  <data name="SpaceCalendars.NoLinkedCalendars" xml:space="preserve">
+    <value>You haven't linked any calendars yet.</value>
+  </data>
+  <data name="SpaceCalendars.GoLinkButton" xml:space="preserve">
+    <value>Link a calendar</value>
+  </data>
+  <data name="SpaceCalendars.Intro" xml:space="preserve">
+    <value>Choose what each of your calendars shows to this space.</value>
+  </data>
+  <data name="SpaceCalendars.LevelNone" xml:space="preserve">
+    <value>Not shared</value>
+  </data>
+  <data name="SpaceCalendars.LevelAvailability" xml:space="preserve">
+    <value>Availability only (busy/free)</value>
+  </data>
+  <data name="SpaceCalendars.LevelDetails" xml:space="preserve">
+    <value>Details (titles and times)</value>
+  </data>
+  <data name="SpaceCalendars.LevelWrite" xml:space="preserve">
+    <value>Details + can create events</value>
+  </data>
+  <data name="SpaceCalendars.DefaultWriteTarget" xml:space="preserve">
+    <value>Create new events here by default</value>
+  </data>
+  <data name="Calendars.EventsEmpty" xml:space="preserve">
+    <value>Nothing on the calendar for that range.</value>
+  </data>
+  <data name="Calendars.EventLine" xml:space="preserve">
+    <value>{0} — {1}</value>
+  </data>
+  <data name="Calendars.FreeBusyAllFree" xml:space="preserve">
+    <value>Nobody's busy in that range.</value>
+  </data>
+  <data name="Calendars.BusyLine" xml:space="preserve">
+    <value>Busy {0} – {1}</value>
+  </data>
+  <data name="Calendars.ConfirmEventPrompt" xml:space="preserve">
+    <value>Ok, {0} — {1}. Should I add it?</value>
+  </data>
+  <data name="Calendars.CreateEventFailed" xml:space="preserve">
+    <value>I couldn't create that event — check that a calendar is set as the default for creating events in this space.</value>
+  </data>
+  <data name="Calendars.EventCreated" xml:space="preserve">
+    <value>Added "{0}" — {1}.</value>
   </data>
 </root>

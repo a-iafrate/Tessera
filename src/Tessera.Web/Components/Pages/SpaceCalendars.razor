@@ -1,0 +1,182 @@
+@page "/spaces/{SpaceId:guid}/calendars"
+@attribute [Authorize]
+
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.Extensions.Localization
+@using Tessera.Core.Abstractions
+@using Tessera.Core.Calendars
+@using Tessera.Core.Resources
+@using Tessera.Core.Spaces
+@using Tessera.Data
+
+@inject IServiceProvider ServiceProvider
+@inject SpaceService SpaceService
+@inject IAccessPolicy AccessPolicy
+@inject NavigationManager NavigationManager
+@inject IStringLocalizer<Messages> Localizer
+
+<PageTitle>@Localizer["SpaceCalendars.PageTitle"]</PageTitle>
+
+<div class="container">
+    @if (space is null)
+    {
+        <p class="text-soft"><span class="spinner" aria-hidden="true"></span> @Localizer["Common.Loading"]</p>
+    }
+    else
+    {
+        <a href="/" class="text-soft">@Localizer["Common.BackToDashboard"]</a>
+        <h1>@Localizer["SpaceCalendars.PageTitle"] — @space.Name</h1>
+
+        @if (calendarSpace is null)
+        {
+            <p class="text-soft">@Localizer["Calendars.NotConfigured"]</p>
+        }
+        else if (myCalendars.Count == 0)
+        {
+            <p class="text-soft">@Localizer["SpaceCalendars.NoLinkedCalendars"]</p>
+            <a class="btn btn-primary" href="/calendars">@Localizer["SpaceCalendars.GoLinkButton"]</a>
+        }
+        else
+        {
+            <p class="text-soft">@Localizer["SpaceCalendars.Intro"]</p>
+
+            <div class="seam" aria-hidden="true">
+                <span></span><span></span><span></span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: var(--space-3);">
+                @foreach (var calendar in myCalendars)
+                {
+                    var level = mappings.TryGetValue(calendar.Id, out var mapping) ? mapping.ShareLevel : (CalendarShareLevel?)null;
+                    var isDefaultWriteTarget = mapping?.IsDefaultWriteTarget ?? false;
+                    <div class="card">
+                        <div style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-2);">
+                            <strong style="flex: 1;">@calendar.Name</strong>
+                            @if (calendar.IsPrimary)
+                            {
+                                <span class="badge badge-admin">@Localizer["Calendars.PrimaryBadge"]</span>
+                            }
+                        </div>
+                        <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+                            <select disabled="@isBusy" style="padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);"
+                                    value="@LevelValue(level)" @onchange="e => SetLevelAsync(calendar.Id, e.Value?.ToString())">
+                                <option value="none">@Localizer["SpaceCalendars.LevelNone"]</option>
+                                <option value="availability">@Localizer["SpaceCalendars.LevelAvailability"]</option>
+                                <option value="details">@Localizer["SpaceCalendars.LevelDetails"]</option>
+                                <option value="write">@Localizer["SpaceCalendars.LevelWrite"]</option>
+                            </select>
+
+                            @if (level == CalendarShareLevel.Write)
+                            {
+                                <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer;">
+                                    <input type="checkbox" checked="@isDefaultWriteTarget" disabled="@isBusy"
+                                           @onchange="e => SetDefaultWriteTargetAsync(calendar.Id, (bool)e.Value!)" />
+                                    <span>@Localizer["SpaceCalendars.DefaultWriteTarget"]</span>
+                                </label>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid SpaceId { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private Space? space;
+    private CalendarSpaceService? calendarSpace;
+    private Guid userId;
+    private bool isBusy;
+    private IReadOnlyList<ExternalCalendar> myCalendars = [];
+    private Dictionary<Guid, CalendarSpaceMapping> mappings = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateTask!;
+        userId = Guid.Parse(authState.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        space = await SpaceService.GetByIdAsync(SpaceId, userId, CancellationToken.None);
+        if (space is null || !await AccessPolicy.CanAsync(userId, SpaceId, ResourceKind.Calendar, AccessLevel.Availability, CancellationToken.None))
+        {
+            NavigationManager.NavigateTo($"/spaces/{SpaceId}");
+            return;
+        }
+
+        // Only registered when Key Vault + Google credentials are configured (Program.cs).
+        calendarSpace = ServiceProvider.GetService<CalendarSpaceService>();
+        if (calendarSpace is null)
+        {
+            return;
+        }
+
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        myCalendars = await calendarSpace!.GetMyCalendarsAsync(userId, CancellationToken.None);
+        mappings = await calendarSpace.GetMappingsAsync(SpaceId, myCalendars.Select(x => x.Id).ToList(), CancellationToken.None);
+    }
+
+    private static string LevelValue(CalendarShareLevel? level) => level switch
+    {
+        CalendarShareLevel.Availability => "availability",
+        CalendarShareLevel.Details => "details",
+        CalendarShareLevel.Write => "write",
+        _ => "none",
+    };
+
+    private async Task SetLevelAsync(Guid externalCalendarId, string? value)
+    {
+        if (isBusy || calendarSpace is null)
+        {
+            return;
+        }
+
+        CalendarShareLevel? level = value switch
+        {
+            "availability" => CalendarShareLevel.Availability,
+            "details" => CalendarShareLevel.Details,
+            "write" => CalendarShareLevel.Write,
+            _ => null,
+        };
+
+        isBusy = true;
+        try
+        {
+            await calendarSpace.SetMappingAsync(userId, SpaceId, externalCalendarId, level, isDefaultWriteTarget: false, CancellationToken.None);
+            await ReloadAsync();
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task SetDefaultWriteTargetAsync(Guid externalCalendarId, bool isDefaultWriteTarget)
+    {
+        if (isBusy || calendarSpace is null)
+        {
+            return;
+        }
+
+        isBusy = true;
+        try
+        {
+            await calendarSpace.SetMappingAsync(userId, SpaceId, externalCalendarId, CalendarShareLevel.Write, isDefaultWriteTarget, CancellationToken.None);
+            await ReloadAsync();
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+}

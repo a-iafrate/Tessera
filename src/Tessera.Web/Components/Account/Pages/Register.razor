@@ -3,6 +3,7 @@
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Identity
 @using Tessera.Data
+@using Tessera.Web.Services
 
 @inject UserManager<ApplicationUser> UserManager
 @inject IUserStore<ApplicationUser> UserStore
@@ -38,8 +39,41 @@
                 <label for="Input.ConfirmPassword">Confirm Password</label>
                 <ValidationMessage For="() => Input.ConfirmPassword" class="text-danger" />
             </div>
+            <div class="form-floating mb-3">
+                <InputSelect @bind-Value="Input.TimeZoneId" id="Input.TimeZoneId" class="form-control">
+                    @foreach (var tz in CommonTimeZones.All)
+                    {
+                        <option value="@tz">@tz</option>
+                    }
+                </InputSelect>
+                <label for="Input.TimeZoneId">Time zone</label>
+            </div>
             <button type="submit" class="w-100 btn btn-lg btn-primary">Register</button>
         </EditForm>
+        @* Reminders, digests and calendar events are all computed in this time zone
+           (docs/09-localizzazione.md) — pre-selecting the browser's own zone means most people
+           never have to touch the dropdown, instead of silently defaulting to UTC until
+           someone finds Profile and sets it themselves. *@
+        <script>
+            (function () {
+                var select = document.getElementById('Input.TimeZoneId');
+                if (!select) { return; }
+                try {
+                    var detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                    if (!detected) { return; }
+                    var exists = Array.prototype.some.call(select.options, function (o) { return o.value === detected; });
+                    if (!exists) {
+                        var opt = document.createElement('option');
+                        opt.value = detected;
+                        opt.textContent = detected;
+                        select.insertBefore(opt, select.firstChild);
+                    }
+                    select.value = detected;
+                } catch (e) {
+                    // Intl unsupported in this browser — the manually selected default stands.
+                }
+            })();
+        </script>
     </div>
     <div class="col-lg-4 col-lg-offset-2">
         <section>
@@ -83,7 +117,7 @@
 
         Logger.LogInformation("User created a new account with password.");
 
-        await UserProvisioning.ProvisionAsync(user.Id, Input.Email, CancellationToken.None);
+        await UserProvisioning.ProvisionAsync(user.Id, Input.Email, Input.TimeZoneId, CancellationToken.None);
 
         await SignInManager.SignInAsync(user, isPersistent: false);
         RedirectManager.RedirectTo(ReturnUrl);
@@ -128,5 +162,9 @@
         [Display(Name = "Confirm password")]
         [Compare("Password", ErrorMessage = "The password and confirmation password do not match.")]
         public string ConfirmPassword { get; set; } = "";
+
+        [Required]
+        [Display(Name = "Time zone")]
+        public string TimeZoneId { get; set; } = "UTC";
     }
 }

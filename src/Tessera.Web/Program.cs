@@ -183,6 +183,8 @@ if (googleCalendarEnabled)
     builder.Services.AddHttpClient();
     builder.Services.AddSingleton<ICalendarProvider, GoogleCalendarClient>();
     builder.Services.AddScoped<LinkedAccountService>();
+    builder.Services.AddScoped<CalendarSpaceService>();
+    builder.Services.AddScoped<CalendarQueryService>();
 }
 
 // The bot pipeline is only wired up once a bot token is configured, so the console works

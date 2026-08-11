@@ -164,7 +164,9 @@
 
         Logger.LogInformation("User created an account using {Name} provider.", externalLoginInfo.LoginProvider);
 
-        await UserProvisioning.ProvisionAsync(user.Id, Input.Email, CancellationToken.None);
+        // No form of its own to collect a time zone from — falls back to UTC until the person
+        // visits Profile and sets it (docs/09-localizzazione.md).
+        await UserProvisioning.ProvisionAsync(user.Id, Input.Email, timeZoneId: null, CancellationToken.None);
 
         await SignInManager.SignInAsync(user, isPersistent: false, externalLoginInfo.LoginProvider);
         RedirectManager.RedirectTo(ReturnUrl);

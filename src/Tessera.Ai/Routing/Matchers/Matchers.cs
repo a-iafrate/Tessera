@@ -6,6 +6,8 @@ public static class Matchers
     [
         new ItUndoMatcher(),
         new EnUndoMatcher(),
+        // Calendar matchers run before shopping.add — "aggiungi"/"add" collide with both.
+        new ItCalendarEventNaturalLanguageMatcher(),
         new ItShoppingAddMatcher(),
         new ItShoppingShowMatcher(),
         new ItShoppingCheckMatcher(),
@@ -15,6 +17,7 @@ public static class Matchers
         new ItExpensesQueryByCategoryMatcher(),
         new ItExpensesQueryMatcher(),
         new ItReminderNaturalLanguageMatcher(),
+        new EnCalendarEventNaturalLanguageMatcher(),
         new EnShoppingAddMatcher(),
         new EnShoppingShowMatcher(),
         new EnShoppingCheckMatcher(),

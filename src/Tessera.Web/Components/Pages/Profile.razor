@@ -8,6 +8,7 @@
 @using Tessera.Core.Resources
 @using Tessera.Core.Spaces
 @using Tessera.Data
+@using Tessera.Web.Services
 
 @inject UserProvisioningService UserProvisioningService
 @inject SpaceService SpaceService
@@ -50,7 +51,7 @@
             <div class="form-floating mb-3">
                 <select class="form-control" id="timeZone" value="@(timeZoneId ?? "")" disabled="@isBusy" @onchange="OnTimeZoneChangedAsync">
                     <option value="">@Localizer["Profile.TimeZoneNotSet"]</option>
-                    @foreach (var tz in TimeZones)
+                    @foreach (var tz in CommonTimeZones.All)
                     {
                         <option value="@tz">@tz</option>
                     }
@@ -88,18 +89,6 @@
 @code {
     [CascadingParameter]
     private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
-
-    private static readonly string[] TimeZones =
-    [
-        "Europe/Rome", "Europe/London", "Europe/Paris", "Europe/Berlin", "Europe/Madrid",
-        "Europe/Amsterdam", "Europe/Zurich", "Europe/Lisbon", "Europe/Athens", "Europe/Moscow",
-        "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles",
-        "America/Sao_Paulo", "America/Mexico_City",
-        "Asia/Dubai", "Asia/Kolkata", "Asia/Shanghai", "Asia/Tokyo", "Asia/Singapore",
-        "Australia/Sydney", "Pacific/Auckland",
-        "Africa/Cairo", "Africa/Johannesburg",
-        "UTC",
-    ];
 
     private Guid userId;
     private bool loaded;
