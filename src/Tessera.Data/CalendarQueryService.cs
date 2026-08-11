@@ -179,6 +179,27 @@ public sealed class CalendarQueryService(
         return membership.Permissions.FirstOrDefault(p => p.Resource == ResourceKind.Calendar)?.Level ?? AccessLevel.None;
     }
 
+    // CalendarReminderJob's idempotency guard — there's no per-event DB row to hang a
+    // NotifiedAt on (docs/02-modello-dati.md), so this is keyed on the event's own identity
+    // plus its current start; a reschedule to a new start is treated as unnotified again.
+    public Task<bool> WasNotifiedAsync(Guid spaceId, Guid userId, string eventKey, DateTimeOffset eventStart, CancellationToken ct) =>
+        db.NotifiedCalendarEvents.AnyAsync(
+            x => x.SpaceId == spaceId && x.UserId == userId && x.EventKey == eventKey && x.EventStart == eventStart, ct);
+
+    public async Task RecordNotifiedAsync(Guid spaceId, Guid userId, string eventKey, DateTimeOffset eventStart, CancellationToken ct)
+    {
+        db.NotifiedCalendarEvents.Add(new NotifiedCalendarEvent
+        {
+            Id = Guid.NewGuid(),
+            SpaceId = spaceId,
+            UserId = userId,
+            EventKey = eventKey,
+            EventStart = eventStart,
+            NotifiedAt = DateTimeOffset.UtcNow,
+        });
+        await db.SaveChangesAsync(ct);
+    }
+
     private static IReadOnlyList<FreeBusyInterval> MergeIntervals(List<FreeBusyInterval> intervals)
     {
         if (intervals.Count == 0)

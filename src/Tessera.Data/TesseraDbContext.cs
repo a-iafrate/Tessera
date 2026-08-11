@@ -72,6 +72,8 @@ public sealed class TesseraDbContext(DbContextOptions<TesseraDbContext> options)
 
     public DbSet<CalendarSpaceMapping> CalendarSpaceMappings => Set<CalendarSpaceMapping>();
 
+    public DbSet<NotifiedCalendarEvent> NotifiedCalendarEvents => Set<NotifiedCalendarEvent>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);

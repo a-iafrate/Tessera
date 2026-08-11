@@ -1138,4 +1138,7 @@ Try it now:</value>
   <data name="Calendars.EventCreated" xml:space="preserve">
     <value>Added "{0}" — {1}.</value>
   </data>
+  <data name="Calendars.EventUpcomingNotification" xml:space="preserve">
+    <value>⏰ "{0}" — {1}</value>
+  </data>
 </root>

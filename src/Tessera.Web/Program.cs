@@ -215,6 +215,25 @@ if (telegramEnabled)
     builder.Services.AddSingleton<IScheduledJob, RemindersDueJob>();
     builder.Services.AddSingleton<IScheduledJob, DailyDigestJob>();
     builder.Services.AddSingleton<IScheduledJob, RecurringExpenseJob>();
+}
+
+// Calendar list refresh needs LinkedAccountService, which only exists when Google Calendar
+// linking is configured — kept separate from the telegramEnabled block above since this job
+// sends no notifications and doesn't depend on a bot being wired up.
+if (googleCalendarEnabled)
+{
+    builder.Services.AddSingleton<IScheduledJob, RefreshCalendarListJob>();
+
+    // The proactive calendar reminder needs both an IChannel to notify through and
+    // CalendarQueryService to read events, so it only makes sense when both are wired up.
+    if (telegramEnabled)
+    {
+        builder.Services.AddSingleton<IScheduledJob, CalendarReminderJob>();
+    }
+}
+
+if (telegramEnabled || googleCalendarEnabled)
+{
     builder.Services.AddHostedService<SchedulerWorker>();
 }
 

@@ -160,6 +160,16 @@ public sealed class LinkedAccountService(
         // doesn't take, so this simply doesn't block local cleanup on it.
     }
 
+    // Re-fetches the provider's calendarList for one linked account — accessRole and calendar
+    // sharing can change on Google's side after the initial link (a calendar unshared, a role
+    // downgraded from Writer to Reader), and nothing else calls back into Google once linking
+    // is done, so RefreshCalendarListJob is the only place this happens periodically.
+    public async Task RefreshCalendarsAsync(LinkedAccount account, CancellationToken ct)
+    {
+        var accessToken = await GetValidAccessTokenAsync(account, ct);
+        await SyncCalendarsAsync(account, accessToken, ct);
+    }
+
     public Task<bool> IsGoogleLinkedAsync(Guid userId, CancellationToken ct) =>
         db.LinkedAccounts.AnyAsync(x => x.UserId == userId && x.Provider == ProviderKind.Google, ct);
 
@@ -191,6 +201,7 @@ public sealed class LinkedAccountService(
     private async Task SyncCalendarsAsync(LinkedAccount account, string accessToken, CancellationToken ct)
     {
         var providerCalendars = await calendarProvider.ListCalendarsAsync(accessToken, ct);
+        var providerIds = providerCalendars.Select(x => x.ProviderCalendarId).ToHashSet();
         var existing = await db.ExternalCalendars.Where(x => x.LinkedAccountId == account.Id).ToListAsync(ct);
         var existingById = existing.ToDictionary(x => x.ProviderCalendarId);
 
@@ -222,6 +233,16 @@ public sealed class LinkedAccountService(
                     LastSyncedAt = DateTimeOffset.UtcNow,
                 });
             }
+        }
+
+        // A calendar the provider no longer returns (unshared, deleted, access revoked) can't
+        // keep backing a space's mapping — the same cleanup UnlinkGoogleAsync does for a whole
+        // account, scoped here to just the calendars that disappeared.
+        var removedIds = existing.Where(x => !providerIds.Contains(x.ProviderCalendarId)).Select(x => x.Id).ToList();
+        if (removedIds.Count > 0)
+        {
+            await db.CalendarSpaceMappings.Where(x => removedIds.Contains(x.ExternalCalendarId)).ExecuteDeleteAsync(ct);
+            await db.ExternalCalendars.Where(x => removedIds.Contains(x.Id)).ExecuteDeleteAsync(ct);
         }
 
         await db.SaveChangesAsync(ct);
