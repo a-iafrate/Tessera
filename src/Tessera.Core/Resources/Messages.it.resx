@@ -1060,6 +1060,12 @@ Provami subito:</value>
   <data name="Calendars.RelinkButton" xml:space="preserve">
     <value>Ricollega Google Calendar</value>
   </data>
+  <data name="Calendars.UnlinkButton" xml:space="preserve">
+    <value>Scollega Google Calendar</value>
+  </data>
+  <data name="Calendars.UnlinkConfirm" xml:space="preserve">
+    <value>Scollegare il tuo account Google? I tuoi spazi non vedranno più nessuno dei suoi calendari.</value>
+  </data>
   <data name="Calendars.LinkedNote" xml:space="preserve">
     <value>Solo i calendari che abiliti qui sotto sono visibili ai tuoi spazi.</value>
   </data>

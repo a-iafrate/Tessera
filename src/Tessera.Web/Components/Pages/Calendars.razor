@@ -11,6 +11,7 @@
 
 @inject IServiceProvider ServiceProvider
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JsRuntime
 @inject IStringLocalizer<Messages> Localizer
 
 <PageTitle>@Localizer["Calendars.PageTitle"]</PageTitle>
@@ -73,7 +74,13 @@
                 </div>
             }
 
-            <a class="btn btn-secondary" style="margin-top: var(--space-4);" href="/oauth/google/link">@Localizer["Calendars.RelinkButton"]</a>
+            <div style="display: flex; gap: var(--space-3); margin-top: var(--space-4);">
+                <a class="btn btn-secondary" href="/oauth/google/link">@Localizer["Calendars.RelinkButton"]</a>
+                <button class="btn btn-danger" disabled="@isBusy" @onclick="UnlinkAsync">
+                    @if (isBusy) { <span class="spinner" aria-hidden="true"></span> }
+                    @Localizer["Calendars.UnlinkButton"]
+                </button>
+            </div>
         }
     }
 </div>
@@ -136,6 +143,32 @@
         {
             await linkedAccounts.SetCalendarEnabledAsync(userId, externalCalendarId, enabled, CancellationToken.None);
             calendars = await linkedAccounts.GetCalendarsAsync(userId, CancellationToken.None);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task UnlinkAsync()
+    {
+        if (isBusy || linkedAccounts is null)
+        {
+            return;
+        }
+
+        if (!await JsRuntime.InvokeAsync<bool>("confirm", Localizer["Calendars.UnlinkConfirm"].Value))
+        {
+            return;
+        }
+
+        isBusy = true;
+        StateHasChanged();
+        try
+        {
+            await linkedAccounts.UnlinkGoogleAsync(userId, CancellationToken.None);
+            isLinked = false;
+            calendars = [];
         }
         finally
         {

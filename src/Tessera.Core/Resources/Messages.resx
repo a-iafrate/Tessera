@@ -1060,6 +1060,12 @@ Try it now:</value>
   <data name="Calendars.RelinkButton" xml:space="preserve">
     <value>Re-link Google Calendar</value>
   </data>
+  <data name="Calendars.UnlinkButton" xml:space="preserve">
+    <value>Unlink Google Calendar</value>
+  </data>
+  <data name="Calendars.UnlinkConfirm" xml:space="preserve">
+    <value>Unlink your Google account? Your spaces will stop seeing any of its calendars.</value>
+  </data>
   <data name="Calendars.LinkedNote" xml:space="preserve">
     <value>Only the calendars you enable below are visible to your spaces.</value>
   </data>

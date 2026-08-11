@@ -165,6 +165,7 @@
         }
 
         isBusy = true;
+        StateHasChanged();
         try
         {
             await SpaceService.TransferOwnershipAsync(SpaceId, currentUserId, targetUserId, CancellationToken.None);
@@ -194,6 +195,7 @@
         }
 
         isBusy = true;
+        StateHasChanged();
         try
         {
             await SpaceService.RemoveMemberAsync(SpaceId, currentUserId, targetUserId, CancellationToken.None);
@@ -223,6 +225,7 @@
         }
 
         isBusy = true;
+        StateHasChanged();
         try
         {
             await SpaceService.LeaveAsync(SpaceId, currentUserId, CancellationToken.None);
