@@ -1054,20 +1054,23 @@ Try it now:</value>
   <data name="Calendars.NotConfigured" xml:space="preserve">
     <value>Calendar linking isn't available yet.</value>
   </data>
+  <data name="Calendars.ProviderHeading" xml:space="preserve">
+    <value>{0} Calendar</value>
+  </data>
   <data name="Calendars.LinkIntro" xml:space="preserve">
-    <value>Link your Google account to see your calendars here.</value>
+    <value>Link your {0} account to see your calendars here.</value>
   </data>
   <data name="Calendars.LinkButton" xml:space="preserve">
-    <value>Link Google Calendar</value>
+    <value>Link {0} Calendar</value>
   </data>
   <data name="Calendars.RelinkButton" xml:space="preserve">
-    <value>Re-link Google Calendar</value>
+    <value>Re-link {0} Calendar</value>
   </data>
   <data name="Calendars.UnlinkButton" xml:space="preserve">
-    <value>Unlink Google Calendar</value>
+    <value>Unlink {0} Calendar</value>
   </data>
   <data name="Calendars.UnlinkConfirm" xml:space="preserve">
-    <value>Unlink your Google account? Your spaces will stop seeing any of its calendars.</value>
+    <value>Unlink your {0} account? Your spaces will stop seeing any of its calendars.</value>
   </data>
   <data name="Calendars.LinkedNote" xml:space="preserve">
     <value>Enabling a calendar here makes it available to your spaces — go to a space's own Calendars page to actually show it there.</value>
@@ -1082,13 +1085,13 @@ Try it now:</value>
     <value>Primary</value>
   </data>
   <data name="Calendars.Error.Denied" xml:space="preserve">
-    <value>Google sign-in was cancelled.</value>
+    <value>{0} sign-in was cancelled.</value>
   </data>
   <data name="Calendars.Error.State" xml:space="preserve">
     <value>The link request expired. Please try again.</value>
   </data>
   <data name="Calendars.Error.Exchange" xml:space="preserve">
-    <value>Something went wrong linking your Google account. Please try again.</value>
+    <value>Something went wrong linking your {0} account. Please try again.</value>
   </data>
   <data name="SpaceCalendars.PageTitle" xml:space="preserve">
     <value>Calendars</value>
@@ -1129,6 +1132,9 @@ Try it now:</value>
   <data name="Calendars.BusyLine" xml:space="preserve">
     <value>Busy {0} – {1}</value>
   </data>
+  <data name="Calendars.PersonNotFound" xml:space="preserve">
+    <value>I don't see anyone matching "{0}" in this space.</value>
+  </data>
   <data name="Calendars.ConfirmEventPrompt" xml:space="preserve">
     <value>Ok, {0} — {1}. Should I add it?</value>
   </data>
@@ -1140,5 +1146,29 @@ Try it now:</value>
   </data>
   <data name="Calendars.EventUpcomingNotification" xml:space="preserve">
     <value>⏰ "{0}" — {1}</value>
+  </data>
+  <data name="Calendars.ConfirmDeleteEventPrompt" xml:space="preserve">
+    <value>Delete "{0}" — {1}?</value>
+  </data>
+  <data name="Calendars.EventDeleted" xml:space="preserve">
+    <value>Deleted "{0}".</value>
+  </data>
+  <data name="Calendars.DeleteEventFailed" xml:space="preserve">
+    <value>I couldn't delete that event — check your permissions on this calendar.</value>
+  </data>
+  <data name="Calendars.DeleteEventNotFound" xml:space="preserve">
+    <value>I couldn't find an event matching that in your calendar for that range.</value>
+  </data>
+  <data name="Calendars.DeleteEventMultipleMatches" xml:space="preserve">
+    <value>I found more than one matching event — which one do you mean?</value>
+  </data>
+  <data name="Calendars.ConfirmMoveEventPrompt" xml:space="preserve">
+    <value>Move "{0}" from {1} to {2}?</value>
+  </data>
+  <data name="Calendars.EventMoved" xml:space="preserve">
+    <value>Moved "{0}" to {1}.</value>
+  </data>
+  <data name="Calendars.MoveEventFailed" xml:space="preserve">
+    <value>I couldn't move that event — check your permissions on this calendar.</value>
   </data>
 </root>

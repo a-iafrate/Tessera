@@ -8,6 +8,7 @@ using Tessera.Ai.Commands;
 using Tessera.Ai.Llm;
 using Tessera.Ai.Routing;
 using Tessera.Core.Abstractions;
+using Tessera.Core.Calendars;
 using Tessera.Core.Channels;
 using Tessera.Core.Conversations;
 using Tessera.Core.Expenses;
@@ -193,6 +194,20 @@ public sealed class MessageProcessor(
         if (message.CallbackData is { } calendarConfirmCallback && calendarConfirmCallback.StartsWith("calendarEvent.llmconfirm:", StringComparison.Ordinal))
         {
             await HandleLlmCalendarEventConfirmCallbackAsync(scope, address, user, calendarConfirmCallback["calendarEvent.llmconfirm:".Length..], ct);
+            return;
+        }
+
+        // Same reasoning as the two confirmations above.
+        if (message.CallbackData is { } calendarDeleteCallback && calendarDeleteCallback.StartsWith("calendarEvent.deleteconfirm:", StringComparison.Ordinal))
+        {
+            await HandleLlmCalendarEventDeleteConfirmCallbackAsync(scope, address, user, calendarDeleteCallback["calendarEvent.deleteconfirm:".Length..], ct);
+            return;
+        }
+
+        // Same reasoning as the three confirmations above.
+        if (message.CallbackData is { } calendarMoveCallback && calendarMoveCallback.StartsWith("calendarEvent.moveconfirm:", StringComparison.Ordinal))
+        {
+            await HandleLlmCalendarEventMoveConfirmCallbackAsync(scope, address, user, calendarMoveCallback["calendarEvent.moveconfirm:".Length..], ct);
             return;
         }
 
@@ -564,6 +579,8 @@ public sealed class MessageProcessor(
             LlmTools.QueryCalendarEvents => await HandleCalendarEventsQueryAsync(scope, spaceId, user, culture, args, ct),
             LlmTools.QueryCalendarFreeBusy => await HandleCalendarFreeBusyQueryAsync(scope, spaceId, user, culture, args, ct),
             LlmTools.CreateCalendarEvent => await HandleLlmCreateCalendarEventAsync(scope, address, spaceId, user, culture, args, ct),
+            LlmTools.DeleteCalendarEvent => await HandleLlmDeleteCalendarEventAsync(scope, address, spaceId, user, culture, args, ct),
+            LlmTools.MoveCalendarEvent => await HandleLlmMoveCalendarEventAsync(scope, address, spaceId, user, culture, args, ct),
             LlmTools.CorrectLastShoppingItem when recentAction is not null => await HandleShoppingCorrectionAsync(
                 shopping, address, spaceId, user.Id, recentAction.ItemId, args.GetProperty("corrected_text").GetString() ?? "", ct),
             _ => await SendNotUnderstoodAsync(address, text, culture, ct),
@@ -744,7 +761,29 @@ public sealed class MessageProcessor(
             return localizer["Errors.NotUnderstood"];
         }
 
-        var busy = await calendarQuery.GetFreeBusyAsync(spaceId, user.Id, from, to, ct);
+        IReadOnlyList<FreeBusyInterval> busy;
+        if (args.TryGetProperty("people", out var peopleProp) && peopleProp.ValueKind == JsonValueKind.Array && peopleProp.GetArrayLength() > 0)
+        {
+            var names = peopleProp.EnumerateArray()
+                .Select(x => x.GetString())
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Select(x => x!)
+                .ToList();
+            var db = scope.ServiceProvider.GetRequiredService<TesseraDbContext>();
+            var (targetUserIds, unresolved) = await ResolveMemberNamesAsync(db, spaceId, names, ct);
+            if (unresolved.Count > 0)
+            {
+                return localizer["Calendars.PersonNotFound", string.Join(", ", unresolved)];
+            }
+
+            targetUserIds.Add(user.Id);
+            busy = await calendarQuery.GetFreeBusyForUsersAsync(spaceId, user.Id, targetUserIds, from, to, ct);
+        }
+        else
+        {
+            busy = await calendarQuery.GetFreeBusyAsync(spaceId, user.Id, from, to, ct);
+        }
+
         if (busy.Count == 0)
         {
             return localizer["Calendars.FreeBusyAllFree"];
@@ -752,6 +791,39 @@ public sealed class MessageProcessor(
 
         return string.Join('\n', busy.Select(b =>
             localizer["Calendars.BusyLine", FormatDueAt(b.Start, timeZone, culture), FormatDueAt(b.End, timeZone, culture)].Value));
+    }
+
+    // No existing "typed name -> space member" resolver anywhere else in the codebase — this is
+    // the convention: case-insensitive match against DisplayName, falling back to Email (same
+    // fallback used everywhere a member's name is rendered), scoped to active memberships only.
+    // A name matching more than one member is treated the same as "not found" — disambiguating
+    // would need another LLM round trip this architecture doesn't have, so it's simpler and
+    // safer to just ask the human to be more specific.
+    private static async Task<(List<Guid> Resolved, List<string> Unresolved)> ResolveMemberNamesAsync(
+        TesseraDbContext db, Guid spaceId, IReadOnlyList<string> names, CancellationToken ct)
+    {
+        var members = await db.Memberships
+            .Where(m => m.SpaceId == spaceId)
+            .Join(db.DomainUsers, m => m.UserId, u => u.Id, (m, u) => u)
+            .AsNoTracking()
+            .ToListAsync(ct);
+
+        var resolved = new List<Guid>();
+        var unresolved = new List<string>();
+        foreach (var name in names)
+        {
+            var matches = members.Where(u => (u.DisplayName ?? u.Email).Contains(name, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (matches.Count == 1)
+            {
+                resolved.Add(matches[0].Id);
+            }
+            else
+            {
+                unresolved.Add(name);
+            }
+        }
+
+        return (resolved, unresolved);
     }
 
     private sealed record PendingLlmCalendarEvent(Guid SpaceId, string Title, DateTimeOffset Start, DateTimeOffset End);
@@ -839,6 +911,206 @@ public sealed class MessageProcessor(
         var culture = new CultureInfo(user.PreferredCulture);
         var confirmReply = localizer["Calendars.EventCreated", created.Title, FormatDueAt(created.Start, timeZone, culture)].Value;
         await channel.SendTextAsync(address, confirmReply, ct);
+    }
+
+    private sealed record PendingLlmCalendarEventDelete(Guid SpaceId, Guid ExternalCalendarId, string ProviderEventId, string Title, DateTimeOffset Start);
+
+    // Search-then-confirm, same read-back-before-committing reasoning as creation (hard rule
+    // 14) — deleting the wrong event on someone's real calendar is far worse than a mis-typed
+    // reminder, so this never deletes straight off a single LLM call.
+    private async Task<string?> HandleLlmDeleteCalendarEventAsync(
+        AsyncServiceScope scope, ChannelAddress address, Guid spaceId, User user, CultureInfo culture, JsonElement args, CancellationToken ct)
+    {
+        var calendarQuery = scope.ServiceProvider.GetService<CalendarQueryService>();
+        if (calendarQuery is null)
+        {
+            return localizer["Calendars.NotConfigured"];
+        }
+
+        var searchText = args.GetProperty("search_text").GetString();
+        var timeZone = TimeZoneInfo.FindSystemTimeZoneById(user.TimeZoneId ?? "UTC");
+        if (string.IsNullOrWhiteSpace(searchText)
+            || !TryParseLocalDateTime(GetOptionalString(args, "from"), timeZone, out var from)
+            || !TryParseLocalDateTime(GetOptionalString(args, "to"), timeZone, out var to))
+        {
+            return localizer["Errors.NotUnderstood"];
+        }
+
+        var events = await calendarQuery.GetEventsAsync(spaceId, user.Id, from, to, ct);
+        var matches = events.Where(e => e.Title.Contains(searchText, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        if (matches.Count == 0)
+        {
+            return localizer["Calendars.DeleteEventNotFound"];
+        }
+
+        if (matches.Count > 1)
+        {
+            var lines = matches.Select(e => localizer["Calendars.EventLine", FormatDueAt(e.Start, timeZone, culture), e.Title].Value);
+            return localizer["Calendars.DeleteEventMultipleMatches"] + "\n" + string.Join('\n', lines);
+        }
+
+        var match = matches[0];
+        var db = scope.ServiceProvider.GetRequiredService<TesseraDbContext>();
+        var payload = new PendingLlmCalendarEventDelete(spaceId, match.ExternalCalendarId, match.ProviderEventId, match.Title, match.Start);
+        var state = await db.ConversationStates.FirstOrDefaultAsync(s => s.UserId == user.Id, ct);
+        if (state is null)
+        {
+            state = new ConversationState { Id = Guid.NewGuid(), UserId = user.Id };
+            db.ConversationStates.Add(state);
+        }
+
+        state.PendingIntent = "calendarEvent.deleteConfirm";
+        state.StateJson = JsonSerializer.Serialize(payload);
+        state.UpdatedAt = DateTimeOffset.UtcNow;
+        state.ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(30);
+        await db.SaveChangesAsync(ct);
+
+        var prompt = localizer["Calendars.ConfirmDeleteEventPrompt", match.Title, FormatDueAt(match.Start, timeZone, culture)];
+        var choices = new[]
+        {
+            new Choice(localizer["Reminders.ConfirmYes"].Value, "calendarEvent.deleteconfirm:yes"),
+            new Choice(localizer["Reminders.ConfirmNo"].Value, "calendarEvent.deleteconfirm:no"),
+        };
+        await channel.SendChoicesAsync(address, prompt, choices, ct);
+        return null;
+    }
+
+    private async Task HandleLlmCalendarEventDeleteConfirmCallbackAsync(
+        AsyncServiceScope scope, ChannelAddress address, User user, string choice, CancellationToken ct)
+    {
+        var db = scope.ServiceProvider.GetRequiredService<TesseraDbContext>();
+        var state = await db.ConversationStates.FirstOrDefaultAsync(
+            s => s.UserId == user.Id && s.PendingIntent == "calendarEvent.deleteConfirm" && s.ExpiresAt > DateTimeOffset.UtcNow, ct);
+        if (state is null)
+        {
+            return;
+        }
+
+        state.PendingIntent = null;
+        await db.SaveChangesAsync(ct);
+
+        if (choice != "yes")
+        {
+            await channel.SendTextAsync(address, localizer["Reminders.ConfirmCancelled"], ct);
+            return;
+        }
+
+        var payload = JsonSerializer.Deserialize<PendingLlmCalendarEventDelete>(state.StateJson);
+        if (payload is null)
+        {
+            return;
+        }
+
+        var calendarQuery = scope.ServiceProvider.GetRequiredService<CalendarQueryService>();
+        var deleted = await calendarQuery.DeleteEventAsync(payload.SpaceId, user.Id, payload.ExternalCalendarId, payload.ProviderEventId, ct);
+        var reply = deleted
+            ? localizer["Calendars.EventDeleted", payload.Title].Value
+            : localizer["Calendars.DeleteEventFailed"].Value;
+        await channel.SendTextAsync(address, reply, ct);
+    }
+
+    private sealed record PendingLlmCalendarEventMove(
+        Guid SpaceId, Guid ExternalCalendarId, string ProviderEventId, string Title, DateTimeOffset NewStart, DateTimeOffset NewEnd);
+
+    // Search-then-confirm, same shape as deletion — the new end time is computed here from the
+    // matched event's own duration rather than asked of the model, so a "move to 5pm" request
+    // can't accidentally shrink or stretch the event by guessing a default duration.
+    private async Task<string?> HandleLlmMoveCalendarEventAsync(
+        AsyncServiceScope scope, ChannelAddress address, Guid spaceId, User user, CultureInfo culture, JsonElement args, CancellationToken ct)
+    {
+        var calendarQuery = scope.ServiceProvider.GetService<CalendarQueryService>();
+        if (calendarQuery is null)
+        {
+            return localizer["Calendars.NotConfigured"];
+        }
+
+        var searchText = args.GetProperty("search_text").GetString();
+        var timeZone = TimeZoneInfo.FindSystemTimeZoneById(user.TimeZoneId ?? "UTC");
+        if (string.IsNullOrWhiteSpace(searchText)
+            || !TryParseLocalDateTime(GetOptionalString(args, "from"), timeZone, out var from)
+            || !TryParseLocalDateTime(GetOptionalString(args, "to"), timeZone, out var to)
+            || !TryParseLocalDateTime(GetOptionalString(args, "new_start"), timeZone, out var newStart))
+        {
+            return localizer["Errors.NotUnderstood"];
+        }
+
+        var events = await calendarQuery.GetEventsAsync(spaceId, user.Id, from, to, ct);
+        var matches = events.Where(e => e.Title.Contains(searchText, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        if (matches.Count == 0)
+        {
+            return localizer["Calendars.DeleteEventNotFound"];
+        }
+
+        if (matches.Count > 1)
+        {
+            var lines = matches.Select(e => localizer["Calendars.EventLine", FormatDueAt(e.Start, timeZone, culture), e.Title].Value);
+            return localizer["Calendars.DeleteEventMultipleMatches"] + "\n" + string.Join('\n', lines);
+        }
+
+        var match = matches[0];
+        var newEnd = newStart + (match.End - match.Start);
+        var db = scope.ServiceProvider.GetRequiredService<TesseraDbContext>();
+        var payload = new PendingLlmCalendarEventMove(spaceId, match.ExternalCalendarId, match.ProviderEventId, match.Title, newStart, newEnd);
+        var state = await db.ConversationStates.FirstOrDefaultAsync(s => s.UserId == user.Id, ct);
+        if (state is null)
+        {
+            state = new ConversationState { Id = Guid.NewGuid(), UserId = user.Id };
+            db.ConversationStates.Add(state);
+        }
+
+        state.PendingIntent = "calendarEvent.moveConfirm";
+        state.StateJson = JsonSerializer.Serialize(payload);
+        state.UpdatedAt = DateTimeOffset.UtcNow;
+        state.ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(30);
+        await db.SaveChangesAsync(ct);
+
+        var prompt = localizer["Calendars.ConfirmMoveEventPrompt", match.Title, FormatDueAt(match.Start, timeZone, culture), FormatDueAt(newStart, timeZone, culture)];
+        var choices = new[]
+        {
+            new Choice(localizer["Reminders.ConfirmYes"].Value, "calendarEvent.moveconfirm:yes"),
+            new Choice(localizer["Reminders.ConfirmNo"].Value, "calendarEvent.moveconfirm:no"),
+        };
+        await channel.SendChoicesAsync(address, prompt, choices, ct);
+        return null;
+    }
+
+    private async Task HandleLlmCalendarEventMoveConfirmCallbackAsync(
+        AsyncServiceScope scope, ChannelAddress address, User user, string choice, CancellationToken ct)
+    {
+        var db = scope.ServiceProvider.GetRequiredService<TesseraDbContext>();
+        var state = await db.ConversationStates.FirstOrDefaultAsync(
+            s => s.UserId == user.Id && s.PendingIntent == "calendarEvent.moveConfirm" && s.ExpiresAt > DateTimeOffset.UtcNow, ct);
+        if (state is null)
+        {
+            return;
+        }
+
+        state.PendingIntent = null;
+        await db.SaveChangesAsync(ct);
+
+        if (choice != "yes")
+        {
+            await channel.SendTextAsync(address, localizer["Reminders.ConfirmCancelled"], ct);
+            return;
+        }
+
+        var payload = JsonSerializer.Deserialize<PendingLlmCalendarEventMove>(state.StateJson);
+        if (payload is null)
+        {
+            return;
+        }
+
+        var calendarQuery = scope.ServiceProvider.GetRequiredService<CalendarQueryService>();
+        var moved = await calendarQuery.MoveEventAsync(payload.SpaceId, user.Id, payload.ExternalCalendarId, payload.ProviderEventId, payload.NewStart, payload.NewEnd, ct);
+
+        var timeZone = TimeZoneInfo.FindSystemTimeZoneById(user.TimeZoneId ?? "UTC");
+        var culture = new CultureInfo(user.PreferredCulture);
+        var reply = moved is not null
+            ? localizer["Calendars.EventMoved", payload.Title, FormatDueAt(moved.Start, timeZone, culture)].Value
+            : localizer["Calendars.MoveEventFailed"].Value;
+        await channel.SendTextAsync(address, reply, ct);
     }
 
     // Same parsing rule as reminders' due_at (docs/05-ottimizzazioni.md): the model gives a

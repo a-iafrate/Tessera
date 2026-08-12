@@ -83,6 +83,29 @@ public sealed class GoogleCalendarClient : ICalendarProvider
         return MapEvent(created);
     }
 
+    public async Task DeleteEventAsync(string accessToken, string providerCalendarId, string providerEventId, CancellationToken ct)
+    {
+        using var service = CreateService(accessToken);
+        await service.Events.Delete(providerCalendarId, providerEventId).ExecuteAsync(ct);
+    }
+
+    // Patch, not Update: only Start/End are being changed, and Update would require resending
+    // the whole event body (title, description, ...) or risk clearing fields this call never
+    // touches.
+    public async Task<CalendarEventInfo> MoveEventAsync(
+        string accessToken, string providerCalendarId, string providerEventId, DateTimeOffset newStart, DateTimeOffset newEnd, CancellationToken ct)
+    {
+        using var service = CreateService(accessToken);
+        var patch = new Event
+        {
+            Start = new EventDateTime { DateTimeDateTimeOffset = newStart },
+            End = new EventDateTime { DateTimeDateTimeOffset = newEnd },
+        };
+
+        var updated = await service.Events.Patch(patch, providerCalendarId, providerEventId).ExecuteAsync(ct);
+        return MapEvent(updated);
+    }
+
     private static CalendarEventInfo MapEvent(Event source) => new(
         source.Id,
         source.ICalUID,

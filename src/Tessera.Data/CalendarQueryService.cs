@@ -12,9 +12,13 @@ namespace Tessera.Data;
 // same way everywhere (EffectiveCalendarLevel, hard rule 15) before deciding what it may
 // contribute to that view.
 public sealed class CalendarQueryService(
-    TesseraDbContext db, IMembershipRepository memberships, ICalendarProvider calendarProvider, LinkedAccountService linkedAccounts,
-    ILogger<CalendarQueryService> logger)
+    TesseraDbContext db, IMembershipRepository memberships, IEnumerable<ICalendarProvider> calendarProviders,
+    LinkedAccountService linkedAccounts, ILogger<CalendarQueryService> logger)
 {
+    private ICalendarProvider ResolveProvider(ProviderKind provider) =>
+        calendarProviders.First(x => x.Provider == provider);
+
+
     public async Task<IReadOnlyList<CalendarEventInfo>> GetEventsAsync(
         Guid spaceId, Guid userId, DateTimeOffset from, DateTimeOffset to, CancellationToken ct)
     {
@@ -29,7 +33,11 @@ public sealed class CalendarQueryService(
         foreach (var (calendar, account) in candidates)
         {
             var accessToken = await linkedAccounts.GetValidAccessTokenAsync(account, ct);
-            events.AddRange(await calendarProvider.GetEventsAsync(accessToken, calendar.ProviderCalendarId, from, to, ct));
+            var providerEvents = await ResolveProvider(account.Provider).GetEventsAsync(accessToken, calendar.ProviderCalendarId, from, to, ct);
+            // Stamped here, not by the provider client, which only ever sees provider-side ids
+            // — this is what lets a later DeleteEventAsync call find its way back to the right
+            // LinkedAccount for a specific event.
+            events.AddRange(providerEvents.Select(e => e with { ExternalCalendarId = calendar.Id }));
         }
 
         // The same event reachable through two members' linked copies of a shared calendar
@@ -41,8 +49,22 @@ public sealed class CalendarQueryService(
             .ToList();
     }
 
-    public async Task<IReadOnlyList<FreeBusyInterval>> GetFreeBusyAsync(
-        Guid spaceId, Guid userId, DateTimeOffset from, DateTimeOffset to, CancellationToken ct)
+    public Task<IReadOnlyList<FreeBusyInterval>> GetFreeBusyAsync(
+        Guid spaceId, Guid userId, DateTimeOffset from, DateTimeOffset to, CancellationToken ct) =>
+        GetFreeBusyCoreAsync(spaceId, userId, targetUserIds: null, from, to, ct);
+
+    // "When are Sara and I both free?" — same busy/free computation as the whole-space view,
+    // just restricted up front to the calendars owned by the named members (always including
+    // the asker, whether or not the caller remembered to). Anyone in targetUserIds who isn't
+    // resolvable to an accessible calendar simply contributes no busy intervals, which reads as
+    // "free the whole time" — the caller (MessageProcessor) is responsible for warning about a
+    // name it couldn't resolve to a member before ever reaching this method.
+    public Task<IReadOnlyList<FreeBusyInterval>> GetFreeBusyForUsersAsync(
+        Guid spaceId, Guid userId, IReadOnlyCollection<Guid> targetUserIds, DateTimeOffset from, DateTimeOffset to, CancellationToken ct) =>
+        GetFreeBusyCoreAsync(spaceId, userId, targetUserIds, from, to, ct);
+
+    private async Task<IReadOnlyList<FreeBusyInterval>> GetFreeBusyCoreAsync(
+        Guid spaceId, Guid userId, IReadOnlyCollection<Guid>? targetUserIds, DateTimeOffset from, DateTimeOffset to, CancellationToken ct)
     {
         var membershipLevel = await GetMembershipCalendarLevelAsync(userId, spaceId, ct);
         if (membershipLevel < AccessLevel.Availability)
@@ -51,12 +73,18 @@ public sealed class CalendarQueryService(
         }
 
         var candidates = await GetAccessibleCalendarsAsync(spaceId, membershipLevel, AccessLevel.Availability, ct);
+        if (targetUserIds is not null)
+        {
+            candidates = candidates.Where(x => targetUserIds.Contains(x.Account.UserId)).ToList();
+        }
+
         var intervals = new List<FreeBusyInterval>();
         foreach (var group in candidates.GroupBy(x => x.Account.Id))
         {
-            var accessToken = await linkedAccounts.GetValidAccessTokenAsync(group.First().Account, ct);
+            var account = group.First().Account;
+            var accessToken = await linkedAccounts.GetValidAccessTokenAsync(account, ct);
             var providerCalendarIds = group.Select(x => x.Calendar.ProviderCalendarId).ToList();
-            intervals.AddRange(await calendarProvider.GetFreeBusyAsync(accessToken, providerCalendarIds, from, to, ct));
+            intervals.AddRange(await ResolveProvider(account.Provider).GetFreeBusyAsync(accessToken, providerCalendarIds, from, to, ct));
         }
 
         return MergeIntervals(intervals);
@@ -112,10 +140,84 @@ public sealed class CalendarQueryService(
             start.ToString("O"), end.ToString("O"), start.Offset, calendar.ProviderCalendarId);
 
         var accessToken = await linkedAccounts.GetValidAccessTokenAsync(account, ct);
-        var created = await calendarProvider.CreateEventAsync(accessToken, calendar.ProviderCalendarId, new CalendarEventDraft(title, start, end, Description: null), ct);
+        var created = await ResolveProvider(account.Provider).CreateEventAsync(accessToken, calendar.ProviderCalendarId, new CalendarEventDraft(title, start, end, Description: null), ct);
 
         logger.LogInformation("CreateEventAsync: provider returned start={Start} end={End}", created.Start.ToString("O"), created.End.ToString("O"));
         return created;
+    }
+
+    // Unlike CreateEventAsync, the target calendar is already known — the caller found this
+    // event via GetEventsAsync, which stamps ExternalCalendarId on every result — so there's no
+    // "pick the default write target" ambiguity to resolve, just a Write-level check on that
+    // one specific calendar.
+    public async Task<bool> DeleteEventAsync(Guid spaceId, Guid userId, Guid externalCalendarId, string providerEventId, CancellationToken ct)
+    {
+        var resolved = await ResolveWriteAccessAsync(spaceId, userId, externalCalendarId, nameof(DeleteEventAsync), ct);
+        if (resolved is null)
+        {
+            return false;
+        }
+
+        var (calendar, account) = resolved.Value;
+        var accessToken = await linkedAccounts.GetValidAccessTokenAsync(account, ct);
+        await ResolveProvider(account.Provider).DeleteEventAsync(accessToken, calendar.ProviderCalendarId, providerEventId, ct);
+        return true;
+    }
+
+    // Same permission shape as DeleteEventAsync — the calendar is already known from a prior
+    // GetEventsAsync match, only a Write-level check on that one calendar is needed.
+    public async Task<CalendarEventInfo?> MoveEventAsync(
+        Guid spaceId, Guid userId, Guid externalCalendarId, string providerEventId, DateTimeOffset newStart, DateTimeOffset newEnd, CancellationToken ct)
+    {
+        var resolved = await ResolveWriteAccessAsync(spaceId, userId, externalCalendarId, nameof(MoveEventAsync), ct);
+        if (resolved is null)
+        {
+            return null;
+        }
+
+        var (calendar, account) = resolved.Value;
+        var accessToken = await linkedAccounts.GetValidAccessTokenAsync(account, ct);
+        var updated = await ResolveProvider(account.Provider).MoveEventAsync(accessToken, calendar.ProviderCalendarId, providerEventId, newStart, newEnd, ct);
+        return updated with { ExternalCalendarId = externalCalendarId };
+    }
+
+    // Shared by every write against a specific, already-identified calendar (delete, move) —
+    // creation is the one exception, since it has to pick a default write target first rather
+    // than already knowing which calendar it's writing to.
+    private async Task<(ExternalCalendar Calendar, LinkedAccount Account)?> ResolveWriteAccessAsync(
+        Guid spaceId, Guid userId, Guid externalCalendarId, string operationName, CancellationToken ct)
+    {
+        var membershipLevel = await GetMembershipCalendarLevelAsync(userId, spaceId, ct);
+        if (membershipLevel < AccessLevel.Write)
+        {
+            logger.LogWarning(
+                "{Operation} refused: user {UserId} has membership Calendar level {Level} (< Write) in space {SpaceId}",
+                operationName, userId, membershipLevel, spaceId);
+            return null;
+        }
+
+        var mapping = await db.CalendarSpaceMappings.FirstOrDefaultAsync(x => x.SpaceId == spaceId && x.ExternalCalendarId == externalCalendarId, ct);
+        var calendar = await db.ExternalCalendars.FirstOrDefaultAsync(x => x.Id == externalCalendarId, ct);
+        var account = calendar is null ? null : await db.LinkedAccounts.FirstOrDefaultAsync(x => x.Id == calendar.LinkedAccountId, ct);
+        if (mapping is null || calendar is null || account is null)
+        {
+            logger.LogWarning(
+                "{Operation} refused: mapping/calendar/account missing for calendar {CalendarId} in space {SpaceId} " +
+                "(mapping found={MappingFound}, calendar found={CalendarFound}, account found={AccountFound})",
+                operationName, externalCalendarId, spaceId, mapping is not null, calendar is not null, account is not null);
+            return null;
+        }
+
+        var effective = EffectiveCalendarLevel.Compute(calendar.ProviderRole, mapping.ShareLevel, membershipLevel);
+        if (effective < AccessLevel.Write)
+        {
+            logger.LogWarning(
+                "{Operation} refused: effective level {Effective} (< Write) — providerRole={ProviderRole}, shareLevel={ShareLevel}, membershipLevel={MembershipLevel}",
+                operationName, effective, calendar.ProviderRole, mapping.ShareLevel, membershipLevel);
+            return null;
+        }
+
+        return (calendar, account);
     }
 
     // IsDefaultWriteTarget only exists to break a tie between *multiple* writable calendars

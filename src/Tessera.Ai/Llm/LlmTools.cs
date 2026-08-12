@@ -24,6 +24,8 @@ public static class LlmTools
     public const string QueryCalendarEvents = "query_calendar_events";
     public const string QueryCalendarFreeBusy = "query_calendar_freebusy";
     public const string CreateCalendarEvent = "create_calendar_event";
+    public const string DeleteCalendarEvent = "delete_calendar_event";
+    public const string MoveCalendarEvent = "move_calendar_event";
     public const string CorrectLastShoppingItem = "correct_last_shopping_item";
 
     // Tools filtered per context (docs/05-ottimizzazioni.md) — the correction tool only makes
@@ -215,13 +217,19 @@ public static class LlmTools
         ChatTool.CreateFunctionTool(
             QueryCalendarFreeBusy,
             "Check when the space is free or busy in a date/time range, without event titles — " +
-            "use for \"when are we free\", \"am I busy tomorrow afternoon\".",
+            "use for \"when are we free\", \"am I busy tomorrow afternoon\", \"when are Sara and I " +
+            "both free Thursday\".",
             BinaryData.FromString("""
                 {
                   "type": "object",
                   "properties": {
                     "from": { "type": "string", "description": "Start of the range as an ISO 8601 date-time, worked out from the current date and time zone given in the context." },
-                    "to": { "type": "string", "description": "End of the range as an ISO 8601 date-time." }
+                    "to": { "type": "string", "description": "End of the range as an ISO 8601 date-time." },
+                    "people": {
+                      "type": "array",
+                      "items": { "type": "string" },
+                      "description": "Names of specific space members the user asked about, e.g. \"me and Sara\" -> [\"Sara\"] (the asker themselves is always included automatically, never list them here). Leave empty/omit for a whole-space \"is anyone busy\" question."
+                    }
                   },
                   "required": ["from", "to"]
                 }
@@ -239,6 +247,42 @@ public static class LlmTools
                     "end": { "type": "string", "description": "End date-time as ISO 8601. If the user gave no duration, default to one hour after start." }
                   },
                   "required": ["title", "start", "end"]
+                }
+                """)),
+        ChatTool.CreateFunctionTool(
+            DeleteCalendarEvent,
+            "Delete a calendar event — use for \"cancel the dentist appointment\", \"remove the " +
+            "meeting with Marco from the calendar\". Always work out a search window even if the " +
+            "user gave no explicit date: default from the current date/time given in the context " +
+            "to 30 days after it.",
+            BinaryData.FromString("""
+                {
+                  "type": "object",
+                  "properties": {
+                    "search_text": { "type": "string", "description": "Free text to match against the event's title." },
+                    "from": { "type": "string", "description": "Start of the window to search within, as ISO 8601 date-time, worked out from the current date and time zone given in the context." },
+                    "to": { "type": "string", "description": "End of the window to search within, as ISO 8601 date-time." }
+                  },
+                  "required": ["search_text", "from", "to"]
+                }
+                """)),
+        ChatTool.CreateFunctionTool(
+            MoveCalendarEvent,
+            "Move/reschedule an existing calendar event to a new date/time, keeping its original " +
+            "duration — use for \"move the dentist appointment to 5pm\", \"reschedule the meeting " +
+            "with Marco to Friday\". Always work out a search window even if the user gave no " +
+            "explicit date: default from the current date/time given in the context to 30 days " +
+            "after it.",
+            BinaryData.FromString("""
+                {
+                  "type": "object",
+                  "properties": {
+                    "search_text": { "type": "string", "description": "Free text to match against the event's title." },
+                    "from": { "type": "string", "description": "Start of the window to search within for the existing event, as ISO 8601 date-time, worked out from the current date and time zone given in the context." },
+                    "to": { "type": "string", "description": "End of the window to search within for the existing event, as ISO 8601 date-time." },
+                    "new_start": { "type": "string", "description": "The new start date-time as ISO 8601, worked out from the current date and time zone given in the context. The event keeps its original duration — do not compute a new end time." }
+                  },
+                  "required": ["search_text", "from", "to", "new_start"]
                 }
                 """)),
     ];

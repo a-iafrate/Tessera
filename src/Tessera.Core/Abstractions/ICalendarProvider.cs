@@ -21,4 +21,9 @@ public interface ICalendarProvider
 
     Task<CalendarEventInfo> CreateEventAsync(
         string accessToken, string providerCalendarId, CalendarEventDraft draft, CancellationToken ct);
+
+    Task DeleteEventAsync(string accessToken, string providerCalendarId, string providerEventId, CancellationToken ct);
+
+    Task<CalendarEventInfo> MoveEventAsync(
+        string accessToken, string providerCalendarId, string providerEventId, DateTimeOffset newStart, DateTimeOffset newEnd, CancellationToken ct);
 }

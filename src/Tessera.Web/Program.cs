@@ -171,20 +171,41 @@ if (keyVaultEnabled)
     builder.Services.AddScoped<ITokenVault, KeyVaultTokenVault>();
 }
 
-// Google Calendar linking (docs/02-modello-dati.md, docs/03-integrazioni.md) — optional like
-// the other external integrations here; the console and bot work fully without it.
+// Calendar linking (docs/02-modello-dati.md, docs/03-integrazioni.md) — optional like the
+// other external integrations here; the console and bot work fully without it. Google and
+// Microsoft are independent: either, both, or neither can be configured, and
+// LinkedAccountService/CalendarSpaceService/CalendarQueryService are provider-agnostic, so
+// they're registered once as soon as any provider is enabled (hard rule 15's effective-level
+// computation doesn't care which provider a given LinkedAccount came from).
 var googleClientId = builder.Configuration["Google:ClientId"];
 var googleClientSecret = builder.Configuration["Google:ClientSecret"];
 var googleCalendarEnabled = keyVaultEnabled
     && !string.IsNullOrWhiteSpace(googleClientId)
     && !string.IsNullOrWhiteSpace(googleClientSecret);
-if (googleCalendarEnabled)
+
+var microsoftClientId = builder.Configuration["Microsoft:ClientId"];
+var microsoftClientSecret = builder.Configuration["Microsoft:ClientSecret"];
+var microsoftCalendarEnabled = keyVaultEnabled
+    && !string.IsNullOrWhiteSpace(microsoftClientId)
+    && !string.IsNullOrWhiteSpace(microsoftClientSecret);
+
+var calendarIntegrationEnabled = googleCalendarEnabled || microsoftCalendarEnabled;
+if (calendarIntegrationEnabled)
 {
     builder.Services.AddHttpClient();
-    builder.Services.AddSingleton<ICalendarProvider, GoogleCalendarClient>();
     builder.Services.AddScoped<LinkedAccountService>();
     builder.Services.AddScoped<CalendarSpaceService>();
     builder.Services.AddScoped<CalendarQueryService>();
+}
+
+if (googleCalendarEnabled)
+{
+    builder.Services.AddSingleton<ICalendarProvider, GoogleCalendarClient>();
+}
+
+if (microsoftCalendarEnabled)
+{
+    builder.Services.AddSingleton<ICalendarProvider, GraphCalendarClient>();
 }
 
 // The bot pipeline is only wired up once a bot token is configured, so the console works
@@ -217,10 +238,10 @@ if (telegramEnabled)
     builder.Services.AddSingleton<IScheduledJob, RecurringExpenseJob>();
 }
 
-// Calendar list refresh needs LinkedAccountService, which only exists when Google Calendar
-// linking is configured — kept separate from the telegramEnabled block above since this job
+// Calendar list refresh needs LinkedAccountService, which only exists when some calendar
+// provider is configured — kept separate from the telegramEnabled block above since this job
 // sends no notifications and doesn't depend on a bot being wired up.
-if (googleCalendarEnabled)
+if (calendarIntegrationEnabled)
 {
     builder.Services.AddSingleton<IScheduledJob, RefreshCalendarListJob>();
 
@@ -232,7 +253,7 @@ if (googleCalendarEnabled)
     }
 }
 
-if (telegramEnabled || googleCalendarEnabled)
+if (telegramEnabled || calendarIntegrationEnabled)
 {
     builder.Services.AddHostedService<SchedulerWorker>();
 }
@@ -246,11 +267,19 @@ if (!applicationInsightsEnabled)
 
 if (!keyVaultEnabled)
 {
-    app.Logger.LogWarning("KeyVault:Name is not configured — Google Calendar linking is disabled.");
+    app.Logger.LogWarning("KeyVault:Name is not configured — calendar linking is disabled.");
 }
-else if (!googleCalendarEnabled)
+else
 {
-    app.Logger.LogWarning("Google:ClientId/ClientSecret are not configured — Google Calendar linking is disabled.");
+    if (!googleCalendarEnabled)
+    {
+        app.Logger.LogWarning("Google:ClientId/ClientSecret are not configured — Google Calendar linking is disabled.");
+    }
+
+    if (!microsoftCalendarEnabled)
+    {
+        app.Logger.LogWarning("Microsoft:ClientId/ClientSecret are not configured — Microsoft Calendar linking is disabled.");
+    }
 }
 
 if (!azureOpenAiEnabled)
@@ -334,9 +363,9 @@ if (telegramEnabled)
     app.MapTelegramWebhook();
 }
 
-if (googleCalendarEnabled)
+if (calendarIntegrationEnabled)
 {
-    app.MapGoogleCalendarEndpoints();
+    app.MapCalendarOAuthEndpoints();
 }
 
 app.Run();
