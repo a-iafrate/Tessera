@@ -124,32 +124,36 @@ Il tasso di "non ho capito" è il secondo numero da guardare: se è alto, il pro
 
 Se l'esito è "sì, uso quotidiano", la domanda successiva è monetizzazione o limitazione dell'utenza (vedi [04-costi.md](04-costi.md#soglia-di-sostenibilità)). Lo schema dei piani (`SubscriptionPlan`, per spazio) esiste già in anticipo — vedi [02-modello-dati.md](02-modello-dati.md#piano-di-abbonamento) — ma l'enforcement dei limiti e il flusso di pagamento restano deliberatamente fuori dalla Fase 1.
 
-## Fase 2 — Calendario (~5-6 settimane)
+## Fase 2 — Calendario (~5-6 settimane) — ✅ completata
 
-Le verification avviate in Fase 1 dovrebbero essere concluse o vicine.
+- [x] Flusso OAuth Microsoft e collegamento account
+- [x] `ICalendarProvider` con implementazione Graph
+- [x] **Enumerazione dei calendari** (`calendarList` / `/me/calendars`) → `ExternalCalendar`
+- [x] Default: solo il calendario primario abilitato, gli altri opt-in dalla console
+- [x] **Mappatura calendario → spazio** con livello per calendario (`CalendarSpaceMapping`)
+- [x] Calcolo del livello effettivo come minimo fra provider, mappatura e membership
+- [x] `IsDefaultWriteTarget` per decidere dove creare gli eventi
+- [x] **Deduplica su `iCalUID`** per il calendario condiviso collegato da più membri
+- [x] Refresh periodico della lista calendari (accessRole e condivisioni cambiano lato provider) — `RefreshCalendarListJob`
+- [x] Flusso OAuth Google
+- [x] Implementazione Google Calendar
+- [x] Storage dei refresh token in Key Vault, cifrati (vedi [07](07-compliance.md))
+- [x] Lettura eventi: "che ho domani", "quando è la riunione con Marco"
+- [x] `AccessLevel.Availability` via freebusy — vedi nota sotto su Graph
+- [x] Disponibilità incrociate: "quando siamo liberi io e Sara giovedì?"
+- [x] Creazione e spostamento eventi
+- [x] **Eliminazione eventi** — non elencata sopra nella pianificazione originale, aggiunta come naturale completamento di creazione/spostamento
+- [x] Promemoria proattivi (su Telegram, gratuiti) — `CalendarReminderJob`, 15 minuti prima, dedup su `NotifiedCalendarEvent`
+- [x] Gestione timezone corretta con IANA ID — inclusa raccolta a registrazione (`Register.razor`)
 
-- [ ] Flusso OAuth Microsoft e collegamento account
-- [ ] `ICalendarProvider` con implementazione Graph
-- [ ] **Enumerazione dei calendari** (`calendarList` / `/me/calendars`) → `ExternalCalendar`
-- [ ] Default: solo il calendario primario abilitato, gli altri opt-in dalla console
-- [ ] **Mappatura calendario → spazio** con livello per calendario (`CalendarSpaceMapping`)
-- [ ] Calcolo del livello effettivo come minimo fra provider, mappatura e membership
-- [ ] `IsDefaultWriteTarget` per decidere dove creare gli eventi
-- [ ] **Deduplica su `iCalUID`** per il calendario condiviso collegato da più membri
-- [ ] Refresh periodico della lista calendari (accessRole e condivisioni cambiano lato provider)
-- [ ] Flusso OAuth Google (dipende dalla verification conclusa)
-- [ ] Implementazione Google Calendar
-- [ ] Storage dei refresh token in Key Vault, cifrati (vedi [07](07-compliance.md))
-- [ ] Lettura eventi: "che ho domani", "quando è la riunione con Marco"
-- [ ] `AccessLevel.Availability` via `freebusy.query` / `getSchedule`
-- [ ] Disponibilità incrociate: "quando siamo liberi io e Sara giovedì?"
-- [ ] Creazione e spostamento eventi
-- [ ] Promemoria proattivi (su Telegram, gratuiti)
-- [ ] Gestione timezone corretta con IANA ID
+La disponibilità incrociata è risultata la funzione più difendibile del prodotto: risolve un problema reale ("quando ci vediamo?") che nessuna app di calendario risolve bene fra persone diverse.
 
-**Microsoft prima di Google**: ciclo di feedback più corto, valida l'astrazione mentre la review Google è in coda.
+**Scostamenti dal piano originale, per chi rilegge questo documento in futuro:**
 
-La disponibilità incrociata è la funzione più difendibile del prodotto: risolve un problema reale ("quando ci vediamo?") che nessuna app di calendario risolve bene fra persone diverse.
+- **Google prima di Microsoft**, non il contrario come raccomandato sopra — l'utente aveva già le credenziali Google pronte all'inizio della Fase 2. Il ciclo di feedback più corto ipotizzato per Microsoft non si è verificato come vantaggio, dato che l'astrazione `ICalendarProvider` si è rivelata comunque valida per entrambi senza modifiche sostanziali.
+- **Client HTTP scritti a mano invece degli SDK ufficiali** (`Microsoft.Graph`, niente MSAL) per entrambi i provider — stesso principio già usato per l'OAuth: evitare che la gestione del refresh interna a un SDK collida con l'obbligo (regola 4) che il refresh token viva solo in Key Vault.
+- **Graph non ha un equivalente calendario-specifico di `freebusy.query`** (`getSchedule` lavora per mailbox, non per id di calendario arbitrari) — la disponibilità su Microsoft usa `calendarView` con `$select=start,end`, che non fa mai transitare i titoli degli eventi (stessa proprietà di privacy di `freebusy.query`, ottenuta diversamente).
+- **Microsoft non ha un endpoint di revoca per singolo refresh token** come Google — "Scollega" per Microsoft pulisce solo lo stato locale (Key Vault + mappature), senza revocare l'autorizzazione lato Microsoft. Da valutare se documentare esplicitamente in [07-compliance.md](07-compliance.md).
 
 ## Fase 3 — WhatsApp (~3-4 settimane, molte di attesa)
 
@@ -207,7 +211,7 @@ Nessuna urgenza, nessun ordine obbligato. In ordine di rapporto valore/sforzo:
 | 0 — Fondamenta | 1 settimana | — |
 | 1 — MVP + console | 9-10 settimane | verification avviate in parallelo |
 | **Punto di decisione** | — | — |
-| 2 — Calendario | 5-6 settimane | Google 2-6 settimane (già maturate) |
+| 2 — Calendario ✅ | 5-6 settimane | Google 2-6 settimane (già maturate) |
 | 3 — WhatsApp | 3-4 settimane | business verification, variabile |
 | 4 — Estensioni | aperta | — |
 

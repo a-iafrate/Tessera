@@ -1012,7 +1012,7 @@ Provami subito:</value>
   <data name="Expenses.PageTitle" xml:space="preserve">
     <value>Spese</value>
   </data>
-  <data name="Expenses.MonthlyTotal" xml:space="preserve">
+  <data name="Expenses.ThisMonthTotal" xml:space="preserve">
     <value>Questo mese: {0}</value>
   </data>
   <data name="Expenses.AmountPlaceholder" xml:space="preserve">

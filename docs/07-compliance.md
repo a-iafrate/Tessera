@@ -53,6 +53,8 @@ L'utente deve poter scollegare un account, e scollegare deve significare tre cos
 
 Cancellare solo il record locale lascia un'autorizzazione attiva lato provider. È scorretto e l'utente lo vede nella propria pagina delle app autorizzate.
 
+**Eccezione nota: Microsoft.** A differenza di Google, la piattaforma Microsoft identity non esporta un endpoint pubblico per revocare un singolo refresh token di un'app (l'unica API disponibile, `/me/revokeSignInSessions`, revoca *tutte* le sessioni dell'utente su *tutte* le app, non solo Tessera — uno scope troppo ampio per essere accettabile qui). Per Microsoft lo scollegamento esegue solo i passi 2 e 3: il segreto sparisce da Key Vault e il record locale viene cancellato, ma l'autorizzazione concessa a Tessera resta visibile e attiva lato Microsoft finché l'utente non la revoca lui stesso da [account.microsoft.com](https://account.microsoft.com) → Privacy → app con accesso ai propri dati (account personali), o tramite l'amministratore del tenant (account aziendali). Il refresh token stesso non è comunque più utilizzabile da Tessera una volta cancellato da Key Vault — il gap è solo sulla visibilità/revoca lato Microsoft, non su un rischio di accesso residuo da parte nostra.
+
 ## Scope: chiedere il minimo
 
 Vale sia per la privacy che per l'approvazione della review.

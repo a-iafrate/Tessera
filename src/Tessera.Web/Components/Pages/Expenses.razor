@@ -30,7 +30,7 @@
     {
         <a href="/" class="text-soft">@Localizer["Common.BackToDashboard"]</a>
         <h1>@Localizer["Expenses.PageTitle"] — @space.Name</h1>
-        <p class="text-soft">@Localizer["Expenses.MonthlyTotal", MoneyFormatter.Format(monthlyTotal, currency, CultureInfo.CurrentUICulture.Name)]</p>
+        <p class="text-soft">@Localizer["Expenses.ThisMonthTotal", MoneyFormatter.Format(monthlyTotal, currency, CultureInfo.CurrentUICulture.Name)]</p>
 
         @if (errorMessage is not null)
         {
