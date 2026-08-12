@@ -129,6 +129,7 @@ builder.Services.AddScoped<ReminderService>();
 builder.Services.AddScoped<NoteService>();
 builder.Services.AddScoped<RecurringExpenseService>();
 builder.Services.AddScoped<BudgetService>();
+builder.Services.AddScoped<UsageService>();
 builder.Services.AddScoped<DigestService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<SpaceResolver>();
@@ -250,6 +251,7 @@ if (calendarIntegrationEnabled)
     if (telegramEnabled)
     {
         builder.Services.AddSingleton<IScheduledJob, CalendarReminderJob>();
+        builder.Services.AddSingleton<IScheduledJob, CalendarToListSuggestionJob>();
     }
 }
 

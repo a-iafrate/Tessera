@@ -211,6 +211,15 @@ public sealed class MessageProcessor(
             return;
         }
 
+        // CalendarToListSuggestionJob's own callback — "yes" carries the space id directly in
+        // the callback data (it has no other pending state to fetch it from), "no" needs
+        // nothing but the address to reply to.
+        if (message.CallbackData is { } calendarSuggestCallback && calendarSuggestCallback.StartsWith("calendarSuggest.", StringComparison.Ordinal))
+        {
+            await HandleCalendarSuggestionCallbackAsync(scope, address, user, calendarSuggestCallback, ct);
+            return;
+        }
+
         // Undo, onboarding's sample button and the sharing prompt all resolve against
         // LastOperation/the user row directly — none of them need a space resolved first.
         if (message.CallbackData == "undo:tap")
@@ -528,6 +537,14 @@ public sealed class MessageProcessor(
         if (llmFallback is null || string.IsNullOrWhiteSpace(text))
         {
             return await SendNotUnderstoodAsync(address, text, culture, ct);
+        }
+
+        var usage = scope.ServiceProvider.GetRequiredService<UsageService>();
+        if (!await usage.TryRecordL3CallAsync(spaceId, ct))
+        {
+            // L1/L2 keep working regardless (docs/04-costi.md) — only the LLM call itself,
+            // the thing that actually costs money, is gated by the plan's daily allowance.
+            return localizer["Usage.LimitExceeded"];
         }
 
         var db = scope.ServiceProvider.GetRequiredService<TesseraDbContext>();
@@ -1111,6 +1128,32 @@ public sealed class MessageProcessor(
             ? localizer["Calendars.EventMoved", payload.Title, FormatDueAt(moved.Start, timeZone, culture)].Value
             : localizer["Calendars.MoveEventFailed"].Value;
         await channel.SendTextAsync(address, reply, ct);
+    }
+
+    // "Yes" reuses the exact same shopping-list reply the router's shopping.show/ShowShoppingList
+    // path sends — no separate rendering logic, no pending state to store, since which space to
+    // show came along in the callback data itself.
+    private async Task HandleCalendarSuggestionCallbackAsync(
+        AsyncServiceScope scope, ChannelAddress address, User user, string callbackData, CancellationToken ct)
+    {
+        if (callbackData == "calendarSuggest.no")
+        {
+            await channel.SendTextAsync(address, localizer["Calendars.ListSuggestionDismissed"], ct);
+            return;
+        }
+
+        if (!callbackData.StartsWith("calendarSuggest.yes:", StringComparison.Ordinal)
+            || !Guid.TryParse(callbackData["calendarSuggest.yes:".Length..], out var spaceId))
+        {
+            return;
+        }
+
+        var shopping = scope.ServiceProvider.GetRequiredService<ShoppingListService>();
+        var reply = await HandleShowAsync(shopping, address, spaceId, user.Id, listName: null, ct);
+        if (reply is not null)
+        {
+            await channel.SendTextAsync(address, reply, ct);
+        }
     }
 
     // Same parsing rule as reminders' due_at (docs/05-ottimizzazioni.md): the model gives a

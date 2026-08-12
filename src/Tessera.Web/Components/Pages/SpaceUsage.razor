@@ -1,0 +1,86 @@
+@page "/spaces/{SpaceId:guid}/usage"
+@attribute [Authorize]
+
+@using System.Globalization
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.Extensions.Localization
+@using Tessera.Core.Resources
+@using Tessera.Core.Spaces
+@using Tessera.Data
+@using Tessera.Web.Services
+
+@inject SpaceService SpaceService
+@inject UsageService UsageService
+@inject NavigationManager NavigationManager
+@inject IStringLocalizer<Messages> Localizer
+
+<PageTitle>@Localizer["SpaceUsage.PageTitle"]</PageTitle>
+
+<div class="container">
+    @if (space is null)
+    {
+        <p class="text-soft"><span class="spinner" aria-hidden="true"></span> @Localizer["Common.Loading"]</p>
+    }
+    else
+    {
+        <a href="@($"/spaces/{SpaceId}")" class="text-soft">@Localizer["Common.BackToDashboard"]</a>
+        <h1>@Localizer["SpaceUsage.PageTitle"] — @space.Name</h1>
+
+        <div class="card" style="max-width: 32rem;">
+            <h2>@plan!.Name</h2>
+            <p class="text-soft">
+                @if (plan.MonthlyPrice == 0)
+                {
+                    @Localizer["SpaceUsage.PriceFree"]
+                }
+                else
+                {
+                    @Localizer["SpaceUsage.PriceLine", MoneyFormatter.Format(plan.MonthlyPrice, plan.Currency, CultureInfo.CurrentUICulture.Name)]
+                }
+            </p>
+
+            <div class="seam" aria-hidden="true">
+                <span></span><span></span><span></span>
+            </div>
+
+            <p>@Localizer["SpaceUsage.CallsToday", usedToday, limit]</p>
+            @if (usedToday >= limit)
+            {
+                <div class="alert alert-danger">@Localizer["SpaceUsage.LimitReachedNote"]</div>
+            }
+        </div>
+
+        <a class="btn btn-secondary" href="/pricing">@Localizer["SpaceUsage.SeePlansButton"]</a>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid SpaceId { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private Space? space;
+    private SubscriptionPlan? plan;
+    private int usedToday;
+    private int limit;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateTask!;
+        var userId = Guid.Parse(authState.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var loadedSpace = await SpaceService.GetByIdAsync(SpaceId, userId, CancellationToken.None);
+        if (loadedSpace is null)
+        {
+            NavigationManager.NavigateTo("/spaces");
+            return;
+        }
+
+        (usedToday, limit, plan) = await UsageService.GetTodayUsageAsync(SpaceId, CancellationToken.None);
+        space = loadedSpace;
+    }
+}

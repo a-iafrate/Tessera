@@ -10,25 +10,31 @@ using Tessera.Web.Services;
 
 namespace Tessera.Web.Jobs;
 
-// Proactive counterpart to asking "what's on my calendar" — notifies each space member
-// individually, shortly before an event they can see starts, even if nobody's chatting with
-// the bot at that moment (docs/06-roadmap.md Phase 2, mirrors RemindersDueJob). Access is
-// checked implicitly: CalendarQueryService.GetEventsAsync already returns nothing for a
-// member without Read-level Calendar access, so no separate permission pass is needed here.
-public sealed class CalendarReminderJob(
+// "Calendario → lista" (docs/06-roadmap.md Fase 4): "sabato cena con i Rossi" proposes adding
+// something to the shopping list before the event. Deliberately keyword-based, not LLM-based —
+// running an LLM call per calendar event per space per tick would be an uncapped cost sink
+// disconnected from anything the user actually asked for (docs/04-costi.md); a title match is
+// free and good enough for a nudge, not a hard requirement.
+public sealed class CalendarToListSuggestionJob(
     IServiceScopeFactory scopeFactory,
     IChannel channel,
     IStringLocalizer<Messages> localizer,
-    ILogger<CalendarReminderJob> logger) : IScheduledJob
+    ILogger<CalendarToListSuggestionJob> logger) : IScheduledJob
 {
-    // How far ahead an event has to be to trigger a reminder. Checked every 5 minutes, so an
-    // event is seen at least twice inside this window before it starts —
-    // CalendarQueryService.WasNotifiedAsync guarantees only the first sighting sends anything.
-    private static readonly TimeSpan LeadTime = TimeSpan.FromMinutes(15);
+    // Enough notice to actually shop before the event, without reaching so far out that the
+    // same event lingers in-window (and thus gets re-scanned, though not re-sent thanks to the
+    // dedup) for days on end.
+    private static readonly TimeSpan LeadWindow = TimeSpan.FromDays(3);
 
-    public string Name => "CalendarReminder";
+    private static readonly string[] Keywords =
+    [
+        "cena", "pranzo", "ospiti", "invitati", "aperitivo",
+        "dinner", "lunch", "guests", "party",
+    ];
 
-    public TimeSpan Interval => TimeSpan.FromMinutes(5);
+    public string Name => "CalendarToListSuggestion";
+
+    public TimeSpan Interval => TimeSpan.FromHours(6);
 
     public async Task RunAsync(CancellationToken ct)
     {
@@ -38,7 +44,7 @@ public sealed class CalendarReminderJob(
         var identities = scope.ServiceProvider.GetRequiredService<IChannelIdentityRepository>();
 
         var now = DateTimeOffset.UtcNow;
-        var windowEnd = now + LeadTime;
+        var windowEnd = now + LeadWindow;
 
         var spaceIds = await db.CalendarSpaceMappings.Select(x => x.SpaceId).Distinct().ToListAsync(ct);
         foreach (var spaceId in spaceIds)
@@ -49,16 +55,13 @@ public sealed class CalendarReminderJob(
                 var events = await calendarQuery.GetEventsAsync(spaceId, memberId, now, windowEnd, ct);
                 foreach (var e in events)
                 {
-                    // An all-day event's "start" is midnight — 15 minutes out from that is
-                    // meaningless as a heads-up, so it's excluded rather than notified at a
-                    // seemingly random moment.
-                    if (e.IsAllDay)
+                    if (e.IsAllDay || !MatchesKeyword(e.Title))
                     {
                         continue;
                     }
 
                     var eventKey = e.IcalUid ?? e.ProviderEventId;
-                    if (await calendarQuery.WasNotifiedAsync(spaceId, memberId, eventKey, e.Start, CalendarNotificationKind.Reminder, ct))
+                    if (await calendarQuery.WasNotifiedAsync(spaceId, memberId, eventKey, e.Start, CalendarNotificationKind.ListSuggestion, ct))
                     {
                         continue;
                     }
@@ -66,7 +69,7 @@ public sealed class CalendarReminderJob(
                     var recipient = await db.DomainUsers.AsNoTracking().FirstOrDefaultAsync(u => u.Id == memberId, ct);
                     if (recipient is null)
                     {
-                        await calendarQuery.RecordNotifiedAsync(spaceId, memberId, eventKey, e.Start, CalendarNotificationKind.Reminder, ct);
+                        await calendarQuery.RecordNotifiedAsync(spaceId, memberId, eventKey, e.Start, CalendarNotificationKind.ListSuggestion, ct);
                         continue;
                     }
 
@@ -75,7 +78,12 @@ public sealed class CalendarReminderJob(
                     CultureInfo.CurrentUICulture = culture;
 
                     var timeZone = TimeZoneInfo.FindSystemTimeZoneById(recipient.TimeZoneId ?? "UTC");
-                    var text = localizer["Calendars.EventUpcomingNotification", e.Title, MessageProcessor.FormatDueAt(e.Start, timeZone, culture)];
+                    var text = localizer["Calendars.ListSuggestionPrompt", e.Title, MessageProcessor.FormatDueAt(e.Start, timeZone, culture)];
+                    var choices = new[]
+                    {
+                        new Choice(localizer["Reminders.ConfirmYes"].Value, $"calendarSuggest.yes:{spaceId}"),
+                        new Choice(localizer["Reminders.ConfirmNo"].Value, "calendarSuggest.no"),
+                    };
 
                     var recipientIdentities = await identities.GetForUserAsync(memberId, ct);
                     foreach (var identity in recipientIdentities)
@@ -87,18 +95,21 @@ public sealed class CalendarReminderJob(
 
                         try
                         {
-                            await channel.SendTextAsync(new ChannelAddress(identity.ChannelName, chatId), text, ct);
+                            await channel.SendChoicesAsync(new ChannelAddress(identity.ChannelName, chatId), text, choices, ct);
                         }
                         catch (Exception ex)
                         {
-                            logger.LogError(ex, "Failed to send calendar reminder for event {EventKey} to {ChannelName}/{ChatId}",
+                            logger.LogError(ex, "Failed to send list suggestion for event {EventKey} to {ChannelName}/{ChatId}",
                                 eventKey, identity.ChannelName, chatId);
                         }
                     }
 
-                    await calendarQuery.RecordNotifiedAsync(spaceId, memberId, eventKey, e.Start, CalendarNotificationKind.Reminder, ct);
+                    await calendarQuery.RecordNotifiedAsync(spaceId, memberId, eventKey, e.Start, CalendarNotificationKind.ListSuggestion, ct);
                 }
             }
         }
     }
+
+    private static bool MatchesKeyword(string title) =>
+        Keywords.Any(k => title.Contains(k, StringComparison.OrdinalIgnoreCase));
 }

@@ -1,0 +1,60 @@
+@page "/pricing"
+
+@using System.Globalization
+@using Microsoft.Extensions.Localization
+@using Tessera.Core.Resources
+@using Tessera.Core.Spaces
+@using Tessera.Data
+@using Tessera.Web.Services
+
+@inject UsageService UsageService
+@inject IStringLocalizer<Messages> Localizer
+
+<PageTitle>@Localizer["Pricing.Title"]</PageTitle>
+
+<div class="container" style="max-width: 60rem;">
+    <h1>@Localizer["Pricing.Title"]</h1>
+    <p class="text-soft">@Localizer["Pricing.Intro"]</p>
+
+    @if (plans.Count == 0)
+    {
+        <p class="text-soft"><span class="spinner" aria-hidden="true"></span> @Localizer["Common.Loading"]</p>
+    }
+    else
+    {
+        <div style="display: flex; gap: var(--space-4); flex-wrap: wrap; margin-top: var(--space-6);">
+            @foreach (var plan in plans)
+            {
+                <div class="card" style="flex: 1; min-width: 14rem;">
+                    <h2>@plan.Name</h2>
+                    <p style="font-size: 1.5rem; margin: var(--space-2) 0;">
+                        @if (plan.MonthlyPrice == 0)
+                        {
+                            @Localizer["Pricing.Free"]
+                        }
+                        else
+                        {
+                            @MoneyFormatter.Format(plan.MonthlyPrice, plan.Currency, CultureInfo.CurrentUICulture.Name)
+                            <span class="text-soft" style="font-size: 1rem;">@Localizer["Pricing.PerMonth"]</span>
+                        }
+                    </p>
+                    <ul>
+                        <li>@Localizer["Pricing.CallsPerDay", plan.MaxCallsPerDay]</li>
+                        <li>@Localizer["Pricing.LinkedBots", plan.MaxLinkedBots]</li>
+                    </ul>
+                </div>
+            }
+        </div>
+
+        <p class="text-soft" style="margin-top: var(--space-6);">@Localizer["Pricing.UpgradeNote"]</p>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<SubscriptionPlan> plans = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        plans = await UsageService.GetAllPlansAsync(CancellationToken.None);
+    }
+}

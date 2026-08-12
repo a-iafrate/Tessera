@@ -54,6 +54,8 @@ public sealed class TesseraDbContext(DbContextOptions<TesseraDbContext> options)
 
     public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
 
+    public DbSet<UsageEvent> UsageEvents => Set<UsageEvent>();
+
     public DbSet<ConversationState> ConversationStates => Set<ConversationState>();
 
     public DbSet<InviteToken> InviteTokens => Set<InviteToken>();

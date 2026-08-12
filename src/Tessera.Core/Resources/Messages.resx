@@ -106,6 +106,9 @@
   <data name="Errors.NotUnderstood" xml:space="preserve">
     <value>I didn't get that. Try /help</value>
   </data>
+  <data name="Usage.LimitExceeded" xml:space="preserve">
+    <value>This space has used up its smart-reply allowance for today. Native commands (like /list, /remind, /expense) still work — the plan resets tomorrow.</value>
+  </data>
   <data name="Link.Success" xml:space="preserve">
     <value>Linked as {0}</value>
   </data>
@@ -500,6 +503,27 @@ Note: I only read messages that start with / or mention me.</value>
   <data name="SpaceDetail.CalendarsButton" xml:space="preserve">
     <value>Calendars</value>
   </data>
+  <data name="SpaceDetail.UsageButton" xml:space="preserve">
+    <value>Plan &amp; usage</value>
+  </data>
+  <data name="SpaceUsage.PageTitle" xml:space="preserve">
+    <value>Plan &amp; usage</value>
+  </data>
+  <data name="SpaceUsage.PriceFree" xml:space="preserve">
+    <value>Free plan</value>
+  </data>
+  <data name="SpaceUsage.PriceLine" xml:space="preserve">
+    <value>{0}/month</value>
+  </data>
+  <data name="SpaceUsage.CallsToday" xml:space="preserve">
+    <value>Smart replies used today: {0} of {1}</value>
+  </data>
+  <data name="SpaceUsage.LimitReachedNote" xml:space="preserve">
+    <value>This space has used up its smart-reply allowance for today. Native commands still work — the allowance resets tomorrow.</value>
+  </data>
+  <data name="SpaceUsage.SeePlansButton" xml:space="preserve">
+    <value>See all plans</value>
+  </data>
   <data name="SpaceDetail.ShoppingListButton" xml:space="preserve">
     <value>Shopping list</value>
   </data>
@@ -792,6 +816,30 @@ Try it now:</value>
   </data>
   <data name="Nav.Terms" xml:space="preserve">
     <value>Terms</value>
+  </data>
+  <data name="Nav.Pricing" xml:space="preserve">
+    <value>Pricing</value>
+  </data>
+  <data name="Pricing.Title" xml:space="preserve">
+    <value>Pricing</value>
+  </data>
+  <data name="Pricing.Intro" xml:space="preserve">
+    <value>Every space starts on the Free plan. Smart replies (the LLM-powered ones) are limited per day; native commands like /list, /remind and /expense are never limited.</value>
+  </data>
+  <data name="Pricing.Free" xml:space="preserve">
+    <value>Free</value>
+  </data>
+  <data name="Pricing.PerMonth" xml:space="preserve">
+    <value>/month</value>
+  </data>
+  <data name="Pricing.CallsPerDay" xml:space="preserve">
+    <value>{0} smart replies/day</value>
+  </data>
+  <data name="Pricing.LinkedBots" xml:space="preserve">
+    <value>{0} linked channel(s)</value>
+  </data>
+  <data name="Pricing.UpgradeNote" xml:space="preserve">
+    <value>Online upgrades aren't open yet. If you need a higher plan, get in touch.</value>
   </data>
   <data name="Privacy.Title" xml:space="preserve">
     <value>Privacy Policy</value>
@@ -1170,5 +1218,11 @@ Try it now:</value>
   </data>
   <data name="Calendars.MoveEventFailed" xml:space="preserve">
     <value>I couldn't move that event — check your permissions on this calendar.</value>
+  </data>
+  <data name="Calendars.ListSuggestionPrompt" xml:space="preserve">
+    <value>You have "{0}" — {1}. Want help getting the shopping list ready?</value>
+  </data>
+  <data name="Calendars.ListSuggestionDismissed" xml:space="preserve">
+    <value>Ok, maybe next time!</value>
   </data>
 </root>

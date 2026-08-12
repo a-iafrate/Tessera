@@ -106,6 +106,9 @@
   <data name="Errors.NotUnderstood" xml:space="preserve">
     <value>Non ho capito. Prova /help</value>
   </data>
+  <data name="Usage.LimitExceeded" xml:space="preserve">
+    <value>Questo spazio ha esaurito le risposte intelligenti disponibili per oggi. I comandi nativi (come /list, /remind, /expense) continuano a funzionare — il piano si rinnova domani.</value>
+  </data>
   <data name="Link.Success" xml:space="preserve">
     <value>Collegato come {0}</value>
   </data>
@@ -500,6 +503,27 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   <data name="SpaceDetail.CalendarsButton" xml:space="preserve">
     <value>Calendari</value>
   </data>
+  <data name="SpaceDetail.UsageButton" xml:space="preserve">
+    <value>Piano e utilizzo</value>
+  </data>
+  <data name="SpaceUsage.PageTitle" xml:space="preserve">
+    <value>Piano e utilizzo</value>
+  </data>
+  <data name="SpaceUsage.PriceFree" xml:space="preserve">
+    <value>Piano gratuito</value>
+  </data>
+  <data name="SpaceUsage.PriceLine" xml:space="preserve">
+    <value>{0}/mese</value>
+  </data>
+  <data name="SpaceUsage.CallsToday" xml:space="preserve">
+    <value>Risposte intelligenti usate oggi: {0} su {1}</value>
+  </data>
+  <data name="SpaceUsage.LimitReachedNote" xml:space="preserve">
+    <value>Questo spazio ha esaurito le risposte intelligenti disponibili per oggi. I comandi nativi continuano a funzionare — il limite si rinnova domani.</value>
+  </data>
+  <data name="SpaceUsage.SeePlansButton" xml:space="preserve">
+    <value>Vedi tutti i piani</value>
+  </data>
   <data name="SpaceDetail.ShoppingListButton" xml:space="preserve">
     <value>Lista della spesa</value>
   </data>
@@ -792,6 +816,30 @@ Provami subito:</value>
   </data>
   <data name="Nav.Terms" xml:space="preserve">
     <value>Termini</value>
+  </data>
+  <data name="Nav.Pricing" xml:space="preserve">
+    <value>Prezzi</value>
+  </data>
+  <data name="Pricing.Title" xml:space="preserve">
+    <value>Prezzi</value>
+  </data>
+  <data name="Pricing.Intro" xml:space="preserve">
+    <value>Ogni spazio parte con il piano Free. Le risposte intelligenti (quelle basate sull'LLM) hanno un limite giornaliero; i comandi nativi come /list, /remind ed /expense non hanno mai limiti.</value>
+  </data>
+  <data name="Pricing.Free" xml:space="preserve">
+    <value>Gratis</value>
+  </data>
+  <data name="Pricing.PerMonth" xml:space="preserve">
+    <value>/mese</value>
+  </data>
+  <data name="Pricing.CallsPerDay" xml:space="preserve">
+    <value>{0} risposte intelligenti/giorno</value>
+  </data>
+  <data name="Pricing.LinkedBots" xml:space="preserve">
+    <value>{0} canale/i collegabile/i</value>
+  </data>
+  <data name="Pricing.UpgradeNote" xml:space="preserve">
+    <value>Gli upgrade online non sono ancora attivi. Se ti serve un piano superiore, contattaci.</value>
   </data>
   <data name="Privacy.Title" xml:space="preserve">
     <value>Informativa sulla privacy</value>
@@ -1170,5 +1218,11 @@ Provami subito:</value>
   </data>
   <data name="Calendars.MoveEventFailed" xml:space="preserve">
     <value>Non sono riuscito a spostare l'evento — verifica i tuoi permessi su questo calendario.</value>
+  </data>
+  <data name="Calendars.ListSuggestionPrompt" xml:space="preserve">
+    <value>Hai in programma "{0}" — {1}. Vuoi che ti prepari la lista della spesa?</value>
+  </data>
+  <data name="Calendars.ListSuggestionDismissed" xml:space="preserve">
+    <value>Va bene, magari un'altra volta!</value>
   </data>
 </root>
