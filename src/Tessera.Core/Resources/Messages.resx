@@ -148,6 +148,15 @@
   <data name="Expenses.Recorded" xml:space="preserve">
     <value>Recorded {0}</value>
   </data>
+  <data name="Expenses.ReceiptNotConfigured" xml:space="preserve">
+    <value>Reading receipts from photos isn't set up yet — you can still record the expense as text.</value>
+  </data>
+  <data name="Expenses.ReceiptRequiresPaidPlan" xml:space="preserve">
+    <value>Reading receipts from photos is available on paid plans — see the pricing page in the console to upgrade. You can still record the expense as text.</value>
+  </data>
+  <data name="Expenses.ReceiptNotRecognized" xml:space="preserve">
+    <value>I couldn't read a total off that receipt — try a clearer photo, or send the amount as text.</value>
+  </data>
   <data name="Expenses.RecordedWithCategory" xml:space="preserve">
     <value>Recorded {0} for {1}</value>
   </data>
@@ -348,6 +357,9 @@
   </data>
   <data name="Commands.Note.Description" xml:space="preserve">
     <value>Notes</value>
+  </data>
+  <data name="Commands.Usage.Description" xml:space="preserve">
+    <value>Plan and daily usage</value>
   </data>
   <data name="Commands.Month.Description" xml:space="preserve">
     <value>Monthly summary</value>
@@ -952,6 +964,9 @@ Try it now:</value>
   <data name="Pricing.Intro" xml:space="preserve">
     <value>Every space starts on the Free plan. Smart replies (the LLM-powered ones) are limited per day; native commands like /list, /remind and /expense are never limited.</value>
   </data>
+  <data name="Pricing.ReceiptScanningExplainer" xml:space="preserve">
+    <value>Send a photo of a receipt captioned "/expense" and Tessera reads the merchant and total straight off it — available on paid plans, since each scan has a real cost beyond the daily smart-reply allowance.</value>
+  </data>
   <data name="Pricing.Free" xml:space="preserve">
     <value>Free</value>
   </data>
@@ -963,6 +978,12 @@ Try it now:</value>
   </data>
   <data name="Pricing.LinkedBots" xml:space="preserve">
     <value>{0} linked channel(s)</value>
+  </data>
+  <data name="Pricing.ReceiptScanningIncluded" xml:space="preserve">
+    <value>📷 Receipt scanning included</value>
+  </data>
+  <data name="Pricing.ReceiptScanningNotIncluded" xml:space="preserve">
+    <value>Receipt scanning not included</value>
   </data>
   <data name="Pricing.UpgradeNote" xml:space="preserve">
     <value>Online upgrades aren't open yet. If you need a higher plan, get in touch.</value>

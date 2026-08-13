@@ -177,10 +177,10 @@ Qui la domanda vera è economica, non tecnica: il costo per utente dei template 
 
 Nessuna urgenza, nessun ordine obbligato. In ordine di rapporto valore/sforzo:
 
-- [ ] **Scontrini via vision** — killer feature per le spese. Costo reale ma accettabile (centesimi per scontrino). Richiede Blob Storage e gestione delle immagini.
+- [x] **Scontrini via vision** — foto captioned `/expense` → `ReceiptVisionClient` (gpt-4o-mini, immagine inline) estrae merchant + totale → registra la spesa riusando la stessa categorizzazione/budget/undo/notifiche del flusso testuale, allega la foto alla spesa (`AttachmentService`). Estrae solo merchant e totale, non le singole righe — l'estrazione riga per riga resta per la voce successiva. Gated sulla stessa soglia giornaliera di `UsageService` usata per L3, non una quota separata.
 - [ ] **Scontrino → spunta la lista + registra la spesa** — un gesto, due sistemi. È la dimostrazione della tesi dell'aggregazione, e nessun concorrente singolo può farlo.
 - [ ] **Archivio garanzie** — "quando ho comprato la lavatrice?". Ricade gratis dagli scontrini già archiviati, e nessuna app di liste lo fa.
-- [ ] **Calendario → lista** — "sabato cena con i Rossi" fa proporre di aggiungere alla lista prima del weekend.
+- [x] **Calendario → lista** — `CalendarToListSuggestionJob`, individua eventi calendario con parole chiave cena/pranzo/ospiti nelle prossime 72 ore e propone di aggiungere alla lista.
 - [ ] **Storico prezzi** — "il caffè costa il 15% in più di sei mesi fa". Richiede la normalizzazione dei nomi prodotto, che è lavoro sporco.
 - [ ] **Ricette e suggerimenti dalla lista** — buon caso d'uso LLM, costo contenuto. Attenzione a non scivolare nel meal planning, che è un prodotto a sé.
 - [ ] **Documenti** — OneDrive e Google Drive hanno scope più clementi di Gmail. Da valutare.

@@ -7,6 +7,7 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.Extensions.Localization
 @using Tessera.Core.Abstractions
+@using Tessera.Core.Attachments
 @using Tessera.Core.Expenses
 @using Tessera.Core.Resources
 @using Tessera.Core.Spaces
@@ -17,6 +18,8 @@
 @inject ExpenseService ExpenseService
 @inject IAccessPolicy AccessPolicy
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JsRuntime
+@inject IServiceProvider ServiceProvider
 @inject IStringLocalizer<Messages> Localizer
 
 <PageTitle>@Localizer["Expenses.PageTitle"]</PageTitle>
@@ -81,6 +84,10 @@
                         <span class="text-soft" style="width: 6rem;">@expense.Date.ToString("d", CultureInfo.CurrentUICulture)</span>
                         <span style="flex: 1;">@(expense.Merchant ?? CategoryName(expense.CategoryId))</span>
                         <strong>@MoneyFormatter.Format(expense.Amount, expense.Currency, CultureInfo.CurrentUICulture.Name)</strong>
+                        @if (attachmentsByExpense.TryGetValue(expense.Id, out var expenseAttachments) && expenseAttachments.Count > 0)
+                        {
+                            <button class="btn btn-secondary" @onclick="() => DownloadReceiptAsync(expenseAttachments[0].Id)">📎</button>
+                        }
                     </div>
                 }
             </div>
@@ -108,6 +115,11 @@
     private string newMerchant = "";
     private DateOnly newDate = DateOnly.FromDateTime(DateTime.Today);
     private string? errorMessage;
+    private Dictionary<Guid, IReadOnlyList<Attachment>> attachmentsByExpense = [];
+
+    // Attachments are conditionally registered (Program.cs — only when BlobStorage:ConnectionString
+    // is configured), same pattern as Notes.razor.
+    private AttachmentService? AttachmentServiceOrNull => ServiceProvider.GetService<AttachmentService>();
 
     protected override async Task OnInitializedAsync()
     {
@@ -131,6 +143,33 @@
         recent = await ExpenseService.GetRecentAsync(SpaceId, userId, 20, CancellationToken.None);
         var now = DateTime.UtcNow;
         (monthlyTotal, currency) = await ExpenseService.GetMonthlyTotalAsync(SpaceId, userId, now.Year, now.Month, CancellationToken.None);
+
+        var attachments = AttachmentServiceOrNull;
+        var byExpense = new Dictionary<Guid, IReadOnlyList<Attachment>>();
+        if (attachments is not null)
+        {
+            foreach (var expense in recent)
+            {
+                byExpense[expense.Id] = await attachments.GetForAsync(ResourceKind.Expenses, expense.Id, CancellationToken.None);
+            }
+        }
+
+        attachmentsByExpense = byExpense;
+    }
+
+    private async Task DownloadReceiptAsync(Guid attachmentId)
+    {
+        var attachments = AttachmentServiceOrNull;
+        if (attachments is null)
+        {
+            return;
+        }
+
+        var url = await attachments.GetReadUrlAsync(attachmentId, TimeSpan.FromMinutes(5), CancellationToken.None);
+        if (url is not null)
+        {
+            await JsRuntime.InvokeVoidAsync("open", url, "_blank");
+        }
     }
 
     private async Task RecordAsync()

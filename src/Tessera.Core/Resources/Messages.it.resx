@@ -148,6 +148,15 @@
   <data name="Expenses.Recorded" xml:space="preserve">
     <value>Registrata {0}</value>
   </data>
+  <data name="Expenses.ReceiptNotConfigured" xml:space="preserve">
+    <value>La lettura degli scontrini dalle foto non è ancora configurata — puoi comunque registrare la spesa come testo.</value>
+  </data>
+  <data name="Expenses.ReceiptRequiresPaidPlan" xml:space="preserve">
+    <value>La lettura degli scontrini dalle foto è disponibile sui piani a pagamento — trovi i piani nella pagina prezzi del sito. Puoi comunque registrare la spesa come testo.</value>
+  </data>
+  <data name="Expenses.ReceiptNotRecognized" xml:space="preserve">
+    <value>Non sono riuscito a leggere un totale da quello scontrino — prova con una foto più chiara, o invia l'importo come testo.</value>
+  </data>
   <data name="Expenses.RecordedWithCategory" xml:space="preserve">
     <value>Registrata {0} per {1}</value>
   </data>
@@ -348,6 +357,9 @@
   </data>
   <data name="Commands.Note.Description" xml:space="preserve">
     <value>Note</value>
+  </data>
+  <data name="Commands.Usage.Description" xml:space="preserve">
+    <value>Piano e utilizzo giornaliero</value>
   </data>
   <data name="Commands.Month.Description" xml:space="preserve">
     <value>Riepilogo mensile</value>
@@ -952,6 +964,9 @@ Provami subito:</value>
   <data name="Pricing.Intro" xml:space="preserve">
     <value>Ogni spazio parte con il piano Free. Le risposte intelligenti (quelle basate sull'LLM) hanno un limite giornaliero; i comandi nativi come /list, /remind ed /expense non hanno mai limiti.</value>
   </data>
+  <data name="Pricing.ReceiptScanningExplainer" xml:space="preserve">
+    <value>Invia la foto di uno scontrino con la didascalia "/expense" e Tessera legge direttamente merchant e totale — disponibile sui piani a pagamento, perché ogni lettura ha un costo reale oltre al limite giornaliero delle risposte intelligenti.</value>
+  </data>
   <data name="Pricing.Free" xml:space="preserve">
     <value>Gratis</value>
   </data>
@@ -963,6 +978,12 @@ Provami subito:</value>
   </data>
   <data name="Pricing.LinkedBots" xml:space="preserve">
     <value>{0} canale/i collegabile/i</value>
+  </data>
+  <data name="Pricing.ReceiptScanningIncluded" xml:space="preserve">
+    <value>📷 Lettura scontrini incluso</value>
+  </data>
+  <data name="Pricing.ReceiptScanningNotIncluded" xml:space="preserve">
+    <value>Lettura scontrini non incluso</value>
   </data>
   <data name="Pricing.UpgradeNote" xml:space="preserve">
     <value>Gli upgrade online non sono ancora attivi. Se ti serve un piano superiore, contattaci.</value>

@@ -159,6 +159,11 @@ if (azureOpenAiEnabled)
     builder.Services.AddSingleton(sp =>
         sp.GetRequiredService<AzureOpenAIClient>().GetChatClient(azureOpenAiDeployment));
     builder.Services.AddSingleton<LlmFallbackClient>();
+
+    // Receipts via vision (docs/06-roadmap.md Fase 4) — same deployment as the L3 fallback
+    // (gpt-4o-mini reads images too), gated on the same config since there's no separate
+    // "vision endpoint" to configure.
+    builder.Services.AddSingleton<ReceiptVisionClient>();
 }
 
 // Refresh tokens may only ever live in Key Vault, never the database (hard rule 4,
@@ -332,6 +337,7 @@ else
             new("expense", commandsLocalizer["Commands.Expense.Description"]),
             new("remind", commandsLocalizer["Commands.Remind.Description"]),
             new("note", commandsLocalizer["Commands.Note.Description"]),
+            new("usage", commandsLocalizer["Commands.Usage.Description"]),
             new("month", commandsLocalizer["Commands.Month.Description"]),
             new("link", commandsLocalizer["Commands.Link.Description"]),
             new("language", commandsLocalizer["Commands.Language.Description"]),

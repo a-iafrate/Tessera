@@ -49,6 +49,7 @@ public sealed class MessageProcessor(
         ["/lingua"] = "/language",
         ["/aiuto"] = "/help",
         ["/nota"] = "/note",
+        ["/utilizzo"] = "/usage",
     };
 
     private static string ResolveCommandAlias(string text)
@@ -327,7 +328,14 @@ public sealed class MessageProcessor(
         ResourceKind resourceKind;
         AccessLevel requiredLevel;
 
-        if (message.Media.Count > 0)
+        if (message.Media.Count > 0 && nativeCommand == NativeCommand.Expense)
+        {
+            // A photo captioned "/expense" (or its Italian alias) means "read this as a
+            // receipt" — Expenses/Write, not Notes (docs/06-roadmap.md Fase 4: "scontrini via
+            // vision"). Everything else media-related still means Notes/Write.
+            (resourceKind, requiredLevel) = (ResourceKind.Expenses, AccessLevel.Write);
+        }
+        else if (message.Media.Count > 0)
         {
             // A photo/document always means Notes/Write, whether it ends up creating a new
             // note (captioned) or attaching to the most recent one (uncaptioned) — decided
@@ -407,6 +415,19 @@ public sealed class MessageProcessor(
         var onboarding = scope.ServiceProvider.GetRequiredService<OnboardingService>();
         var undo = scope.ServiceProvider.GetRequiredService<UndoService>();
         var notes = scope.ServiceProvider.GetRequiredService<NoteService>();
+        var usage = scope.ServiceProvider.GetRequiredService<UsageService>();
+
+        if (message.Media.Count > 0 && nativeCommand == NativeCommand.Expense)
+        {
+            var receiptReply = await HandleReceiptAsync(
+                scope, expenses, budgets, notifications, undo, onboarding, usage, address, spaceId, user, culture, message.Media[0], ct);
+            if (receiptReply is not null)
+            {
+                await channel.SendTextAsync(address, receiptReply, ct);
+            }
+
+            return;
+        }
 
         if (message.Media.Count > 0)
         {
@@ -475,6 +496,13 @@ public sealed class MessageProcessor(
                 // send arrives with IScheduledJob (docs/06-roadmap.md).
                 var digestReply = await HandleDigestCommandAsync(digest, expenses, spaceId, user, culture, ct);
                 await channel.SendTextAsync(address, digestReply, ct);
+                return;
+            }
+
+            case NativeCommand.Usage:
+            {
+                var usageReply = await HandleUsageCommandAsync(usage, spaceId, culture, ct);
+                await channel.SendTextAsync(address, usageReply, ct);
                 return;
             }
 
@@ -1278,6 +1306,7 @@ public sealed class MessageProcessor(
         Expense,
         Month,
         Note,
+        Usage,
     }
 
     private static NativeCommand DetectNativeCommand(string text) => text switch
@@ -1290,6 +1319,7 @@ public sealed class MessageProcessor(
         _ when text.StartsWith("/expense", StringComparison.OrdinalIgnoreCase) => NativeCommand.Expense,
         _ when text.StartsWith("/month", StringComparison.OrdinalIgnoreCase) => NativeCommand.Month,
         _ when text.StartsWith("/note", StringComparison.OrdinalIgnoreCase) => NativeCommand.Note,
+        _ when text.StartsWith("/usage", StringComparison.OrdinalIgnoreCase) => NativeCommand.Usage,
         _ => NativeCommand.None,
     };
 
@@ -2392,6 +2422,91 @@ public sealed class MessageProcessor(
         return isNewNote ? localizer["Attachments.NoteCreated"] : localizer["Attachments.AddedToRecentNote"];
     }
 
+    // A photo captioned "/expense" (docs/06-roadmap.md Fase 4: "scontrini via vision") — reads
+    // the receipt, then records the expense exactly like RecordExpenseAndReplyAsync's own
+    // known-merchant branch (same resx strings, same categorization/budget/undo/notification
+    // behavior), so a scanned receipt and a typed "/expense 12.50 at Conad" are indistinguishable
+    // downstream. Gated on the same daily allowance as L3 (UsageService) — both are "the app
+    // pays a model to do this," and a second parallel quota would just be more to explain.
+    private async Task<string?> HandleReceiptAsync(
+        AsyncServiceScope scope, ExpenseService expenses, BudgetService budgets, NotificationService notifications,
+        UndoService undo, OnboardingService onboarding, UsageService usage, ChannelAddress address, Guid spaceId,
+        User user, CultureInfo culture, InboundMedia media, CancellationToken ct)
+    {
+        var vision = scope.ServiceProvider.GetService<ReceiptVisionClient>();
+        if (vision is null)
+        {
+            return localizer["Expenses.ReceiptNotConfigured"];
+        }
+
+        // Checked before spending anything on the vision call, not after — a real per-scan
+        // cost (docs/04-costi.md) only makes sense to pay for a paying space.
+        var (_, _, plan) = await usage.GetTodayUsageAsync(spaceId, ct);
+        if (!plan.AllowsReceiptScanning)
+        {
+            return localizer["Expenses.ReceiptRequiresPaidPlan"];
+        }
+
+        if (!await usage.TryRecordL3CallAsync(spaceId, ct))
+        {
+            return localizer["Usage.LimitExceeded"];
+        }
+
+        byte[] bytes;
+        using (var content = await channel.DownloadMediaAsync(media.FileId, ct))
+        {
+            using var buffer = new MemoryStream();
+            await content.CopyToAsync(buffer, ct);
+            bytes = buffer.ToArray();
+        }
+
+        var contentType = media.MimeType ?? "image/jpeg";
+        var extraction = await vision.ExtractAsync(BinaryData.FromBytes(bytes), contentType, ct);
+        if (extraction is null || extraction.Total <= 0)
+        {
+            return localizer["Expenses.ReceiptNotRecognized"];
+        }
+
+        var today = GetUserToday(user);
+        Expense expense;
+        string reply;
+        if (extraction.Merchant is null)
+        {
+            expense = await expenses.RecordAsync(spaceId, user.Id, extraction.Total, categoryId: null, merchant: null, today, ct);
+            reply = localizer["Expenses.Recorded", MoneyFormatter.Format(expense.Amount, expense.Currency, culture.Name)];
+        }
+        else
+        {
+            var learnedCategory = await expenses.FindMerchantCategoryAsync(spaceId, extraction.Merchant, ct);
+            expense = await expenses.RecordAsync(spaceId, user.Id, extraction.Total, learnedCategory?.Id, extraction.Merchant, today, ct);
+            var formatted = MoneyFormatter.Format(expense.Amount, expense.Currency, culture.Name);
+            if (learnedCategory is not null)
+            {
+                reply = localizer["Expenses.RecordedWithMerchantAndCategory", formatted, extraction.Merchant, GetCategoryDisplayName(learnedCategory, localizer)];
+            }
+            else
+            {
+                await SendCategoryPickerAsync(expenses, address, spaceId, expense.Id, extraction.Merchant, ct);
+                reply = localizer["Expenses.RecordedWithMerchant", formatted, extraction.Merchant];
+            }
+        }
+
+        await NotifyExpenseRecordedAsync(notifications, spaceId, user.Id, expense, address, ct);
+
+        var attachments = scope.ServiceProvider.GetService<AttachmentService>();
+        if (attachments is not null)
+        {
+            var fileName = media.FileName ?? $"receipt-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}";
+            using var receiptStream = new MemoryStream(bytes);
+            await attachments.AddAsync(spaceId, ResourceKind.Expenses, expense.Id, user.Id, receiptStream, fileName, contentType, bytes.Length, ct);
+        }
+
+        await undo.RecordExpenseAsync(user.Id, spaceId, expense.Id, ct);
+        var replyWithAlerts = await AppendBudgetAlertsAsync(expenses, budgets, spaceId, user.Id, culture, expense, reply, ct);
+        await FinalizeUsefulActionReplyAsync(onboarding, address, user.Id, "expenses", replyWithAlerts, ct);
+        return null;
+    }
+
     private string GetFrequencyDisplayName(RecurrenceFrequency frequency) => frequency switch
     {
         RecurrenceFrequency.Daily => localizer["Reminders.FrequencyDaily"],
@@ -2557,6 +2672,39 @@ public sealed class MessageProcessor(
         return DigestFormatter.Format(daily, categories, currency, timeZone, culture, localizer);
     }
 
+    // Same numbers as the console's /spaces/{id}/usage page (SpaceUsage.razor), reusing the
+    // exact same resx strings so the two never phrase this differently — just with a text bar
+    // instead of a CSS one, since that's all Telegram can render.
+    private async Task<string> HandleUsageCommandAsync(UsageService usage, Guid spaceId, CultureInfo culture, CancellationToken ct)
+    {
+        var (usedToday, limit, plan) = await usage.GetTodayUsageAsync(spaceId, ct);
+
+        var priceLine = plan.MonthlyPrice == 0
+            ? localizer["SpaceUsage.PriceFree"].Value
+            : localizer["SpaceUsage.PriceLine", MoneyFormatter.Format(plan.MonthlyPrice, plan.Currency, culture.Name)].Value;
+
+        var lines = new List<string>
+        {
+            $"{plan.Name} — {priceLine}",
+            BuildUsageBar(usedToday, limit),
+            localizer["SpaceUsage.CallsToday", usedToday, limit].Value,
+        };
+
+        if (usedToday >= limit)
+        {
+            lines.Add(localizer["SpaceUsage.LimitReachedNote"].Value);
+        }
+
+        return string.Join('\n', lines);
+    }
+
+    private static string BuildUsageBar(int usedToday, int limit)
+    {
+        const int segments = 10;
+        var filled = limit <= 0 ? segments : Math.Clamp((int)Math.Round(usedToday * (double)segments / limit), 0, segments);
+        return new string('█', filled) + new string('░', segments - filled);
+    }
+
     // The fix for whoever got the wrong default culture (docs/09-localizzazione.md) — no
     // args shows the current one, "it"/"en" switches it, anything else is a usage hint.
     private async Task<string> HandleLanguageCommandAsync(
@@ -2590,6 +2738,7 @@ public sealed class MessageProcessor(
         $"/expense — {localizer["Commands.Expense.Description"]}",
         $"/remind — {localizer["Commands.Remind.Description"]}",
         $"/note — {localizer["Commands.Note.Description"]}",
+        $"/usage — {localizer["Commands.Usage.Description"]}",
         $"/month — {localizer["Commands.Month.Description"]}",
         $"/link — {localizer["Commands.Link.Description"]}",
         $"/language — {localizer["Commands.Language.Description"]}",

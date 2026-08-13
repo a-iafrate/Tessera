@@ -17,22 +17,22 @@ public sealed class SubscriptionPlanConfiguration : IEntityTypeConfiguration<Sub
             new SubscriptionPlan
             {
                 Id = SystemPlanIds.Free, Name = "Free",
-                MaxLinkedBots = 1, MaxCallsPerDay = 20, MonthlyPrice = 0m,
+                MaxLinkedBots = 1, MaxCallsPerDay = 20, MonthlyPrice = 0m, AllowsReceiptScanning = false,
             },
             new SubscriptionPlan
             {
                 Id = SystemPlanIds.Basic, Name = "Basic",
-                MaxLinkedBots = 1, MaxCallsPerDay = 200, MonthlyPrice = 5m,
+                MaxLinkedBots = 1, MaxCallsPerDay = 200, MonthlyPrice = 5m, AllowsReceiptScanning = true,
             },
             new SubscriptionPlan
             {
                 Id = SystemPlanIds.Plus, Name = "Plus",
-                MaxLinkedBots = 3, MaxCallsPerDay = 1000, MonthlyPrice = 12m,
+                MaxLinkedBots = 3, MaxCallsPerDay = 1000, MonthlyPrice = 12m, AllowsReceiptScanning = true,
             },
             new SubscriptionPlan
             {
                 Id = SystemPlanIds.Family, Name = "Family",
-                MaxLinkedBots = 10, MaxCallsPerDay = 5000, MonthlyPrice = 25m,
+                MaxLinkedBots = 10, MaxCallsPerDay = 5000, MonthlyPrice = 25m, AllowsReceiptScanning = true,
             });
     }
 }
