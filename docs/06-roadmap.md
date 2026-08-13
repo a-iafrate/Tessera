@@ -45,7 +45,7 @@ Zero OAuth. Tutto vive nel database.
 - [ ] **Spese ricorrenti** con auto-registrazione o promemoria
 - [ ] **Budget per categoria** con avviso alla soglia
 - [ ] **Note**: testo libero condiviso per spazio — crea, mostra, modifica, elimina
-- [ ] **Digest quotidiano**: promemoria di oggi, cosa manca in lista, stato del budget
+- [ ] **Digest quotidiano**: promemoria di oggi, appuntamenti di oggi (se il calendario è collegato — aggiunto in Fase 2), cosa manca in lista, stato del budget
 - [ ] `IScheduledJob` + worker temporizzato per promemoria, digest, ricorrenze
 - [ ] Comandi nativi: `/list`, `/expense`, `/remind`, `/month`, `/link`, `/language`, `/help` + alias italiani
 - [ ] Descrizioni dei comandi localizzate via `setMyCommands` con `language_code`

@@ -1,4 +1,5 @@
 using Telegram.Bot;
+using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
 using Tessera.Core.Channels;
 
@@ -25,6 +26,11 @@ public sealed class TelegramChannel(ITelegramBotClient client) : IChannel
             choices.Select(c => InlineKeyboardButton.WithCallbackData(c.Text, c.Value)));
 
         await client.SendMessage(to.ExternalChatId, text, replyMarkup: keyboard, cancellationToken: ct);
+    }
+
+    public async Task SendPhotoAsync(ChannelAddress to, string photoUrl, string? caption, CancellationToken ct)
+    {
+        await client.SendPhoto(to.ExternalChatId, InputFile.FromUri(new Uri(photoUrl)), caption: caption, cancellationToken: ct);
     }
 
     public async Task<Stream> DownloadMediaAsync(string fileId, CancellationToken ct)

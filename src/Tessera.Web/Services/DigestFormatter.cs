@@ -19,6 +19,11 @@ public static class DigestFormatter
             : string.Join('\n', daily.RemindersToday.Select(r =>
                 localizer["Reminders.ListItemLine", MessageProcessor.FormatDueAt(r.DueAt, timeZone, culture), r.Text].Value));
 
+        var calendarSection = daily.EventsToday.Count == 0
+            ? localizer["Digest.CalendarEmpty"].Value
+            : string.Join('\n', daily.EventsToday.Select(e =>
+                localizer["Calendars.EventLine", MessageProcessor.FormatDueAt(e.Start, timeZone, culture), e.Title].Value));
+
         var shoppingSection = daily.MissingItems.Count == 0
             ? localizer["Digest.ShoppingEmpty"].Value
             : string.Join('\n', daily.MissingItems.Select(i => localizer["Shopping.ListItemLine", i.RawText].Value));
@@ -41,6 +46,8 @@ public static class DigestFormatter
 
         return string.Join('\n', [
             localizer["Digest.RemindersHeader"], remindersSection,
+            "",
+            localizer["Digest.CalendarHeader"], calendarSection,
             "",
             localizer["Digest.ShoppingHeader"], shoppingSection,
             "",

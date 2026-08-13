@@ -37,6 +37,9 @@ public sealed class AttachmentService(TesseraDbContext db, IBlobStorage blobStor
         return attachment;
     }
 
+    public async Task<Attachment?> GetByIdAsync(Guid attachmentId, CancellationToken ct) =>
+        await db.Attachments.AsNoTracking().FirstOrDefaultAsync(x => x.Id == attachmentId, ct);
+
     public async Task<IReadOnlyList<Attachment>> GetForAsync(ResourceKind resource, Guid ownerEntityId, CancellationToken ct) =>
         await db.Attachments
             .Where(x => x.Resource == resource && x.OwnerEntityId == ownerEntityId)

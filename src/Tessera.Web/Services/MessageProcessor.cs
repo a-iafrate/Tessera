@@ -8,6 +8,7 @@ using Tessera.Ai.Commands;
 using Tessera.Ai.Llm;
 using Tessera.Ai.Routing;
 using Tessera.Core.Abstractions;
+using Tessera.Core.Attachments;
 using Tessera.Core.Calendars;
 using Tessera.Core.Channels;
 using Tessera.Core.Conversations;
@@ -218,6 +219,14 @@ public sealed class MessageProcessor(
         if (message.CallbackData is { } calendarSuggestCallback && calendarSuggestCallback.StartsWith("calendarSuggest.", StringComparison.Ordinal))
         {
             await HandleCalendarSuggestionCallbackAsync(scope, address, user, calendarSuggestCallback, ct);
+            return;
+        }
+
+        // A tap on one of the "📎 note title" buttons under a notes list (HandleShowNotesAsync)
+        // — the attachment carries its own SpaceId, so no space resolution is needed here.
+        if (message.CallbackData is { } noteImageCallback && noteImageCallback.StartsWith("note.showimage:", StringComparison.Ordinal))
+        {
+            await HandleShowNoteAttachmentCallbackAsync(scope, address, user, noteImageCallback["note.showimage:".Length..], ct);
             return;
         }
 
@@ -499,7 +508,7 @@ public sealed class MessageProcessor(
             case NativeCommand.Note:
             {
                 var noteReply = await HandleNoteCommandAsync(
-                    notes, undo, onboarding, address, spaceId, user.Id, text["/note".Length..], ct);
+                    scope, notes, undo, onboarding, address, spaceId, user.Id, text["/note".Length..], ct);
                 if (noteReply is not null)
                 {
                     await channel.SendTextAsync(address, noteReply, ct);
@@ -609,7 +618,7 @@ public sealed class MessageProcessor(
             LlmTools.CreateNote => await CreateNoteAndReplyAsync(
                 notes, undo, onboarding, address, spaceId, user.Id,
                 GetOptionalString(args, "title"), args.GetProperty("body").GetString() ?? "", ct),
-            LlmTools.ShowNotes => await HandleShowNotesAsync(notes, spaceId, user.Id, ct),
+            LlmTools.ShowNotes => await HandleShowNotesAsync(scope, address, notes, spaceId, user.Id, ct),
             LlmTools.DeleteNote => await HandleLlmDeleteNoteAsync(
                 scope, notes, spaceId, user.Id, args.GetProperty("search_text").GetString() ?? "", ct),
             LlmTools.QueryCalendarEvents => await HandleCalendarEventsQueryAsync(scope, spaceId, user, culture, args, ct),
@@ -2169,16 +2178,20 @@ public sealed class MessageProcessor(
     // the body (no title) — the model-driven create_note tool is what fills in a title, when
     // the phrasing has one to extract.
     private async Task<string?> HandleNoteCommandAsync(
-        NoteService notes, UndoService undo, OnboardingService onboarding, ChannelAddress address,
+        AsyncServiceScope scope, NoteService notes, UndoService undo, OnboardingService onboarding, ChannelAddress address,
         Guid spaceId, Guid userId, string argsText, CancellationToken ct)
     {
         var trimmed = argsText.Trim();
         return trimmed.Length == 0
-            ? await HandleShowNotesAsync(notes, spaceId, userId, ct)
+            ? await HandleShowNotesAsync(scope, address, notes, spaceId, userId, ct)
             : await CreateNoteAndReplyAsync(notes, undo, onboarding, address, spaceId, userId, title: null, trimmed, ct);
     }
 
-    private async Task<string?> HandleShowNotesAsync(NoteService notes, Guid spaceId, Guid userId, CancellationToken ct)
+    // Sends the list itself (rather than just returning text) because notes with an image
+    // attachment get a button to reveal it on demand — showing every image unprompted on every
+    // "what notes are there?" would get noisy fast once a space has more than a couple.
+    private async Task<string?> HandleShowNotesAsync(
+        AsyncServiceScope scope, ChannelAddress address, NoteService notes, Guid spaceId, Guid userId, CancellationToken ct)
     {
         var all = await notes.GetNotesAsync(spaceId, userId, ct);
         if (all.Count == 0)
@@ -2186,10 +2199,74 @@ public sealed class MessageProcessor(
             return localizer["Notes.ListEmpty"];
         }
 
-        var lines = all.Select(n => n.Title is { Length: > 0 }
-            ? localizer["Notes.ListItemLineTitled", n.Title, n.Body].Value
-            : localizer["Notes.ListItemLine", n.Body].Value);
-        return string.Join('\n', lines);
+        var attachments = scope.ServiceProvider.GetService<AttachmentService>();
+        var imageChoices = new List<Choice>();
+        var lines = new List<string>();
+        foreach (var note in all)
+        {
+            var line = note.Title is { Length: > 0 }
+                ? localizer["Notes.ListItemLineTitled", note.Title, note.Body].Value
+                : localizer["Notes.ListItemLine", note.Body].Value;
+
+            if (attachments is not null)
+            {
+                var noteAttachments = await attachments.GetForAsync(ResourceKind.Notes, note.Id, ct);
+                var images = noteAttachments.Where(a => a.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)).ToList();
+                if (images.Count > 0)
+                {
+                    line = $"{line}\n{localizer["Notes.HasAttachment"].Value}";
+                    var label = note.Title is { Length: > 0 } ? note.Title : note.Body;
+                    label = label.Length > 30 ? $"{label[..30]}…" : label;
+                    imageChoices.AddRange(images.Select(a => new Choice($"📎 {label}", $"note.showimage:{a.Id}")));
+                }
+            }
+
+            lines.Add(line);
+        }
+
+        var text = string.Join("\n\n", lines);
+        if (imageChoices.Count == 0)
+        {
+            await channel.SendTextAsync(address, text, ct);
+        }
+        else
+        {
+            await channel.SendChoicesAsync(address, text, imageChoices, ct);
+        }
+
+        return null;
+    }
+
+    // note.showimage: callback — resolved lazily on tap rather than eagerly with the list
+    // (HandleShowNotesAsync above), so a space with many photo-attached notes doesn't flood
+    // the chat. The attachment's own SpaceId is the permission check here, not the caller's
+    // current space, since by the time this fires the user may be in any conversation context.
+    private async Task HandleShowNoteAttachmentCallbackAsync(
+        AsyncServiceScope scope, ChannelAddress address, User user, string attachmentIdText, CancellationToken ct)
+    {
+        var attachmentService = scope.ServiceProvider.GetService<AttachmentService>();
+        if (attachmentService is null || !Guid.TryParse(attachmentIdText, out var attachmentId))
+        {
+            return;
+        }
+
+        var attachment = await attachmentService.GetByIdAsync(attachmentId, ct);
+        if (attachment is null || attachment.Resource != ResourceKind.Notes)
+        {
+            return;
+        }
+
+        var accessPolicy = scope.ServiceProvider.GetRequiredService<IAccessPolicy>();
+        if (!await accessPolicy.CanAsync(user.Id, attachment.SpaceId, ResourceKind.Notes, AccessLevel.Read, ct))
+        {
+            return;
+        }
+
+        var url = await attachmentService.GetReadUrlAsync(attachment.Id, TimeSpan.FromMinutes(5), ct);
+        if (url is not null)
+        {
+            await channel.SendPhotoAsync(address, url, attachment.FileName, ct);
+        }
     }
 
     // Shared by the native /note command and the create_note L3 tool — both create-and-confirm

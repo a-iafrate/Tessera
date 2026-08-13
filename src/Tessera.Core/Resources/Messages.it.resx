@@ -221,10 +221,13 @@
     <value>Ancora nessuna nota</value>
   </data>
   <data name="Notes.ListItemLine" xml:space="preserve">
-    <value>{0}</value>
+    <value>📝 {0}</value>
   </data>
   <data name="Notes.ListItemLineTitled" xml:space="preserve">
-    <value>{0} — {1}</value>
+    <value>📝 {0} — {1}</value>
+  </data>
+  <data name="Notes.HasAttachment" xml:space="preserve">
+    <value>📎 Allegato</value>
   </data>
   <data name="Notes.Created" xml:space="preserve">
     <value>Nota salvata.</value>
@@ -288,6 +291,12 @@
   </data>
   <data name="Digest.RemindersEmpty" xml:space="preserve">
     <value>Nessun promemoria oggi</value>
+  </data>
+  <data name="Digest.CalendarHeader" xml:space="preserve">
+    <value>Appuntamenti di oggi</value>
+  </data>
+  <data name="Digest.CalendarEmpty" xml:space="preserve">
+    <value>Nessun appuntamento oggi</value>
   </data>
   <data name="Digest.ShoppingHeader" xml:space="preserve">
     <value>Lista della spesa</value>
