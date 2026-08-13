@@ -1984,7 +1984,7 @@ public sealed class MessageProcessor(
         if (categoryText is not null)
         {
             var category = await ResolveCategoryAsync(expenses, spaceId, categoryText, ct);
-            expense = await expenses.RecordAsync(spaceId, user.Id, amount, category?.Id, merchant: null, today, ct);
+            expense = await expenses.RecordAsync(spaceId, user.Id, amount, category?.Id, merchant: null, today, note: null, ct);
             await NotifyExpenseRecordedAsync(notifications, spaceId, user.Id, expense, address, ct);
             var formatted = MoneyFormatter.Format(expense.Amount, expense.Currency, culture.Name);
             reply = category is null
@@ -1994,7 +1994,7 @@ public sealed class MessageProcessor(
         else if (merchantText is null)
         {
             // No merchant either: nothing to categorize, nothing to learn from.
-            expense = await expenses.RecordAsync(spaceId, user.Id, amount, categoryId: null, merchant: null, today, ct);
+            expense = await expenses.RecordAsync(spaceId, user.Id, amount, categoryId: null, merchant: null, today, note: null, ct);
             await NotifyExpenseRecordedAsync(notifications, spaceId, user.Id, expense, address, ct);
             reply = localizer["Expenses.Recorded", MoneyFormatter.Format(expense.Amount, expense.Currency, culture.Name)];
         }
@@ -2005,7 +2005,7 @@ public sealed class MessageProcessor(
             // 4. unknown merchant → ask once via inline keyboard, and the answer feeds back
             //    into the mapping so this merchant is never asked about again.
             var learnedCategory = await expenses.FindMerchantCategoryAsync(spaceId, merchantText, ct);
-            expense = await expenses.RecordAsync(spaceId, user.Id, amount, learnedCategory?.Id, merchantText, today, ct);
+            expense = await expenses.RecordAsync(spaceId, user.Id, amount, learnedCategory?.Id, merchantText, today, note: null, ct);
             await NotifyExpenseRecordedAsync(notifications, spaceId, user.Id, expense, address, ct);
             var recordedFormatted = MoneyFormatter.Format(expense.Amount, expense.Currency, culture.Name);
 
@@ -2468,17 +2468,24 @@ public sealed class MessageProcessor(
         }
 
         var today = GetUserToday(user);
+
+        // Stored so the products bought are searchable later (docs/06-roadmap.md Fase 4:
+        // "archivio garanzie" — "quando ho comprato la lavatrice?") — QueryExpenseHistory
+        // already matches search_text against Merchant or Note, so this is the entire
+        // connection needed; no new query surface.
+        var receiptNote = extraction.Items.Count > 0 ? string.Join(", ", extraction.Items) : null;
+
         Expense expense;
         string reply;
         if (extraction.Merchant is null)
         {
-            expense = await expenses.RecordAsync(spaceId, user.Id, extraction.Total, categoryId: null, merchant: null, today, ct);
+            expense = await expenses.RecordAsync(spaceId, user.Id, extraction.Total, categoryId: null, merchant: null, today, receiptNote, ct);
             reply = localizer["Expenses.Recorded", MoneyFormatter.Format(expense.Amount, expense.Currency, culture.Name)];
         }
         else
         {
             var learnedCategory = await expenses.FindMerchantCategoryAsync(spaceId, extraction.Merchant, ct);
-            expense = await expenses.RecordAsync(spaceId, user.Id, extraction.Total, learnedCategory?.Id, extraction.Merchant, today, ct);
+            expense = await expenses.RecordAsync(spaceId, user.Id, extraction.Total, learnedCategory?.Id, extraction.Merchant, today, receiptNote, ct);
             var formatted = MoneyFormatter.Format(expense.Amount, expense.Currency, culture.Name);
             if (learnedCategory is not null)
             {

@@ -185,7 +185,7 @@
         {
             await ExpenseService.RecordAsync(
                 SpaceId, userId, newAmount.Value, newCategoryId,
-                string.IsNullOrWhiteSpace(newMerchant) ? null : newMerchant.Trim(), newDate, CancellationToken.None);
+                string.IsNullOrWhiteSpace(newMerchant) ? null : newMerchant.Trim(), newDate, note: null, CancellationToken.None);
             newAmount = null;
             newCategoryId = null;
             newMerchant = "";

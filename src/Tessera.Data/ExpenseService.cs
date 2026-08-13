@@ -14,7 +14,8 @@ public sealed class ExpenseService(TesseraDbContext db, IAccessPolicy accessPoli
     }
 
     public async Task<Expense> RecordAsync(
-        Guid spaceId, Guid userId, decimal amount, Guid? categoryId, string? merchant, DateOnly date, CancellationToken ct)
+        Guid spaceId, Guid userId, decimal amount, Guid? categoryId, string? merchant, DateOnly date,
+        string? note, CancellationToken ct)
     {
         await EnsureAccessAsync(spaceId, userId, AccessLevel.Write, ct);
 
@@ -31,6 +32,7 @@ public sealed class ExpenseService(TesseraDbContext db, IAccessPolicy accessPoli
             CategoryId = categoryId,
             Merchant = merchant,
             Date = date,
+            Note = note,
             CreatedByUserId = userId,
         };
         db.Expenses.Add(expense);
