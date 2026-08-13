@@ -64,6 +64,9 @@
   <data name="Shopping.ItemChecked" xml:space="preserve">
     <value>Spuntato {0}</value>
   </data>
+  <data name="Shopping.CheckedFromReceipt" xml:space="preserve">
+    <value>Spuntato anche in lista: {0}</value>
+  </data>
   <data name="Shopping.ItemRemoved" xml:space="preserve">
     <value>Rimosso {0}</value>
   </data>

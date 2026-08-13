@@ -4,7 +4,7 @@ using OpenAI.Chat;
 
 namespace Tessera.Ai.Llm;
 
-public sealed record ReceiptExtraction(string? Merchant, decimal Total);
+public sealed record ReceiptExtraction(string? Merchant, decimal Total, IReadOnlyList<string> Items);
 
 // A distinct LLM surface from LlmFallbackClient — not part of the L1/L2/L3 router, no
 // conversational tone, no general tool set, single purpose. Real per-call cost
@@ -17,21 +17,30 @@ public sealed class ReceiptVisionClient(ChatClient chatClient, ILogger<ReceiptVi
     private const string ExtractReceiptTool = "extract_receipt";
 
     private const string SystemPrompt = """
-        You read a photo of a shopping receipt. Extract the merchant name (if legible) and the
-        total amount actually paid. Call extract_receipt exactly once with what you can read.
+        You read a photo of a shopping receipt. Extract the merchant name (if legible), the
+        total amount actually paid, and the individual products bought. For each product, give
+        an ordinary shopping-list-style name (e.g. "milk", "bread") rather than the abbreviated
+        or coded text a receipt often prints — normalize it the way a person would say it out
+        loud, in whatever language the receipt is in. Skip lines that aren't products (bag fees,
+        loyalty discounts, subtotals). Call extract_receipt exactly once with what you can read.
         If the image isn't a legible receipt, don't call the tool — reply with a short
         plain-text message saying so instead.
         """;
 
     private static readonly ChatTool Tool = ChatTool.CreateFunctionTool(
         ExtractReceiptTool,
-        "Report the merchant and total amount read from a receipt photo.",
+        "Report the merchant, total amount, and purchased products read from a receipt photo.",
         BinaryData.FromString("""
             {
               "type": "object",
               "properties": {
                 "merchant": { "type": "string", "description": "The merchant/store name as printed, or omitted if illegible." },
-                "total": { "type": "number", "description": "The total amount actually paid, as a plain decimal number." }
+                "total": { "type": "number", "description": "The total amount actually paid, as a plain decimal number." },
+                "items": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "description": "Ordinary shopping-list-style names of the products bought, one per line item, in the receipt's own language. Omit if none are legible."
+                }
               },
               "required": ["total"]
             }
@@ -59,7 +68,10 @@ public sealed class ReceiptVisionClient(ChatClient chatClient, ILogger<ReceiptVi
 
             var args = JsonDocument.Parse(completion.ToolCalls[0].FunctionArguments).RootElement;
             var merchant = args.TryGetProperty("merchant", out var merchantProp) ? merchantProp.GetString() : null;
-            return new ReceiptExtraction(merchant, args.GetProperty("total").GetDecimal());
+            var items = args.TryGetProperty("items", out var itemsProp) && itemsProp.ValueKind == JsonValueKind.Array
+                ? itemsProp.EnumerateArray().Select(x => x.GetString()).Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x!).ToList()
+                : [];
+            return new ReceiptExtraction(merchant, args.GetProperty("total").GetDecimal(), items);
         }
         catch (Exception ex)
         {

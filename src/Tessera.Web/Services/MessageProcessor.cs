@@ -420,7 +420,7 @@ public sealed class MessageProcessor(
         if (message.Media.Count > 0 && nativeCommand == NativeCommand.Expense)
         {
             var receiptReply = await HandleReceiptAsync(
-                scope, expenses, budgets, notifications, undo, onboarding, usage, address, spaceId, user, culture, message.Media[0], ct);
+                scope, shopping, expenses, budgets, notifications, undo, onboarding, usage, address, spaceId, user, culture, message.Media[0], ct);
             if (receiptReply is not null)
             {
                 await channel.SendTextAsync(address, receiptReply, ct);
@@ -2429,9 +2429,9 @@ public sealed class MessageProcessor(
     // downstream. Gated on the same daily allowance as L3 (UsageService) — both are "the app
     // pays a model to do this," and a second parallel quota would just be more to explain.
     private async Task<string?> HandleReceiptAsync(
-        AsyncServiceScope scope, ExpenseService expenses, BudgetService budgets, NotificationService notifications,
-        UndoService undo, OnboardingService onboarding, UsageService usage, ChannelAddress address, Guid spaceId,
-        User user, CultureInfo culture, InboundMedia media, CancellationToken ct)
+        AsyncServiceScope scope, ShoppingListService shopping, ExpenseService expenses, BudgetService budgets,
+        NotificationService notifications, UndoService undo, OnboardingService onboarding, UsageService usage,
+        ChannelAddress address, Guid spaceId, User user, CultureInfo culture, InboundMedia media, CancellationToken ct)
     {
         var vision = scope.ServiceProvider.GetService<ReceiptVisionClient>();
         if (vision is null)
@@ -2499,6 +2499,31 @@ public sealed class MessageProcessor(
             var fileName = media.FileName ?? $"receipt-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}";
             using var receiptStream = new MemoryStream(bytes);
             await attachments.AddAsync(spaceId, ResourceKind.Expenses, expense.Id, user.Id, receiptStream, fileName, contentType, bytes.Length, ct);
+        }
+
+        // Matched against the shopping list the same way a typed "check off the milk" would be
+        // (docs/06-roadmap.md Fase 4: "un gesto, due sistemi") — reuses CheckItemAsync's own
+        // fuzzy match rather than inventing a second one. Notified like any other check, but
+        // doesn't touch the undo slot: LastOperation holds one operation per user, not a stack,
+        // and the expense this receipt also created is the more consequential thing to be able
+        // to undo — recorded right after this, so it keeps the slot.
+        var checkedItemNames = new List<string>();
+        foreach (var itemName in extraction.Items)
+        {
+            var checkedItem = await shopping.CheckItemAsync(spaceId, user.Id, itemName, listName: null, ct);
+            if (checkedItem is null)
+            {
+                continue;
+            }
+
+            checkedItemNames.Add(checkedItem.RawText);
+            await notifications.NotifyAsync(
+                new ShoppingItemChecked(spaceId, user.Id, checkedItem.RawText, address.ExternalChatId, DateTimeOffset.UtcNow), ct);
+        }
+
+        if (checkedItemNames.Count > 0)
+        {
+            reply = $"{reply}\n{localizer["Shopping.CheckedFromReceipt", string.Join(", ", checkedItemNames)]}";
         }
 
         await undo.RecordExpenseAsync(user.Id, spaceId, expense.Id, ct);

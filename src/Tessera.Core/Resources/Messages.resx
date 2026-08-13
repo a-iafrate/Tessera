@@ -64,6 +64,9 @@
   <data name="Shopping.ItemChecked" xml:space="preserve">
     <value>Checked off {0}</value>
   </data>
+  <data name="Shopping.CheckedFromReceipt" xml:space="preserve">
+    <value>Also checked off on the list: {0}</value>
+  </data>
   <data name="Shopping.ItemRemoved" xml:space="preserve">
     <value>Removed {0}</value>
   </data>
