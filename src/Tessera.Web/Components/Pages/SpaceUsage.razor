@@ -46,6 +46,9 @@
             </div>
 
             <p>@Localizer["SpaceUsage.CallsToday", usedToday, limit]</p>
+            <div class="meter" role="progressbar" aria-valuenow="@usedToday" aria-valuemin="0" aria-valuemax="@limit">
+                <div class="meter-fill @(usedToday >= limit ? "meter-fill-danger" : "")" style="width: @PercentUsed()%;"></div>
+            </div>
             @if (usedToday >= limit)
             {
                 <div class="alert alert-danger">@Localizer["SpaceUsage.LimitReachedNote"]</div>
@@ -83,4 +86,6 @@
         (usedToday, limit, plan) = await UsageService.GetTodayUsageAsync(SpaceId, CancellationToken.None);
         space = loadedSpace;
     }
+
+    private double PercentUsed() => limit <= 0 ? 100 : Math.Min(100, usedToday * 100.0 / limit);
 }

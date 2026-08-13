@@ -11,13 +11,18 @@ public sealed class UserProvisioningService(TesseraDbContext db)
     // computation silently falls back to UTC until the person finds Profile and sets it
     // (the bug this parameter exists to prevent). Register.razor always passes one, detected
     // from the browser (docs/09-localizzazione.md).
-    public async Task ProvisionAsync(Guid userId, string email, string? timeZoneId, CancellationToken ct)
+    //
+    // personalSpaceName is resolved by the caller, not here: Tessera.Data stays free of
+    // IStringLocalizer (same convention as OnboardingService's hint keys) — the caller already
+    // has one, and at signup time there's no User.PreferredCulture yet, only the ambient
+    // CurrentUICulture the request-localization middleware set from Accept-Language.
+    public async Task ProvisionAsync(Guid userId, string email, string? timeZoneId, string personalSpaceName, CancellationToken ct)
     {
         var now = DateTimeOffset.UtcNow;
         var space = new Space
         {
             Id = Guid.NewGuid(),
-            Name = "Personale",
+            Name = personalSpaceName,
             OwnerId = userId,
             CreatedAt = now,
             PlanId = SystemPlanIds.Free,

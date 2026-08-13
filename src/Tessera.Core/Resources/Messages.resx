@@ -67,6 +67,12 @@
   <data name="Shopping.ItemRemoved" xml:space="preserve">
     <value>Removed {0}</value>
   </data>
+  <data name="Shopping.CheckButtonLabel" xml:space="preserve">
+    <value>✓ {0}</value>
+  </data>
+  <data name="Shopping.RemoveButtonLabel" xml:space="preserve">
+    <value>🗑</value>
+  </data>
   <data name="Shopping.ItemNotFound" xml:space="preserve">
     <value>I couldn't find "{0}" in the list</value>
   </data>
@@ -226,8 +232,8 @@
   <data name="Notes.ListItemLineTitled" xml:space="preserve">
     <value>📝 {0} — {1}</value>
   </data>
-  <data name="Notes.HasAttachment" xml:space="preserve">
-    <value>📎 Attachment</value>
+  <data name="Notes.ShowAttachmentButton" xml:space="preserve">
+    <value>📎 Show attachment</value>
   </data>
   <data name="Notes.Created" xml:space="preserve">
     <value>Note saved.</value>
@@ -488,6 +494,12 @@ Note: I only read messages that start with / or mention me.</value>
   <data name="Dashboard.TelegramDescription" xml:space="preserve">
     <value>Connect your Telegram account to start chatting with the bot.</value>
   </data>
+  <data name="Dashboard.CalendarsTitle" xml:space="preserve">
+    <value>Calendars</value>
+  </data>
+  <data name="Dashboard.CalendarsDescription" xml:space="preserve">
+    <value>Link Google Calendar or Microsoft Calendar to see your appointments in the bot and the daily digest.</value>
+  </data>
   <data name="Dashboard.NoPreviews" xml:space="preserve">
     <value>Nothing due yet — reminders, shopping list items, and notes will show up here.</value>
   </data>
@@ -545,6 +557,12 @@ Note: I only read messages that start with / or mention me.</value>
   <data name="Spaces.PersonalBadge" xml:space="preserve">
     <value>personal</value>
   </data>
+  <data name="Spaces.SharedByLabel" xml:space="preserve">
+    <value>Shared by {0}</value>
+  </data>
+  <data name="Spaces.PersonalDefaultName" xml:space="preserve">
+    <value>Personal</value>
+  </data>
   <data name="Spaces.CreateHeading" xml:space="preserve">
     <value>Create a new space</value>
   </data>
@@ -559,6 +577,9 @@ Note: I only read messages that start with / or mention me.</value>
   </data>
   <data name="SpaceDetail.PersonalNote" xml:space="preserve">
     <value>Your personal space — it can't be left, only deleted along with your account.</value>
+  </data>
+  <data name="SpaceDetail.TelegramNote" xml:space="preserve">
+    <value>Talking to this space from Telegram doesn't need a separate connection — link your Telegram account once and it works for every space you belong to.</value>
   </data>
   <data name="SpaceDetail.MembersHeading" xml:space="preserve">
     <value>Members</value>

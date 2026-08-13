@@ -25,36 +25,37 @@
             <p>@Localizer["InviteMember.LinkGenerated"]</p>
             <input readonly value="@inviteLink" style="width: 100%; padding: var(--space-2); font-family: var(--font-mono); border: 1px solid var(--line); border-radius: var(--radius-sm);" onclick="this.select()" />
         </div>
-        return;
     }
-
-    <div class="card" style="max-width: 32rem;">
-        <h2>@Localizer["InviteMember.PresetHeading"]</h2>
-        <div style="display: flex; flex-direction: column; gap: var(--space-2);">
-            @foreach (var option in Presets)
-            {
-                <label style="display: flex; align-items: center; gap: var(--space-2);">
-                    <input type="radio" name="preset" checked="@(preset == option)" @onchange="() => preset = option" />
-                    @Localizer[$"InviteMember.Preset.{option}"]
-                </label>
-            }
-        </div>
-
-        @if (preset == "Custom")
-        {
-            <div style="margin-top: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3);">
-                <LevelPicker Label="@Localizer["ResourceKind.ShoppingList"].Value" @bind-Level="shoppingListLevel" />
-                <LevelPicker Label="@Localizer["ResourceKind.Expenses"].Value" @bind-Level="expensesLevel" />
-                <LevelPicker Label="@Localizer["ResourceKind.Reminders"].Value" @bind-Level="remindersLevel" />
-                <LevelPicker Label="@Localizer["ResourceKind.Notes"].Value" @bind-Level="notesLevel" />
+    else
+    {
+        <div class="card" style="max-width: 32rem;">
+            <h2>@Localizer["InviteMember.PresetHeading"]</h2>
+            <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+                @foreach (var option in Presets)
+                {
+                    <label style="display: flex; align-items: center; gap: var(--space-2);">
+                        <input type="radio" name="preset" checked="@(preset == option)" @onchange="() => preset = option" />
+                        @Localizer[$"InviteMember.Preset.{option}"]
+                    </label>
+                }
             </div>
-        }
 
-        <button class="btn btn-primary" style="margin-top: var(--space-4);" disabled="@isBusy" @onclick="GenerateAsync">
-            @if (isBusy) { <span class="spinner" aria-hidden="true"></span> }
-            @Localizer["InviteMember.GenerateButton"]
-        </button>
-    </div>
+            @if (preset == "Custom")
+            {
+                <div style="margin-top: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3);">
+                    <LevelPicker Label="@Localizer["ResourceKind.ShoppingList"].Value" @bind-Level="shoppingListLevel" />
+                    <LevelPicker Label="@Localizer["ResourceKind.Expenses"].Value" @bind-Level="expensesLevel" />
+                    <LevelPicker Label="@Localizer["ResourceKind.Reminders"].Value" @bind-Level="remindersLevel" />
+                    <LevelPicker Label="@Localizer["ResourceKind.Notes"].Value" @bind-Level="notesLevel" />
+                </div>
+            }
+
+            <button class="btn btn-primary" style="margin-top: var(--space-4);" disabled="@isBusy" @onclick="GenerateAsync">
+                @if (isBusy) { <span class="spinner" aria-hidden="true"></span> }
+                @Localizer["InviteMember.GenerateButton"]
+            </button>
+        </div>
+    }
 </div>
 
 @code {

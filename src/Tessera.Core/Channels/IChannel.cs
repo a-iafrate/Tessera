@@ -8,6 +8,18 @@ public interface IChannel
 
     Task SendChoicesAsync(ChannelAddress to, string text, IReadOnlyList<Choice> choices, CancellationToken ct);
 
+    // Multiple buttons per row (e.g. ✓ and 🗑 side by side for the same list item) —
+    // SendChoicesAsync puts one button per row, which can't express two actions for one item.
+    Task SendGroupedChoicesAsync(ChannelAddress to, string text, IReadOnlyList<IReadOnlyList<Choice>> rows, CancellationToken ct);
+
+    // Refreshes a previously-sent list message in place after a button tap acted on one of its
+    // rows — without this, a checked/removed item's button stays visible and stale until the
+    // next /list. Best-effort by design: an edit can fail (message too old, deleted, or
+    // unchanged) and implementations swallow that, since the underlying action already
+    // succeeded regardless of whether the message could be refreshed. Empty rows means "remove
+    // the keyboard" (the list is now empty).
+    Task EditListMessageAsync(ChannelAddress to, string messageId, string text, IReadOnlyList<IReadOnlyList<Choice>> rows, CancellationToken ct);
+
     // Shows an image attachment inline rather than as a link — photoUrl is a short-lived SAS
     // URL from IBlobStorage, so the channel fetches the image itself rather than us downloading
     // and re-uploading the bytes.

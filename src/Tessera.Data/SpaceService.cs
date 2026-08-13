@@ -42,6 +42,31 @@ public sealed class SpaceService(TesseraDbContext db)
             .AsNoTracking()
             .ToListAsync(ct);
 
+    // For the "Your spaces" list, which otherwise can't tell apart two personal spaces from
+    // two different users — every personal space is named "Personale" by UserProvisioningService
+    // and carries the same badge, so the owner's name is the only thing that distinguishes a
+    // space someone shared with you from your own. Null for spaces the caller owns: no name
+    // needed there.
+    public async Task<IReadOnlyList<(Space Space, string? OwnerDisplayName)>> GetForUserWithOwnerNameAsync(
+        Guid userId, CancellationToken ct)
+    {
+        var spaces = await GetForUserAsync(userId, ct);
+        var result = new List<(Space Space, string? OwnerDisplayName)>();
+        foreach (var space in spaces)
+        {
+            if (space.OwnerId == userId)
+            {
+                result.Add((space, null));
+                continue;
+            }
+
+            var owner = await db.DomainUsers.AsNoTracking().FirstOrDefaultAsync(u => u.Id == space.OwnerId, ct);
+            result.Add((space, owner?.DisplayName ?? owner?.Email));
+        }
+
+        return result;
+    }
+
     public async Task<Space?> GetByIdAsync(Guid spaceId, Guid userId, CancellationToken ct)
     {
         var isMember = await db.Memberships.AnyAsync(m => m.SpaceId == spaceId && m.UserId == userId, ct);

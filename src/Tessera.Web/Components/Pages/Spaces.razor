@@ -28,13 +28,17 @@
     else
     {
         <div style="display: flex; flex-direction: column; gap: var(--space-3);">
-            @foreach (var space in spaces)
+            @foreach (var (space, ownerName) in spaces)
             {
                 <a class="card" href="@($"/spaces/{space.Id}")" style="display: block; color: var(--ink);">
                     <strong>@space.Name</strong>
                     @if (space.IsPersonal)
                     {
                         <span class="badge badge-none" style="margin-left: var(--space-2);">@Localizer["Spaces.PersonalBadge"]</span>
+                    }
+                    @if (ownerName is not null)
+                    {
+                        <div class="text-soft">@Localizer["Spaces.SharedByLabel", ownerName]</div>
                     }
                 </a>
             }
@@ -62,7 +66,7 @@
     [CascadingParameter]
     private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
 
-    private IReadOnlyList<Space>? spaces;
+    private IReadOnlyList<(Space Space, string? OwnerDisplayName)>? spaces;
     private string newSpaceName = "";
     private Guid userId;
     private bool isBusy;
@@ -71,7 +75,7 @@
     {
         var authState = await AuthenticationStateTask!;
         userId = Guid.Parse(authState.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        spaces = await SpaceService.GetForUserAsync(userId, CancellationToken.None);
+        spaces = await SpaceService.GetForUserWithOwnerNameAsync(userId, CancellationToken.None);
     }
 
     private async Task CreateAsync()
@@ -86,7 +90,7 @@
         {
             await SpaceService.CreateAsync(userId, newSpaceName.Trim(), CancellationToken.None);
             newSpaceName = "";
-            spaces = await SpaceService.GetForUserAsync(userId, CancellationToken.None);
+            spaces = await SpaceService.GetForUserWithOwnerNameAsync(userId, CancellationToken.None);
         }
         finally
         {

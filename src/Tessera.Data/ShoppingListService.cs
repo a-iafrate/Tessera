@@ -170,6 +170,22 @@ public sealed class ShoppingListService(TesseraDbContext db, IAccessPolicy acces
             .ToListAsync(ct);
     }
 
+    // Used to refresh the exact list a checked/removed item belonged to (the inline-keyboard
+    // edit-in-place path in MessageProcessor) — GetItemsAsync resolves by name, but callback
+    // handlers only learn the item's ShoppingListId after CheckItemByIdAsync/RemoveItemByIdAsync
+    // have already resolved it.
+    public async Task<IReadOnlyList<ShoppingItem>> GetItemsByListIdAsync(
+        Guid spaceId, Guid userId, Guid listId, CancellationToken ct)
+    {
+        await EnsureAccessAsync(spaceId, userId, AccessLevel.Read, ct);
+        return await db.ShoppingItems
+            .Where(x => x.ShoppingListId == listId)
+            .OrderBy(x => x.IsChecked)
+            .ThenBy(x => x.AddedAt)
+            .AsNoTracking()
+            .ToListAsync(ct);
+    }
+
     // Returns what was removed so the caller can offer an undo (docs/10-conversazione.md:
     // "è l'undo che serve di più" — without the removed rows, a clear is unrecoverable).
     public async Task<IReadOnlyList<ShoppingItem>> ClearAsync(

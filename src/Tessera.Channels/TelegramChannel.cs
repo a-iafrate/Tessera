@@ -28,6 +28,36 @@ public sealed class TelegramChannel(ITelegramBotClient client) : IChannel
         await client.SendMessage(to.ExternalChatId, text, replyMarkup: keyboard, cancellationToken: ct);
     }
 
+    public async Task SendGroupedChoicesAsync(ChannelAddress to, string text, IReadOnlyList<IReadOnlyList<Choice>> rows, CancellationToken ct)
+    {
+        var keyboard = new InlineKeyboardMarkup(
+            rows.Select(row => row.Select(c => InlineKeyboardButton.WithCallbackData(c.Text, c.Value))));
+
+        await client.SendMessage(to.ExternalChatId, text, replyMarkup: keyboard, cancellationToken: ct);
+    }
+
+    public async Task EditListMessageAsync(ChannelAddress to, string messageId, string text, IReadOnlyList<IReadOnlyList<Choice>> rows, CancellationToken ct)
+    {
+        if (!int.TryParse(messageId, out var msgId))
+        {
+            return;
+        }
+
+        var keyboard = rows.Count == 0
+            ? null
+            : new InlineKeyboardMarkup(rows.Select(row => row.Select(c => InlineKeyboardButton.WithCallbackData(c.Text, c.Value))));
+
+        try
+        {
+            await client.EditMessageText(to.ExternalChatId, msgId, text, replyMarkup: keyboard, cancellationToken: ct);
+        }
+        catch (Exception)
+        {
+            // Best-effort refresh — the check/remove already succeeded regardless of whether
+            // Telegram accepts this edit (edit window expired, message deleted, "not modified").
+        }
+    }
+
     public async Task SendPhotoAsync(ChannelAddress to, string photoUrl, string? caption, CancellationToken ct)
     {
         await client.SendPhoto(to.ExternalChatId, InputFile.FromUri(new Uri(photoUrl)), caption: caption, cancellationToken: ct);

@@ -2,6 +2,8 @@
 
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Identity
+@using Microsoft.Extensions.Localization
+@using Tessera.Core.Resources
 @using Tessera.Data
 @using Tessera.Web.Services
 
@@ -11,6 +13,7 @@
 @inject UserProvisioningService UserProvisioning
 @inject ILogger<Register> Logger
 @inject IdentityRedirectManager RedirectManager
+@inject IStringLocalizer<Messages> Localizer
 
 <PageTitle>Register</PageTitle>
 
@@ -117,7 +120,7 @@
 
         Logger.LogInformation("User created a new account with password.");
 
-        await UserProvisioning.ProvisionAsync(user.Id, Input.Email, Input.TimeZoneId, CancellationToken.None);
+        await UserProvisioning.ProvisionAsync(user.Id, Input.Email, Input.TimeZoneId, Localizer["Spaces.PersonalDefaultName"].Value, CancellationToken.None);
 
         await SignInManager.SignInAsync(user, isPersistent: false);
         RedirectManager.RedirectTo(ReturnUrl);

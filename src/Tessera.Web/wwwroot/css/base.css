@@ -398,6 +398,26 @@ hr {
 .alert-success { background: var(--paper-raised); border-color: var(--teal); color: var(--teal); }
 .alert-info { background: var(--paper-raised); border-color: var(--teal); color: var(--ink); }
 
+/* Usage meter (e.g. daily L3 calls used/limit) — a plain div bar rather than <progress>,
+   since styling the native element consistently across browsers fights the design tokens
+   more than it's worth for something this simple. */
+.meter {
+  height: 8px;
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  overflow: hidden;
+  margin: var(--space-2) 0 var(--space-4);
+}
+
+.meter-fill {
+  height: 100%;
+  background: var(--clay);
+  transition: width var(--duration-base) var(--ease);
+}
+
+.meter-fill.meter-fill-danger { background: var(--danger); }
+
 .btn-link {
   background: transparent;
   color: var(--link);

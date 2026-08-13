@@ -67,6 +67,12 @@
   <data name="Shopping.ItemRemoved" xml:space="preserve">
     <value>Rimosso {0}</value>
   </data>
+  <data name="Shopping.CheckButtonLabel" xml:space="preserve">
+    <value>✓ {0}</value>
+  </data>
+  <data name="Shopping.RemoveButtonLabel" xml:space="preserve">
+    <value>🗑</value>
+  </data>
   <data name="Shopping.ItemNotFound" xml:space="preserve">
     <value>Non ho trovato "{0}" in lista</value>
   </data>
@@ -226,8 +232,8 @@
   <data name="Notes.ListItemLineTitled" xml:space="preserve">
     <value>📝 {0} — {1}</value>
   </data>
-  <data name="Notes.HasAttachment" xml:space="preserve">
-    <value>📎 Allegato</value>
+  <data name="Notes.ShowAttachmentButton" xml:space="preserve">
+    <value>📎 Mostra allegato</value>
   </data>
   <data name="Notes.Created" xml:space="preserve">
     <value>Nota salvata.</value>
@@ -488,6 +494,12 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   <data name="Dashboard.TelegramDescription" xml:space="preserve">
     <value>Collega il tuo account Telegram per iniziare a chattare con il bot.</value>
   </data>
+  <data name="Dashboard.CalendarsTitle" xml:space="preserve">
+    <value>Calendari</value>
+  </data>
+  <data name="Dashboard.CalendarsDescription" xml:space="preserve">
+    <value>Collega Google Calendar o Microsoft Calendar per vedere i tuoi appuntamenti nel bot e nel digest quotidiano.</value>
+  </data>
   <data name="Dashboard.NoPreviews" xml:space="preserve">
     <value>Ancora nulla in vista — qui compariranno promemoria, voci della lista della spesa e note.</value>
   </data>
@@ -545,6 +557,12 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   <data name="Spaces.PersonalBadge" xml:space="preserve">
     <value>personale</value>
   </data>
+  <data name="Spaces.SharedByLabel" xml:space="preserve">
+    <value>Condiviso da {0}</value>
+  </data>
+  <data name="Spaces.PersonalDefaultName" xml:space="preserve">
+    <value>Personale</value>
+  </data>
   <data name="Spaces.CreateHeading" xml:space="preserve">
     <value>Crea un nuovo spazio</value>
   </data>
@@ -559,6 +577,9 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   </data>
   <data name="SpaceDetail.PersonalNote" xml:space="preserve">
     <value>Il tuo spazio personale — non può essere abbandonato, solo eliminato insieme al tuo account.</value>
+  </data>
+  <data name="SpaceDetail.TelegramNote" xml:space="preserve">
+    <value>Per parlare con questo spazio da Telegram non serve un collegamento separato: colleghi il tuo account Telegram una volta e funziona per tutti gli spazi di cui fai parte.</value>
   </data>
   <data name="SpaceDetail.MembersHeading" xml:space="preserve">
     <value>Membri</value>

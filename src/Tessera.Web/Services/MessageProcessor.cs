@@ -17,6 +17,7 @@ using Tessera.Core.Notes;
 using Tessera.Core.Notifications;
 using Tessera.Core.Reminders;
 using Tessera.Core.Resources;
+using Tessera.Core.Shopping;
 using Tessera.Core.Spaces;
 using Tessera.Core.Users;
 using Tessera.Data;
@@ -422,7 +423,7 @@ public sealed class MessageProcessor(
         {
             // L1 (docs/05-ottimizzazioni.md): an inline-keyboard tap is already a
             // structured action — it never goes through the intent matcher.
-            await HandleCallbackAsync(shopping, expenses, reminders, budgets, notifications, undo, onboarding, address, spaceId, user, culture, callbackData, ct);
+            await HandleCallbackAsync(shopping, expenses, reminders, budgets, notifications, undo, onboarding, address, spaceId, user, culture, callbackData, message.CallbackMessageId, ct);
             return;
         }
 
@@ -1520,13 +1521,19 @@ public sealed class MessageProcessor(
     private async Task HandleCallbackAsync(
         ShoppingListService shopping, ExpenseService expenses, ReminderService reminders, BudgetService budgets,
         NotificationService notifications, UndoService undo, OnboardingService onboarding, ChannelAddress address,
-        Guid spaceId, User user, CultureInfo culture, string callbackData, CancellationToken ct)
+        Guid spaceId, User user, CultureInfo culture, string callbackData, string? callbackMessageId, CancellationToken ct)
     {
         var parts = callbackData.Split(':');
 
         if (parts.Length == 2 && parts[0] == "shopping.check" && Guid.TryParse(parts[1], out var itemId))
         {
-            await HandleShoppingCheckCallbackAsync(shopping, notifications, undo, address, spaceId, user.Id, itemId, ct);
+            await HandleShoppingCheckCallbackAsync(shopping, notifications, undo, address, spaceId, user.Id, itemId, callbackMessageId, ct);
+            return;
+        }
+
+        if (parts.Length == 2 && parts[0] == "shopping.remove" && Guid.TryParse(parts[1], out var removeItemId))
+        {
+            await HandleShoppingRemoveCallbackAsync(shopping, address, spaceId, user.Id, removeItemId, callbackMessageId, ct);
             return;
         }
 
@@ -1565,7 +1572,7 @@ public sealed class MessageProcessor(
 
     private async Task HandleShoppingCheckCallbackAsync(
         ShoppingListService shopping, NotificationService notifications, UndoService undo, ChannelAddress address,
-        Guid spaceId, Guid userId, Guid itemId, CancellationToken ct)
+        Guid spaceId, Guid userId, Guid itemId, string? callbackMessageId, CancellationToken ct)
     {
         var item = await shopping.CheckItemByIdAsync(spaceId, userId, itemId, ct);
         if (item is null)
@@ -1580,6 +1587,25 @@ public sealed class MessageProcessor(
             new ShoppingItemChecked(spaceId, userId, item.RawText, address.ExternalChatId, DateTimeOffset.UtcNow), ct);
         await undo.RecordShoppingCheckAsync(userId, spaceId, item.Id, ct);
         await SendWithUndoAsync(address, localizer["Shopping.ItemChecked", item.RawText], ct);
+        await RefreshShoppingListMessageAsync(shopping, address, spaceId, userId, item.ShoppingListId, callbackMessageId, ct);
+    }
+
+    // No undo here: removing via the list's 🗑 button matches HandleRemoveAsync's own text-
+    // command behavior, which has never offered one either — adding it would need a new
+    // ShoppingRemoveUndoPayload, out of scope for what was asked (a remove button).
+    private async Task HandleShoppingRemoveCallbackAsync(
+        ShoppingListService shopping, ChannelAddress address, Guid spaceId, Guid userId, Guid itemId,
+        string? callbackMessageId, CancellationToken ct)
+    {
+        var item = await shopping.RemoveItemByIdAsync(spaceId, userId, itemId, ct);
+        if (item is null)
+        {
+            // Already removed by a concurrent tap/command — the button is stale.
+            return;
+        }
+
+        await channel.SendTextAsync(address, localizer["Shopping.ItemRemoved", item.RawText], ct);
+        await RefreshShoppingListMessageAsync(shopping, address, spaceId, userId, item.ShoppingListId, callbackMessageId, ct);
     }
 
     private async Task HandleExpenseCategorizeCallbackAsync(
@@ -1746,27 +1772,61 @@ public sealed class MessageProcessor(
             return localizer["Shopping.ListEmpty"];
         }
 
-        var lines = items.Select(i => localizer[
-            i.IsChecked ? "Shopping.ListItemLineChecked" : "Shopping.ListItemLine", i.RawText].Value);
-        var text = string.Join('\n', lines);
-
-        // One button per unchecked item — a tap is a callback_query, zero interpretation,
-        // zero LLM cost (docs/03-integrazioni.md, docs/05-ottimizzazioni.md).
-        var choices = items
-            .Where(i => !i.IsChecked)
-            .Select(i => new Choice(i.RawText, $"shopping.check:{i.Id}"))
-            .ToList();
-
-        if (choices.Count == 0)
+        var (text, rows) = BuildShoppingListView(items);
+        if (rows.Count == 0)
         {
             await channel.SendTextAsync(address, text, ct);
         }
         else
         {
-            await channel.SendChoicesAsync(address, text, choices, ct);
+            await channel.SendGroupedChoicesAsync(address, text, rows, ct);
         }
 
         return null;
+    }
+
+    // Shared by HandleShowAsync (first render) and the check/remove callbacks (in-place
+    // refresh) so the two never drift into different renderings of the same list. A ✓/🗑 pair
+    // per unchecked item, in the same row — the closest Telegram gets to "buttons beside each
+    // list line," since inline keyboards always render as a block below the text, never
+    // interleaved with it.
+    private (string Text, List<IReadOnlyList<Choice>> Rows) BuildShoppingListView(IReadOnlyList<ShoppingItem> items)
+    {
+        if (items.Count == 0)
+        {
+            return (localizer["Shopping.ListEmpty"].Value, []);
+        }
+
+        var lines = items.Select(i => localizer[
+            i.IsChecked ? "Shopping.ListItemLineChecked" : "Shopping.ListItemLine", i.RawText].Value);
+        var text = string.Join('\n', lines);
+
+        var rows = items
+            .Where(i => !i.IsChecked)
+            .Select(i => (IReadOnlyList<Choice>)new[]
+            {
+                new Choice(localizer["Shopping.CheckButtonLabel", i.RawText].Value, $"shopping.check:{i.Id}"),
+                new Choice(localizer["Shopping.RemoveButtonLabel"].Value, $"shopping.remove:{i.Id}"),
+            })
+            .ToList();
+
+        return (text, rows);
+    }
+
+    // Best-effort: no-ops if this check/remove wasn't triggered by a button tap (a text command
+    // or an LLM tool call has no original list message to refresh) or if the edit itself fails.
+    private async Task RefreshShoppingListMessageAsync(
+        ShoppingListService shopping, ChannelAddress address, Guid spaceId, Guid userId, Guid listId,
+        string? callbackMessageId, CancellationToken ct)
+    {
+        if (callbackMessageId is null)
+        {
+            return;
+        }
+
+        var items = await shopping.GetItemsByListIdAsync(spaceId, userId, listId, ct);
+        var (text, rows) = BuildShoppingListView(items);
+        await channel.EditListMessageAsync(address, callbackMessageId, text, rows, ct);
     }
 
     // Checking off an item doesn't count toward onboarding progression (docs/10-conversazione.md
@@ -2190,6 +2250,9 @@ public sealed class MessageProcessor(
     // Sends the list itself (rather than just returning text) because notes with an image
     // attachment get a button to reveal it on demand — showing every image unprompted on every
     // "what notes are there?" would get noisy fast once a space has more than a couple.
+    // One message per note, not one giant list — a note's "show attachment" button then sits
+    // directly under that note's own text instead of in a single wall of buttons at the end,
+    // disconnected from which note each one belonged to.
     private async Task<string?> HandleShowNotesAsync(
         AsyncServiceScope scope, ChannelAddress address, NoteService notes, Guid spaceId, Guid userId, CancellationToken ct)
     {
@@ -2200,38 +2263,30 @@ public sealed class MessageProcessor(
         }
 
         var attachments = scope.ServiceProvider.GetService<AttachmentService>();
-        var imageChoices = new List<Choice>();
-        var lines = new List<string>();
         foreach (var note in all)
         {
-            var line = note.Title is { Length: > 0 }
+            var text = note.Title is { Length: > 0 }
                 ? localizer["Notes.ListItemLineTitled", note.Title, note.Body].Value
                 : localizer["Notes.ListItemLine", note.Body].Value;
 
+            List<Choice> imageChoices = [];
             if (attachments is not null)
             {
                 var noteAttachments = await attachments.GetForAsync(ResourceKind.Notes, note.Id, ct);
-                var images = noteAttachments.Where(a => a.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)).ToList();
-                if (images.Count > 0)
-                {
-                    line = $"{line}\n{localizer["Notes.HasAttachment"].Value}";
-                    var label = note.Title is { Length: > 0 } ? note.Title : note.Body;
-                    label = label.Length > 30 ? $"{label[..30]}…" : label;
-                    imageChoices.AddRange(images.Select(a => new Choice($"📎 {label}", $"note.showimage:{a.Id}")));
-                }
+                imageChoices = noteAttachments
+                    .Where(a => a.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+                    .Select(a => new Choice(localizer["Notes.ShowAttachmentButton"].Value, $"note.showimage:{a.Id}"))
+                    .ToList();
             }
 
-            lines.Add(line);
-        }
-
-        var text = string.Join("\n\n", lines);
-        if (imageChoices.Count == 0)
-        {
-            await channel.SendTextAsync(address, text, ct);
-        }
-        else
-        {
-            await channel.SendChoicesAsync(address, text, imageChoices, ct);
+            if (imageChoices.Count == 0)
+            {
+                await channel.SendTextAsync(address, text, ct);
+            }
+            else
+            {
+                await channel.SendChoicesAsync(address, text, imageChoices, ct);
+            }
         }
 
         return null;

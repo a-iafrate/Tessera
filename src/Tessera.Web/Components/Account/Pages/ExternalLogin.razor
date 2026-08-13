@@ -3,6 +3,8 @@
 @using System.ComponentModel.DataAnnotations
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Identity
+@using Microsoft.Extensions.Localization
+@using Tessera.Core.Resources
 @using Tessera.Data
 
 @inject SignInManager<ApplicationUser> SignInManager
@@ -11,6 +13,7 @@
 @inject UserProvisioningService UserProvisioning
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<ExternalLogin> Logger
+@inject IStringLocalizer<Messages> Localizer
 
 <PageTitle>Register</PageTitle>
 
@@ -166,7 +169,7 @@
 
         // No form of its own to collect a time zone from — falls back to UTC until the person
         // visits Profile and sets it (docs/09-localizzazione.md).
-        await UserProvisioning.ProvisionAsync(user.Id, Input.Email, timeZoneId: null, CancellationToken.None);
+        await UserProvisioning.ProvisionAsync(user.Id, Input.Email, timeZoneId: null, Localizer["Spaces.PersonalDefaultName"].Value, CancellationToken.None);
 
         await SignInManager.SignInAsync(user, isPersistent: false, externalLoginInfo.LoginProvider);
         RedirectManager.RedirectTo(ReturnUrl);

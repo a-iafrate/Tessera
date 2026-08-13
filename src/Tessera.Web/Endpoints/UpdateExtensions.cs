@@ -20,7 +20,8 @@ internal static class UpdateExtensions
                 Media: [],
                 ProviderMessageId: $"callback:{callback.Id}",
                 SentAt: DateTimeOffset.UtcNow,
-                CallbackData: callback.Data);
+                CallbackData: callback.Data,
+                CallbackMessageId: callback.Message?.MessageId.ToString());
         }
 
         // Group lifecycle (docs/03-integrazioni.md): the bot's own membership status
