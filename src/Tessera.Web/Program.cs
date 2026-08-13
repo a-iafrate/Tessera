@@ -4,6 +4,7 @@ using Azure;
 using Azure.AI.OpenAI;
 using Azure.Identity;
 using Azure.Security.KeyVault.Secrets;
+using Azure.Storage.Blobs;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
@@ -172,6 +173,21 @@ if (keyVaultEnabled)
     builder.Services.AddScoped<ITokenVault, KeyVaultTokenVault>();
 }
 
+// Attachments (note attachments today, receipts eventually — docs/06-roadmap.md Fase 4) can't
+// be stored until a Storage Account exists — same "simply isn't registered without config"
+// pattern as Key Vault above. Authenticates via the account connection string (holds the
+// account key — never in appsettings.json, only Key Vault / user-secrets per hard rule 4/5)
+// rather than Managed Identity, so no extra role assignment is needed beyond the "attachments"
+// container existing.
+var blobStorageConnectionString = builder.Configuration["BlobStorage:ConnectionString"];
+var blobStorageEnabled = !string.IsNullOrWhiteSpace(blobStorageConnectionString);
+if (blobStorageEnabled)
+{
+    builder.Services.AddSingleton(new BlobServiceClient(blobStorageConnectionString));
+    builder.Services.AddScoped<IBlobStorage, AzureBlobStorage>();
+    builder.Services.AddScoped<AttachmentService>();
+}
+
 // Calendar linking (docs/02-modello-dati.md, docs/03-integrazioni.md) — optional like the
 // other external integrations here; the console and bot work fully without it. Google and
 // Microsoft are independent: either, both, or neither can be configured, and
@@ -282,6 +298,11 @@ else
     {
         app.Logger.LogWarning("Microsoft:ClientId/ClientSecret are not configured — Microsoft Calendar linking is disabled.");
     }
+}
+
+if (!blobStorageEnabled)
+{
+    app.Logger.LogWarning("BlobStorage:ConnectionString is not configured — attachments are disabled.");
 }
 
 if (!azureOpenAiEnabled)

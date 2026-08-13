@@ -39,7 +39,7 @@
         </div>
 
         <h2>@Localizer["SpaceDetail.MembersHeading"]</h2>
-        <div style="display: flex; flex-direction: column; gap: var(--space-3); margin-bottom: var(--space-8);">
+        <div style="display: flex; flex-direction: column; gap: var(--space-3); margin-bottom: var(--space-4);">
             @foreach (var (membership, displayName) in members)
             {
                 <div class="card">
@@ -79,22 +79,51 @@
             }
         </div>
 
-        <div style="display: flex; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-8);">
-            <a class="btn btn-secondary" href="@($"/spaces/{SpaceId}/shopping-list")">@Localizer["SpaceDetail.ShoppingListButton"]</a>
-            <a class="btn btn-secondary" href="@($"/spaces/{SpaceId}/expenses")">@Localizer["SpaceDetail.ExpensesButton"]</a>
-            <a class="btn btn-secondary" href="@($"/spaces/{SpaceId}/reminders")">@Localizer["SpaceDetail.RemindersButton"]</a>
-            <a class="btn btn-secondary" href="@($"/spaces/{SpaceId}/notes")">@Localizer["SpaceDetail.NotesButton"]</a>
-            <a class="btn btn-secondary" href="@($"/spaces/{SpaceId}/calendars")">@Localizer["SpaceDetail.CalendarsButton"]</a>
-            <a class="btn btn-secondary" href="@($"/spaces/{SpaceId}/usage")">@Localizer["SpaceDetail.UsageButton"]</a>
-            @if (isOwner)
-            {
-                <a class="btn btn-primary" href="@($"/spaces/{SpaceId}/invite")">@Localizer["SpaceDetail.InviteButton"]</a>
-            }
-            @if (!space.IsPersonal)
-            {
-                <button class="btn btn-danger" disabled="@isBusy" @onclick="LeaveAsync">@Localizer["SpaceDetail.LeaveButton"]</button>
-            }
+        @if (isOwner)
+        {
+            <a class="btn btn-primary" href="@($"/spaces/{SpaceId}/invite")" style="margin-bottom: var(--space-8);">@Localizer["SpaceDetail.InviteButton"]</a>
+        }
+
+        <div class="seam" aria-hidden="true">
+            <span></span><span></span><span></span>
         </div>
+
+        <h2>@Localizer["SpaceDetail.ResourcesHeading"]</h2>
+        <div style="display: flex; gap: var(--space-4); flex-wrap: wrap; margin: var(--space-4) 0 var(--space-8);">
+            <a class="card" href="@($"/spaces/{SpaceId}/shopping-list")" style="flex: 1; min-width: 14rem; color: var(--ink);">
+                <h3 style="margin-bottom: var(--space-2);">@Localizer["SpaceDetail.ShoppingListButton"]</h3>
+                <p class="text-soft" style="margin: 0;">@Localizer["SpaceDetail.ShoppingListDescription"]</p>
+            </a>
+            <a class="card" href="@($"/spaces/{SpaceId}/expenses")" style="flex: 1; min-width: 14rem; color: var(--ink);">
+                <h3 style="margin-bottom: var(--space-2);">@Localizer["SpaceDetail.ExpensesButton"]</h3>
+                <p class="text-soft" style="margin: 0;">@Localizer["SpaceDetail.ExpensesDescription"]</p>
+            </a>
+            <a class="card" href="@($"/spaces/{SpaceId}/reminders")" style="flex: 1; min-width: 14rem; color: var(--ink);">
+                <h3 style="margin-bottom: var(--space-2);">@Localizer["SpaceDetail.RemindersButton"]</h3>
+                <p class="text-soft" style="margin: 0;">@Localizer["SpaceDetail.RemindersDescription"]</p>
+            </a>
+            <a class="card" href="@($"/spaces/{SpaceId}/notes")" style="flex: 1; min-width: 14rem; color: var(--ink);">
+                <h3 style="margin-bottom: var(--space-2);">@Localizer["SpaceDetail.NotesButton"]</h3>
+                <p class="text-soft" style="margin: 0;">@Localizer["SpaceDetail.NotesDescription"]</p>
+            </a>
+            <a class="card" href="@($"/spaces/{SpaceId}/calendars")" style="flex: 1; min-width: 14rem; color: var(--ink);">
+                <h3 style="margin-bottom: var(--space-2);">@Localizer["SpaceDetail.CalendarsButton"]</h3>
+                <p class="text-soft" style="margin: 0;">@Localizer["SpaceDetail.CalendarsDescription"]</p>
+            </a>
+            <a class="card" href="@($"/spaces/{SpaceId}/usage")" style="flex: 1; min-width: 14rem; color: var(--ink);">
+                <h3 style="margin-bottom: var(--space-2);">@Localizer["SpaceDetail.UsageButton"]</h3>
+                <p class="text-soft" style="margin: 0;">@Localizer["SpaceDetail.UsageDescription"]</p>
+            </a>
+        </div>
+
+        @if (!space.IsPersonal)
+        {
+            <div class="seam" aria-hidden="true">
+                <span></span><span></span><span></span>
+            </div>
+
+            <button class="btn btn-danger" disabled="@isBusy" @onclick="LeaveAsync" style="margin: var(--space-4) 0 var(--space-8);">@Localizer["SpaceDetail.LeaveButton"]</button>
+        }
 
         @if (formerMembers.Count > 0)
         {

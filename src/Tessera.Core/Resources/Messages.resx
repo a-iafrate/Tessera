@@ -401,6 +401,66 @@ Note: I only read messages that start with / or mention me.</value>
   <data name="Landing.CtaSecondary" xml:space="preserve">
     <value>Log in</value>
   </data>
+  <data name="Landing.FeaturesHeading" xml:space="preserve">
+    <value>Everything your household already juggles, in one chat</value>
+  </data>
+  <data name="Landing.FeatureShoppingTitle" xml:space="preserve">
+    <value>Shopping lists</value>
+  </data>
+  <data name="Landing.FeatureShoppingBody" xml:space="preserve">
+    <value>Add, check off, and share a grocery list with everyone at home — no separate app to install.</value>
+  </data>
+  <data name="Landing.FeatureRemindersTitle" xml:space="preserve">
+    <value>Reminders &amp; expenses</value>
+  </data>
+  <data name="Landing.FeatureRemindersBody" xml:space="preserve">
+    <value>Set a reminder, log an expense, see what the household spent this month — all from a normal message.</value>
+  </data>
+  <data name="Landing.FeatureCalendarTitle" xml:space="preserve">
+    <value>Calendar</value>
+  </data>
+  <data name="Landing.FeatureCalendarBody" xml:space="preserve">
+    <value>Connect Google or Microsoft Calendar to check what's on, create events, and find when everyone's free.</value>
+  </data>
+  <data name="Landing.FeatureNotesTitle" xml:space="preserve">
+    <value>Notes</value>
+  </data>
+  <data name="Landing.FeatureNotesBody" xml:space="preserve">
+    <value>Save the wifi password, a recipe, or anything else worth keeping — shared with the people who need it.</value>
+  </data>
+  <data name="Landing.HowItWorksHeading" xml:space="preserve">
+    <value>How it works</value>
+  </data>
+  <data name="Landing.Step1Title" xml:space="preserve">
+    <value>Talk to the bot</value>
+  </data>
+  <data name="Landing.Step1Body" xml:space="preserve">
+    <value>Link your Telegram account and start typing — no menus to learn, just say what you need.</value>
+  </data>
+  <data name="Landing.Step2Title" xml:space="preserve">
+    <value>Share the space</value>
+  </data>
+  <data name="Landing.Step2Body" xml:space="preserve">
+    <value>Invite the people you live with. Everyone sees the same list, the same calendar, the same notes.</value>
+  </data>
+  <data name="Landing.Step3Title" xml:space="preserve">
+    <value>It keeps itself in sync</value>
+  </data>
+  <data name="Landing.Step3Body" xml:space="preserve">
+    <value>Whoever adds or checks something, everyone else sees it update — no refreshing, no separate export.</value>
+  </data>
+  <data name="Landing.PricingTeaserHeading" xml:space="preserve">
+    <value>Free to start</value>
+  </data>
+  <data name="Landing.PricingTeaserBody" xml:space="preserve">
+    <value>Every space starts on the Free plan, with no card required.</value>
+  </data>
+  <data name="Landing.PricingTeaserLink" xml:space="preserve">
+    <value>See all plans →</value>
+  </data>
+  <data name="Landing.CtaFinal" xml:space="preserve">
+    <value>Get started</value>
+  </data>
   <data name="Dashboard.Welcome" xml:space="preserve">
     <value>Welcome back, {0}</value>
   </data>
@@ -497,14 +557,26 @@ Note: I only read messages that start with / or mention me.</value>
   <data name="SpaceDetail.InviteButton" xml:space="preserve">
     <value>Invite a member</value>
   </data>
+  <data name="SpaceDetail.ResourcesHeading" xml:space="preserve">
+    <value>Resources</value>
+  </data>
   <data name="SpaceDetail.NotesButton" xml:space="preserve">
     <value>Notes</value>
+  </data>
+  <data name="SpaceDetail.NotesDescription" xml:space="preserve">
+    <value>Save anything worth keeping — shared with everyone in this space.</value>
   </data>
   <data name="SpaceDetail.CalendarsButton" xml:space="preserve">
     <value>Calendars</value>
   </data>
+  <data name="SpaceDetail.CalendarsDescription" xml:space="preserve">
+    <value>Choose which linked calendars this space can see, and what level.</value>
+  </data>
   <data name="SpaceDetail.UsageButton" xml:space="preserve">
     <value>Plan &amp; usage</value>
+  </data>
+  <data name="SpaceDetail.UsageDescription" xml:space="preserve">
+    <value>See the current plan and how many smart replies are left today.</value>
   </data>
   <data name="SpaceUsage.PageTitle" xml:space="preserve">
     <value>Plan &amp; usage</value>
@@ -527,11 +599,20 @@ Note: I only read messages that start with / or mention me.</value>
   <data name="SpaceDetail.ShoppingListButton" xml:space="preserve">
     <value>Shopping list</value>
   </data>
+  <data name="SpaceDetail.ShoppingListDescription" xml:space="preserve">
+    <value>Add, check off, and share what the household needs to buy.</value>
+  </data>
   <data name="SpaceDetail.ExpensesButton" xml:space="preserve">
     <value>Expenses</value>
   </data>
+  <data name="SpaceDetail.ExpensesDescription" xml:space="preserve">
+    <value>Log spending and see what's been spent this month.</value>
+  </data>
   <data name="SpaceDetail.RemindersButton" xml:space="preserve">
     <value>Reminders</value>
+  </data>
+  <data name="SpaceDetail.RemindersDescription" xml:space="preserve">
+    <value>Set one-time reminders and see what's coming up.</value>
   </data>
   <data name="SpaceDetail.YouTag" xml:space="preserve">
     <value>(you)</value>
@@ -577,6 +658,21 @@ Note: I only read messages that start with / or mention me.</value>
   </data>
   <data name="Nav.Calendars" xml:space="preserve">
     <value>Calendars</value>
+  </data>
+  <data name="Nav.YourSpaces" xml:space="preserve">
+    <value>Your spaces</value>
+  </data>
+  <data name="Nav.LogIn" xml:space="preserve">
+    <value>Log in</value>
+  </data>
+  <data name="Nav.LogOut" xml:space="preserve">
+    <value>Log out</value>
+  </data>
+  <data name="Nav.Register" xml:space="preserve">
+    <value>Register</value>
+  </data>
+  <data name="Nav.ToggleMenu" xml:space="preserve">
+    <value>Menu</value>
   </data>
   <data name="Profile.Title" xml:space="preserve">
     <value>Account</value>
@@ -1102,6 +1198,18 @@ Try it now:</value>
   <data name="Calendars.NotConfigured" xml:space="preserve">
     <value>Calendar linking isn't available yet.</value>
   </data>
+  <data name="Attachments.NotConfigured" xml:space="preserve">
+    <value>Attachments aren't available yet.</value>
+  </data>
+  <data name="Attachments.NoRecentNote" xml:space="preserve">
+    <value>I don't have a recent note to attach that to — send it again with a caption to create a new note, or add one first.</value>
+  </data>
+  <data name="Attachments.NoteCreated" xml:space="preserve">
+    <value>Saved as a new note with your attachment.</value>
+  </data>
+  <data name="Attachments.AddedToRecentNote" xml:space="preserve">
+    <value>Added to your most recent note.</value>
+  </data>
   <data name="Calendars.ProviderHeading" xml:space="preserve">
     <value>{0} Calendar</value>
   </data>
@@ -1172,7 +1280,7 @@ Try it now:</value>
     <value>Nothing on the calendar for that range.</value>
   </data>
   <data name="Calendars.EventLine" xml:space="preserve">
-    <value>{0} — {1}</value>
+    <value>📅 {0} — {1}</value>
   </data>
   <data name="Calendars.FreeBusyAllFree" xml:space="preserve">
     <value>Nobody's busy in that range.</value>

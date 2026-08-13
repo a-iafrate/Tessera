@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Tessera.Core.Attachments;
 using Tessera.Core.Calendars;
 using Tessera.Core.Channels;
 using Tessera.Core.Conversations;
@@ -67,6 +68,8 @@ public sealed class TesseraDbContext(DbContextOptions<TesseraDbContext> options)
     public DbSet<LastOperation> LastOperations => Set<LastOperation>();
 
     public DbSet<Note> Notes => Set<Note>();
+
+    public DbSet<Attachment> Attachments => Set<Attachment>();
 
     public DbSet<LinkedAccount> LinkedAccounts => Set<LinkedAccount>();
 

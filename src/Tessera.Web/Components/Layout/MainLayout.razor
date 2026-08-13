@@ -1,4 +1,4 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.Extensions.Localization
 @using Tessera.Core.Resources
@@ -7,20 +7,25 @@
 
 <div class="navbar">
     <a class="wordmark" href="/">Tessera</a>
-    <nav>
+    <button class="nav-toggle" type="button" @onclick="ToggleMenu" aria-label="@Localizer["Nav.ToggleMenu"]" aria-expanded="@(isMenuOpen ? "true" : "false")">
+        <span></span><span></span><span></span>
+    </button>
+    <nav class="@(isMenuOpen ? "nav-open" : "")">
+        <a href="/pricing">@Localizer["Nav.Pricing"]</a>
         <AuthorizeView>
             <Authorized>
-                <a href="/spaces">Your spaces</a>
+                <a href="/spaces">@Localizer["Nav.YourSpaces"]</a>
                 <a href="/calendars">@Localizer["Nav.Calendars"]</a>
                 <a href="/account">@Localizer["Nav.Account"]</a>
                 <form action="Account/Logout" method="post" style="margin: 0;">
                     <AntiforgeryToken />
                     <input type="hidden" name="returnUrl" value="" />
-                    <button type="submit" class="btn btn-secondary">Log out</button>
+                    <button type="submit" class="btn btn-secondary">@Localizer["Nav.LogOut"]</button>
                 </form>
             </Authorized>
             <NotAuthorized>
-                <a href="Account/Login">Log in</a>
+                <a href="Account/Login">@Localizer["Nav.LogIn"]</a>
+                <a href="Account/Register">@Localizer["Nav.Register"]</a>
             </NotAuthorized>
         </AuthorizeView>
     </nav>
@@ -39,3 +44,9 @@
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    private bool isMenuOpen;
+
+    private void ToggleMenu() => isMenuOpen = !isMenuOpen;
+}

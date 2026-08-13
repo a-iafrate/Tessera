@@ -6,6 +6,7 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.Extensions.Localization
 @using Tessera.Core.Abstractions
+@using Tessera.Core.Attachments
 @using Tessera.Core.Notes
 @using Tessera.Core.Resources
 @using Tessera.Core.Spaces
@@ -16,6 +17,7 @@
 @inject IAccessPolicy AccessPolicy
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JsRuntime
+@inject IServiceProvider ServiceProvider
 @inject IStringLocalizer<Messages> Localizer
 
 <PageTitle>@Localizer["Notes.PageTitle"]</PageTitle>
@@ -90,6 +92,19 @@
                                 <strong>@note.Title</strong>
                             }
                             <p style="white-space: pre-wrap; margin: var(--space-2) 0;">@note.Body</p>
+                            @if (attachmentsByNote.TryGetValue(note.Id, out var noteAttachments) && noteAttachments.Count > 0)
+                            {
+                                <ul style="list-style: none; padding: 0; margin: 0 0 var(--space-2) 0; display: flex; flex-direction: column; gap: var(--space-1);">
+                                    @foreach (var attachment in noteAttachments)
+                                    {
+                                        <li>
+                                            <button class="btn btn-secondary" disabled="@isBusy" @onclick="() => DownloadAttachmentAsync(attachment.Id)">
+                                                📎 @attachment.FileName
+                                            </button>
+                                        </li>
+                                    }
+                                </ul>
+                            }
                             @if (canWrite)
                             {
                                 <div style="display: flex; gap: var(--space-2);">
@@ -123,6 +138,11 @@
     private string editTitle = "";
     private string editBody = "";
     private string? errorMessage;
+    private Dictionary<Guid, IReadOnlyList<Attachment>> attachmentsByNote = [];
+
+    // Attachments are conditionally registered (Program.cs — only when BlobStorage:AccountName
+    // is configured), so this page must not fail to load for everyone when they're not.
+    private AttachmentService? AttachmentServiceOrNull => ServiceProvider.GetService<AttachmentService>();
 
     protected override async Task OnInitializedAsync()
     {
@@ -143,6 +163,33 @@
     private async Task ReloadAsync()
     {
         notes = await NoteService.GetNotesAsync(SpaceId, userId, CancellationToken.None);
+
+        var attachments = AttachmentServiceOrNull;
+        var byNote = new Dictionary<Guid, IReadOnlyList<Attachment>>();
+        if (attachments is not null)
+        {
+            foreach (var note in notes)
+            {
+                byNote[note.Id] = await attachments.GetForAsync(ResourceKind.Notes, note.Id, CancellationToken.None);
+            }
+        }
+
+        attachmentsByNote = byNote;
+    }
+
+    private async Task DownloadAttachmentAsync(Guid attachmentId)
+    {
+        var attachments = AttachmentServiceOrNull;
+        if (attachments is null)
+        {
+            return;
+        }
+
+        var url = await attachments.GetReadUrlAsync(attachmentId, TimeSpan.FromMinutes(5), CancellationToken.None);
+        if (url is not null)
+        {
+            await JsRuntime.InvokeVoidAsync("open", url, "_blank");
+        }
     }
 
     private async Task CreateAsync()
@@ -221,6 +268,11 @@
         try
         {
             await NoteService.DeleteAsync(SpaceId, userId, noteId, CancellationToken.None);
+            if (AttachmentServiceOrNull is { } attachments)
+            {
+                await attachments.DeleteAllForAsync(ResourceKind.Notes, noteId, CancellationToken.None);
+            }
+
             await ReloadAsync();
         }
         catch (UnauthorizedAccessException)

@@ -96,7 +96,11 @@ dotnet user-secrets set "AzureOpenAI:Deployment" "gpt-4o-mini"
 dotnet user-secrets set "ApplicationInsights:ConnectionString" "InstrumentationKey=...;IngestionEndpoint=..."
 dotnet user-secrets set "ConnectionStrings:Default" \
   "Server=(localdb)\\MSSQLLocalDB;Database=Tessera;Trusted_Connection=True;"
+dotnet user-secrets set "BlobStorage:ConnectionString" \
+  "DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...;EndpointSuffix=core.windows.net"
 ```
+
+`BlobStorage:ConnectionString` è opzionale: se assente, la registrazione di `IBlobStorage`/`AttachmentService` viene saltata e gli allegati restano disabilitati (nessun errore, solo un warning di avvio). Il container `attachments` deve esistere già sullo Storage Account — l'app non lo crea.
 
 In produzione le stesse chiavi arrivano da Key Vault via Managed Identity. Configurazione in `Program.cs`:
 

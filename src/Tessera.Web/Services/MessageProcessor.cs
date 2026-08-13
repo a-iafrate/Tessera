@@ -12,6 +12,7 @@ using Tessera.Core.Calendars;
 using Tessera.Core.Channels;
 using Tessera.Core.Conversations;
 using Tessera.Core.Expenses;
+using Tessera.Core.Notes;
 using Tessera.Core.Notifications;
 using Tessera.Core.Reminders;
 using Tessera.Core.Resources;
@@ -316,7 +317,14 @@ public sealed class MessageProcessor(
         ResourceKind resourceKind;
         AccessLevel requiredLevel;
 
-        if (message.CallbackData is { } cd)
+        if (message.Media.Count > 0)
+        {
+            // A photo/document always means Notes/Write, whether it ends up creating a new
+            // note (captioned) or attaching to the most recent one (uncaptioned) — decided
+            // once the space and any disambiguation are resolved, same as every other flow.
+            (resourceKind, requiredLevel) = (ResourceKind.Notes, AccessLevel.Write);
+        }
+        else if (message.CallbackData is { } cd)
         {
             (resourceKind, requiredLevel) = ResourceForCallback(cd);
         }
@@ -339,7 +347,7 @@ public sealed class MessageProcessor(
         // Router level distribution, overall and per language (docs/05-ottimizzazioni.md): if
         // L3 creeps past 40%, or one language sits almost entirely on L3, that's the signal to
         // improve the router rather than guess at it.
-        var routerLevel = message.CallbackData is not null || nativeCommand != NativeCommand.None
+        var routerLevel = message.Media.Count > 0 || message.CallbackData is not null || nativeCommand != NativeCommand.None
             ? "L1"
             : match is not null ? "L2" : "L3";
         telemetry?.TrackEvent($"Router{routerLevel}", new Dictionary<string, string> { ["Culture"] = culture.Name });
@@ -389,6 +397,17 @@ public sealed class MessageProcessor(
         var onboarding = scope.ServiceProvider.GetRequiredService<OnboardingService>();
         var undo = scope.ServiceProvider.GetRequiredService<UndoService>();
         var notes = scope.ServiceProvider.GetRequiredService<NoteService>();
+
+        if (message.Media.Count > 0)
+        {
+            var mediaReply = await HandleIncomingMediaAsync(scope, notes, address, spaceId, user, text, message.Media[0], ct);
+            if (mediaReply is not null)
+            {
+                await channel.SendTextAsync(address, mediaReply, ct);
+            }
+
+            return;
+        }
 
         if (message.CallbackData is { } callbackData)
         {
@@ -592,7 +611,7 @@ public sealed class MessageProcessor(
                 GetOptionalString(args, "title"), args.GetProperty("body").GetString() ?? "", ct),
             LlmTools.ShowNotes => await HandleShowNotesAsync(notes, spaceId, user.Id, ct),
             LlmTools.DeleteNote => await HandleLlmDeleteNoteAsync(
-                notes, spaceId, user.Id, args.GetProperty("search_text").GetString() ?? "", ct),
+                scope, notes, spaceId, user.Id, args.GetProperty("search_text").GetString() ?? "", ct),
             LlmTools.QueryCalendarEvents => await HandleCalendarEventsQueryAsync(scope, spaceId, user, culture, args, ct),
             LlmTools.QueryCalendarFreeBusy => await HandleCalendarFreeBusyQueryAsync(scope, spaceId, user, culture, args, ct),
             LlmTools.CreateCalendarEvent => await HandleLlmCreateCalendarEventAsync(scope, address, spaceId, user, culture, args, ct),
@@ -758,7 +777,10 @@ public sealed class MessageProcessor(
             return localizer["Calendars.EventsEmpty"];
         }
 
-        return string.Join('\n', events.Select(e =>
+        // A blank line between entries, not a single newline — a long title wraps across
+        // several lines in a chat bubble, and without the gap the next entry's date/time reads
+        // as a continuation of the previous title instead of a new item.
+        return string.Join("\n\n", events.Select(e =>
             localizer["Calendars.EventLine", FormatDueAt(e.Start, timeZone, culture), e.Title].Value));
     }
 
@@ -964,7 +986,7 @@ public sealed class MessageProcessor(
         if (matches.Count > 1)
         {
             var lines = matches.Select(e => localizer["Calendars.EventLine", FormatDueAt(e.Start, timeZone, culture), e.Title].Value);
-            return localizer["Calendars.DeleteEventMultipleMatches"] + "\n" + string.Join('\n', lines);
+            return localizer["Calendars.DeleteEventMultipleMatches"] + "\n\n" + string.Join("\n\n", lines);
         }
 
         var match = matches[0];
@@ -1063,7 +1085,7 @@ public sealed class MessageProcessor(
         if (matches.Count > 1)
         {
             var lines = matches.Select(e => localizer["Calendars.EventLine", FormatDueAt(e.Start, timeZone, culture), e.Title].Value);
-            return localizer["Calendars.DeleteEventMultipleMatches"] + "\n" + string.Join('\n', lines);
+            return localizer["Calendars.DeleteEventMultipleMatches"] + "\n\n" + string.Join("\n\n", lines);
         }
 
         var match = matches[0];
@@ -2183,7 +2205,7 @@ public sealed class MessageProcessor(
     }
 
     private async Task<string?> HandleLlmDeleteNoteAsync(
-        NoteService notes, Guid spaceId, Guid userId, string searchText, CancellationToken ct)
+        AsyncServiceScope scope, NoteService notes, Guid spaceId, Guid userId, string searchText, CancellationToken ct)
     {
         var note = await notes.FindNoteAsync(spaceId, userId, searchText, ct);
         if (note is null)
@@ -2192,7 +2214,50 @@ public sealed class MessageProcessor(
         }
 
         await notes.DeleteAsync(spaceId, userId, note.Id, ct);
+        var attachments = scope.ServiceProvider.GetService<AttachmentService>();
+        if (attachments is not null)
+        {
+            await attachments.DeleteAllForAsync(ResourceKind.Notes, note.Id, ct);
+        }
+
         return localizer["Notes.Deleted"];
+    }
+
+    // The only entry point into the attachment pipeline from the bot side (docs/06-roadmap.md
+    // Fase 4) — a captioned photo/document becomes a new note with that attachment; an
+    // uncaptioned one attaches to whatever note this user touched most recently, mirroring
+    // UndoService's "most recent thing" idea but scoped to Notes since nothing else can take an
+    // attachment yet.
+    private async Task<string?> HandleIncomingMediaAsync(
+        AsyncServiceScope scope, NoteService notes, ChannelAddress address, Guid spaceId, User user, string? caption, InboundMedia media, CancellationToken ct)
+    {
+        var attachments = scope.ServiceProvider.GetService<AttachmentService>();
+        if (attachments is null)
+        {
+            return localizer["Attachments.NotConfigured"];
+        }
+
+        Note? note;
+        var isNewNote = !string.IsNullOrWhiteSpace(caption);
+        if (isNewNote)
+        {
+            note = await notes.CreateAsync(spaceId, user.Id, title: null, body: caption!, ct);
+        }
+        else
+        {
+            note = await notes.GetMostRecentByUserAsync(spaceId, user.Id, ct);
+            if (note is null)
+            {
+                return localizer["Attachments.NoRecentNote"];
+            }
+        }
+
+        using var content = await channel.DownloadMediaAsync(media.FileId, ct);
+        var fileName = media.FileName ?? $"{media.Kind}-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}";
+        var contentType = media.MimeType ?? (media.Kind == "photo" ? "image/jpeg" : "application/octet-stream");
+        await attachments.AddAsync(spaceId, ResourceKind.Notes, note.Id, user.Id, content, fileName, contentType, content.Length, ct);
+
+        return isNewNote ? localizer["Attachments.NoteCreated"] : localizer["Attachments.AddedToRecentNote"];
     }
 
     private string GetFrequencyDisplayName(RecurrenceFrequency frequency) => frequency switch

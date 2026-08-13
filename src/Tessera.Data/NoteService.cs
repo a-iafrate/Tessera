@@ -51,6 +51,18 @@ public sealed class NoteService(TesseraDbContext db, IAccessPolicy accessPolicy)
             .FirstOrDefaultAsync(ct);
     }
 
+    // For attaching an uncaptioned photo/document to "whatever I was just working on" — the
+    // same "most recent thing this user touched" idea as UndoService.LastOperation, but scoped
+    // to notes since that's the only resource attachments exist for today.
+    public async Task<Note?> GetMostRecentByUserAsync(Guid spaceId, Guid userId, CancellationToken ct)
+    {
+        await EnsureAccessAsync(spaceId, userId, AccessLevel.Write, ct);
+        return await db.Notes
+            .Where(x => x.SpaceId == spaceId && (x.CreatedByUserId == userId || x.LastEditedByUserId == userId))
+            .OrderByDescending(x => x.UpdatedAt)
+            .FirstOrDefaultAsync(ct);
+    }
+
     public async Task<Note?> UpdateAsync(Guid spaceId, Guid userId, Guid noteId, string? title, string body, CancellationToken ct)
     {
         await EnsureAccessAsync(spaceId, userId, AccessLevel.Write, ct);

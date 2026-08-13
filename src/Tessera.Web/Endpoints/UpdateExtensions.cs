@@ -83,12 +83,27 @@ internal static class UpdateExtensions
                 LifecycleEvent: new GroupLifecycleEvent(GroupLifecycleEventType.ChatMigrated, oldChatId.ToString()));
         }
 
+        // A photo message carries its accompanying text as Caption, not Text — Text stays
+        // null on a photo/document message regardless of what the user typed alongside it.
+        IReadOnlyList<InboundMedia> media = [];
+        if (message.Photo is { Length: > 0 } photos)
+        {
+            // Telegram returns every resolution Telegram itself generated, ascending — the
+            // last is the largest, and the only one worth actually storing.
+            var largest = photos[^1];
+            media = [new InboundMedia("photo", largest.FileId, FileName: null, MimeType: null)];
+        }
+        else if (message.Document is { } document)
+        {
+            media = [new InboundMedia("document", document.FileId, document.FileName, document.MimeType)];
+        }
+
         return new InboundMessage(
             ChannelName: "telegram",
             ExternalChatId: message.Chat.Id.ToString(),
             ExternalUserId: message.From?.Id.ToString(),
-            Text: message.Text,
-            Media: [],
+            Text: message.Text ?? message.Caption,
+            Media: media,
             ProviderMessageId: update.Id.ToString(),
             SentAt: message.Date,
             IsGroupChat: message.Chat.Type is ChatType.Group or ChatType.Supergroup);

@@ -102,6 +102,7 @@ a.card:hover { border-color: var(--clay); }
 
 /* Top navigation — wordmark + auth links, present on every page */
 .navbar {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -121,6 +122,57 @@ a.card:hover { border-color: var(--clay); }
 .wordmark:hover { text-decoration: none; }
 
 .navbar nav { display: flex; align-items: center; gap: var(--space-4); }
+
+/* Hidden on desktop, where .navbar nav renders as a normal row. */
+.nav-toggle {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  width: 44px;
+  height: 44px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.nav-toggle span {
+  display: block;
+  width: 22px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--ink);
+}
+
+@media (max-width: 767px) {
+  .nav-toggle { display: flex; }
+
+  .navbar nav {
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--paper-raised);
+    border-bottom: 1px solid var(--line);
+    padding: var(--space-2) var(--space-4) var(--space-4);
+    z-index: 10;
+  }
+
+  .navbar nav.nav-open { display: flex; }
+
+  .navbar nav a,
+  .navbar nav form,
+  .navbar nav button {
+    width: 100%;
+    padding: var(--space-3) 0;
+  }
+}
 
 .footer {
   max-width: 72rem;
