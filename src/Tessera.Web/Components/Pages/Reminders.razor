@@ -70,12 +70,14 @@
             <div style="display: flex; flex-direction: column; gap: var(--space-2);">
                 @foreach (var reminder in pending)
                 {
-                    <div class="card" style="display: flex; align-items: center; gap: var(--space-3);">
-                        <span class="text-soft" style="width: 10rem;">@MessageProcessor.FormatDueAt(reminder.DueAt, timeZone!, CultureInfo.CurrentUICulture)</span>
-                        <span style="flex: 1;">@reminder.Text</span>
+                    <div class="card list-row">
+                        <span class="list-row-label">@MessageProcessor.FormatDueAt(reminder.DueAt, timeZone!, CultureInfo.CurrentUICulture)</span>
+                        <span class="list-row-main">@reminder.Text</span>
                         @if (canWrite)
                         {
-                            <button class="btn btn-secondary" disabled="@isBusy" @onclick="() => CompleteAsync(reminder.Id)">@Localizer["Reminders.DoneButton"]</button>
+                            <div class="list-row-actions">
+                                <button class="btn btn-secondary" disabled="@isBusy" @onclick="() => CompleteAsync(reminder.Id)">@Localizer["Reminders.DoneButton"]</button>
+                            </div>
                         }
                     </div>
                 }

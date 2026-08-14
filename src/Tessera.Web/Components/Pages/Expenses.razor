@@ -80,14 +80,16 @@
             <div style="display: flex; flex-direction: column; gap: var(--space-2);">
                 @foreach (var expense in recent)
                 {
-                    <div class="card" style="display: flex; align-items: center; gap: var(--space-3);">
-                        <span class="text-soft" style="width: 6rem;">@expense.Date.ToString("d", CultureInfo.CurrentUICulture)</span>
-                        <span style="flex: 1;">@(expense.Merchant ?? CategoryName(expense.CategoryId))</span>
-                        <strong>@MoneyFormatter.Format(expense.Amount, expense.Currency, CultureInfo.CurrentUICulture.Name)</strong>
-                        @if (attachmentsByExpense.TryGetValue(expense.Id, out var expenseAttachments) && expenseAttachments.Count > 0)
-                        {
-                            <button class="btn btn-secondary" @onclick="() => DownloadReceiptAsync(expenseAttachments[0].Id)">📎</button>
-                        }
+                    <div class="card list-row">
+                        <span class="list-row-label">@expense.Date.ToString("d", CultureInfo.CurrentUICulture)</span>
+                        <span class="list-row-main">@(expense.Merchant ?? CategoryName(expense.CategoryId))</span>
+                        <div class="list-row-actions">
+                            <strong>@MoneyFormatter.Format(expense.Amount, expense.Currency, CultureInfo.CurrentUICulture.Name)</strong>
+                            @if (attachmentsByExpense.TryGetValue(expense.Id, out var expenseAttachments) && expenseAttachments.Count > 0)
+                            {
+                                <button class="btn btn-secondary" @onclick="() => DownloadReceiptAsync(expenseAttachments[0].Id)">📎</button>
+                            }
+                        </div>
                     </div>
                 }
             </div>

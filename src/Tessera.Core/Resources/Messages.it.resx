@@ -521,6 +521,12 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   <data name="Dashboard.RemindersHeading" xml:space="preserve">
     <value>Promemoria in arrivo</value>
   </data>
+  <data name="Dashboard.CalendarHeading" xml:space="preserve">
+    <value>Appuntamenti in arrivo</value>
+  </data>
+  <data name="Dashboard.ManageCalendarsLink" xml:space="preserve">
+    <value>Gestisci calendari →</value>
+  </data>
   <data name="Dashboard.ShoppingHeading" xml:space="preserve">
     <value>Lista della spesa</value>
   </data>
@@ -703,6 +709,9 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   </data>
   <data name="Nav.Calendars" xml:space="preserve">
     <value>Calendari</value>
+  </data>
+  <data name="Nav.LinkTelegram" xml:space="preserve">
+    <value>Collega Telegram</value>
   </data>
   <data name="Nav.YourSpaces" xml:space="preserve">
     <value>I tuoi spazi</value>

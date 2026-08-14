@@ -64,17 +64,19 @@
             <div style="display: flex; flex-direction: column; gap: var(--space-2);">
                 @foreach (var item in items)
                 {
-                    <div class="card" style="display: flex; align-items: center; gap: var(--space-3);">
-                        <span style="flex: 1; @(item.IsChecked ? "text-decoration: line-through; color: var(--text-soft);" : "")">
+                    <div class="card list-row">
+                        <span class="list-row-main" style="@(item.IsChecked ? "text-decoration: line-through; color: var(--text-soft);" : "")">
                             @item.RawText
                         </span>
                         @if (canWrite)
                         {
-                            @if (!item.IsChecked)
-                            {
-                                <button class="btn btn-secondary" disabled="@isBusy" @onclick="() => CheckAsync(item.Id)">@Localizer["ShoppingList.CheckButton"]</button>
-                            }
-                            <button class="btn btn-danger" disabled="@isBusy" @onclick="() => RemoveAsync(item.Id)">@Localizer["ShoppingList.RemoveButton"]</button>
+                            <div class="list-row-actions">
+                                @if (!item.IsChecked)
+                                {
+                                    <button class="btn btn-secondary" disabled="@isBusy" @onclick="() => CheckAsync(item.Id)">@Localizer["ShoppingList.CheckButton"]</button>
+                                }
+                                <button class="btn btn-danger" disabled="@isBusy" @onclick="() => RemoveAsync(item.Id)">@Localizer["ShoppingList.RemoveButton"]</button>
+                            </div>
                         }
                     </div>
                 }

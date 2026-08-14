@@ -521,6 +521,12 @@ Note: I only read messages that start with / or mention me.</value>
   <data name="Dashboard.RemindersHeading" xml:space="preserve">
     <value>Upcoming reminders</value>
   </data>
+  <data name="Dashboard.CalendarHeading" xml:space="preserve">
+    <value>Upcoming events</value>
+  </data>
+  <data name="Dashboard.ManageCalendarsLink" xml:space="preserve">
+    <value>Manage calendars →</value>
+  </data>
   <data name="Dashboard.ShoppingHeading" xml:space="preserve">
     <value>Shopping list</value>
   </data>
@@ -703,6 +709,9 @@ Note: I only read messages that start with / or mention me.</value>
   </data>
   <data name="Nav.Calendars" xml:space="preserve">
     <value>Calendars</value>
+  </data>
+  <data name="Nav.LinkTelegram" xml:space="preserve">
+    <value>Link Telegram</value>
   </data>
   <data name="Nav.YourSpaces" xml:space="preserve">
     <value>Your spaces</value>
