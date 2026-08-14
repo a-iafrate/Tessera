@@ -112,6 +112,21 @@
   <data name="History.NotFound" xml:space="preserve">
     <value>Non ho trovato niente che corrisponda nella cronologia delle spese.</value>
   </data>
+  <data name="PriceHistory.NotFound" xml:space="preserve">
+    <value>Non ho ancora visto un prezzo per "{0}" in nessuno scontrino scansionato.</value>
+  </data>
+  <data name="PriceHistory.SingleObservation" xml:space="preserve">
+    <value>L'unico prezzo registrato per "{0}" è {1}, del {2}.</value>
+  </data>
+  <data name="PriceHistory.Increased" xml:space="preserve">
+    <value>"{0}" ora costa {1} — il {2}% in più rispetto al {3}.</value>
+  </data>
+  <data name="PriceHistory.Decreased" xml:space="preserve">
+    <value>"{0}" ora costa {1} — il {2}% in meno rispetto al {3}.</value>
+  </data>
+  <data name="PriceHistory.Unchanged" xml:space="preserve">
+    <value>"{0}" costa ancora {1}, come il {2}.</value>
+  </data>
   <data name="Errors.NotUnderstood" xml:space="preserve">
     <value>Non ho capito. Prova /help</value>
   </data>

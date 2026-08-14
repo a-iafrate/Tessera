@@ -296,7 +296,16 @@ public class Expense
     public string? Note { get; set; }
     public Guid CreatedByUserId { get; set; }
     public string? ReceiptBlobUri { get; set; }       // fase 4
-    public ICollection<ExpenseLine> Lines { get; set; } = [];  // fase 4, da scontrino
+    public ICollection<ExpenseLine> Lines { get; set; } = [];  // fase 4, da scontrino — storico prezzi
+}
+
+public class ExpenseLine
+{
+    public Guid Id { get; set; }
+    public Guid ExpenseId { get; set; }
+    public string RawText { get; set; } = null!;       // "Latte intero 1L" — come estratto dallo scontrino
+    public string NormalizedName { get; set; } = null!; // condivide ProductNameNormalizer con ShoppingItem
+    public decimal Price { get; set; }                 // importo di riga stampato, non un prezzo unitario calcolato
 }
 ```
 
@@ -305,6 +314,8 @@ public class Expense
 `Currency` è copiata sulla spesa alla creazione, non solo dedotta dallo spazio: se un giorno lo spazio cambia valuta, lo storico non deve cambiare significato retroattivamente.
 
 Il parsing dell'importo dal testo dipende dalla cultura dell'utente — `"12,50"` significa cose diverse in italiano e in inglese. Vedi [09-localizzazione.md](09-localizzazione.md).
+
+**`ExpenseLine` e lo storico prezzi (Fase 4).** Una riga per prodotto scontrinato, popolata da `ReceiptVisionClient` quando riesce a leggere anche il prezzo di riga (non solo il nome del prodotto). `NormalizedName` riusa la stessa normalizzazione di `ShoppingItem.NormalizedName` (`ProductNameNormalizer`, in `Tessera.Core`) — la domanda "che prodotto è" è identica nei due casi, e vale la stessa scelta di restare superficiale (lowercase, trim, articolo) invece di normalizzare marca/formato. `Price` è l'importo stampato per quella riga: uno scontrino "3x latte 2,40" produce una riga a 2,40, non un prezzo unitario calcolato — la stessa semplificazione dichiarata sopra per `ShoppingItem`. Nessun `SpaceId` diretto: si risale allo spazio tramite `Expense`, che lo possiede già.
 
 ### Categorie di spesa: il caso ibrido
 

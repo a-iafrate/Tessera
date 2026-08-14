@@ -226,9 +226,9 @@ public sealed class MessageProcessor(
 
         // A tap on one of the "📎 note title" buttons under a notes list (HandleShowNotesAsync)
         // — the attachment carries its own SpaceId, so no space resolution is needed here.
-        if (message.CallbackData is { } noteImageCallback && noteImageCallback.StartsWith("note.showimage:", StringComparison.Ordinal))
+        if (message.CallbackData is { } noteAttachmentCallback && noteAttachmentCallback.StartsWith("note.showattachment:", StringComparison.Ordinal))
         {
-            await HandleShowNoteAttachmentCallbackAsync(scope, address, user, noteImageCallback["note.showimage:".Length..], ct);
+            await HandleShowNoteAttachmentCallbackAsync(scope, address, user, noteAttachmentCallback["note.showattachment:".Length..], ct);
             return;
         }
 
@@ -643,6 +643,7 @@ public sealed class MessageProcessor(
                 args.TryGetProperty("merchant", out var merchantProp) ? merchantProp.GetString() : null, ct),
             LlmTools.QueryMonthlyExpenses => await HandleExpensesQueryAsync(expenses, spaceId, user, culture, ct),
             LlmTools.QueryExpenseHistory => await HandleHistoryQueryAsync(expenses, spaceId, user, culture, args, ct),
+            LlmTools.QueryPriceHistory => await HandlePriceHistoryQueryAsync(expenses, spaceId, user, culture, args, ct),
             LlmTools.CreateReminder => await HandleLlmReminderAsync(scope, address, spaceId, user, culture, args, ct),
             LlmTools.CreateNote => await CreateNoteAndReplyAsync(
                 notes, undo, onboarding, address, spaceId, user.Id,
@@ -2142,6 +2143,42 @@ public sealed class MessageProcessor(
         };
     }
 
+    // "Storico prezzi" (docs/06-roadmap.md) — built entirely from ExpenseLine rows recorded
+    // by receipt scanning, so an empty result is the normal case for a space that hasn't
+    // scanned a receipt with that product yet, not an error.
+    private async Task<string> HandlePriceHistoryQueryAsync(
+        ExpenseService expenses, Guid spaceId, User user, CultureInfo culture, JsonElement args, CancellationToken ct)
+    {
+        var product = args.GetProperty("product").GetString() ?? "";
+        var compareDate = ParseOptionalDate(GetOptionalString(args, "compare_to_date"));
+
+        var result = await expenses.QueryPriceHistoryAsync(spaceId, user.Id, product, compareDate, ct);
+        if (result.ObservationCount == 0)
+        {
+            return localizer["PriceHistory.NotFound", product];
+        }
+
+        var latestFormatted = MoneyFormatter.Format(result.LatestPrice!.Value, result.Currency, culture.Name);
+        if (result.LatestDate == result.ComparisonDate)
+        {
+            return localizer["PriceHistory.SingleObservation", product, latestFormatted, result.LatestDate!.Value.ToString("d MMMM yyyy", culture)];
+        }
+
+        var comparisonDateText = result.ComparisonDate!.Value.ToString("d MMMM yyyy", culture);
+        if (result.ComparisonPrice is null or 0)
+        {
+            return localizer["PriceHistory.SingleObservation", product, latestFormatted, result.LatestDate!.Value.ToString("d MMMM yyyy", culture)];
+        }
+
+        var percentChange = Math.Round((result.LatestPrice!.Value - result.ComparisonPrice.Value) / result.ComparisonPrice.Value * 100, 0);
+        return percentChange switch
+        {
+            0 => localizer["PriceHistory.Unchanged", product, latestFormatted, comparisonDateText],
+            > 0 => localizer["PriceHistory.Increased", product, latestFormatted, percentChange, comparisonDateText],
+            _ => localizer["PriceHistory.Decreased", product, latestFormatted, Math.Abs(percentChange), comparisonDateText],
+        };
+    }
+
     private static DateOnly? ParseOptionalDate(string? text) =>
         text is not null && DateOnly.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
             ? date
@@ -2277,12 +2314,14 @@ public sealed class MessageProcessor(
             : await CreateNoteAndReplyAsync(notes, undo, onboarding, address, spaceId, userId, title: null, trimmed, ct);
     }
 
-    // Sends the list itself (rather than just returning text) because notes with an image
-    // attachment get a button to reveal it on demand — showing every image unprompted on every
-    // "what notes are there?" would get noisy fast once a space has more than a couple.
+    // Sends the list itself (rather than just returning text) because notes with an
+    // attachment get a button to reveal it on demand — showing every image unprompted on
+    // every "what notes are there?" would get noisy fast once a space has more than a couple.
     // One message per note, not one giant list — a note's "show attachment" button then sits
     // directly under that note's own text instead of in a single wall of buttons at the end,
-    // disconnected from which note each one belonged to.
+    // disconnected from which note each one belonged to. Every attachment gets a button
+    // regardless of content type (image, PDF, ...) — HandleShowNoteAttachmentCallbackAsync
+    // decides how to actually deliver it.
     private async Task<string?> HandleShowNotesAsync(
         AsyncServiceScope scope, ChannelAddress address, NoteService notes, Guid spaceId, Guid userId, CancellationToken ct)
     {
@@ -2299,33 +2338,34 @@ public sealed class MessageProcessor(
                 ? localizer["Notes.ListItemLineTitled", note.Title, note.Body].Value
                 : localizer["Notes.ListItemLine", note.Body].Value;
 
-            List<Choice> imageChoices = [];
+            List<Choice> attachmentChoices = [];
             if (attachments is not null)
             {
                 var noteAttachments = await attachments.GetForAsync(ResourceKind.Notes, note.Id, ct);
-                imageChoices = noteAttachments
-                    .Where(a => a.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
-                    .Select(a => new Choice(localizer["Notes.ShowAttachmentButton"].Value, $"note.showimage:{a.Id}"))
+                attachmentChoices = noteAttachments
+                    .Select(a => new Choice(localizer["Notes.ShowAttachmentButton"].Value, $"note.showattachment:{a.Id}"))
                     .ToList();
             }
 
-            if (imageChoices.Count == 0)
+            if (attachmentChoices.Count == 0)
             {
                 await channel.SendTextAsync(address, text, ct);
             }
             else
             {
-                await channel.SendChoicesAsync(address, text, imageChoices, ct);
+                await channel.SendChoicesAsync(address, text, attachmentChoices, ct);
             }
         }
 
         return null;
     }
 
-    // note.showimage: callback — resolved lazily on tap rather than eagerly with the list
-    // (HandleShowNotesAsync above), so a space with many photo-attached notes doesn't flood
-    // the chat. The attachment's own SpaceId is the permission check here, not the caller's
+    // note.showattachment: callback — resolved lazily on tap rather than eagerly with the list
+    // (HandleShowNotesAsync above), so a space with many attached notes doesn't flood the
+    // chat. The attachment's own SpaceId is the permission check here, not the caller's
     // current space, since by the time this fires the user may be in any conversation context.
+    // Delivered as a photo or a generic document depending on ContentType — Telegram's
+    // sendPhoto rejects anything that isn't actually an image.
     private async Task HandleShowNoteAttachmentCallbackAsync(
         AsyncServiceScope scope, ChannelAddress address, User user, string attachmentIdText, CancellationToken ct)
     {
@@ -2348,9 +2388,18 @@ public sealed class MessageProcessor(
         }
 
         var url = await attachmentService.GetReadUrlAsync(attachment.Id, TimeSpan.FromMinutes(5), ct);
-        if (url is not null)
+        if (url is null)
+        {
+            return;
+        }
+
+        if (attachment.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
         {
             await channel.SendPhotoAsync(address, url, attachment.FileName, ct);
+        }
+        else
+        {
+            await channel.SendDocumentAsync(address, url, attachment.FileName, caption: null, ct);
         }
     }
 
@@ -2473,7 +2522,7 @@ public sealed class MessageProcessor(
         // "archivio garanzie" — "quando ho comprato la lavatrice?") — QueryExpenseHistory
         // already matches search_text against Merchant or Note, so this is the entire
         // connection needed; no new query surface.
-        var receiptNote = extraction.Items.Count > 0 ? string.Join(", ", extraction.Items) : null;
+        var receiptNote = extraction.Items.Count > 0 ? string.Join(", ", extraction.Items.Select(i => i.Name)) : null;
 
         Expense expense;
         string reply;
@@ -2515,9 +2564,9 @@ public sealed class MessageProcessor(
         // and the expense this receipt also created is the more consequential thing to be able
         // to undo — recorded right after this, so it keeps the slot.
         var checkedItemNames = new List<string>();
-        foreach (var itemName in extraction.Items)
+        foreach (var item in extraction.Items)
         {
-            var checkedItem = await shopping.CheckItemAsync(spaceId, user.Id, itemName, listName: null, ct);
+            var checkedItem = await shopping.CheckItemAsync(spaceId, user.Id, item.Name, listName: null, ct);
             if (checkedItem is null)
             {
                 continue;
@@ -2526,6 +2575,17 @@ public sealed class MessageProcessor(
             checkedItemNames.Add(checkedItem.RawText);
             await notifications.NotifyAsync(
                 new ShoppingItemChecked(spaceId, user.Id, checkedItem.RawText, address.ExternalChatId, DateTimeOffset.UtcNow), ct);
+        }
+
+        // Storico prezzi (docs/06-roadmap.md) — only lines with a legible price feed price
+        // history; the others still checked off the list and landed in Note above.
+        var pricedItems = extraction.Items
+            .Where(i => i.Price is > 0)
+            .Select(i => (i.Name, Price: i.Price!.Value))
+            .ToList();
+        if (pricedItems.Count > 0)
+        {
+            await expenses.AddLinesAsync(expense.Id, pricedItems, ct);
         }
 
         if (checkedItemNames.Count > 0)

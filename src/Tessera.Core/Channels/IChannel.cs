@@ -25,6 +25,11 @@ public interface IChannel
     // and re-uploading the bytes.
     Task SendPhotoAsync(ChannelAddress to, string photoUrl, string? caption, CancellationToken ct);
 
+    // For non-image attachments (PDF, generic files) — a channel can't inline-preview these
+    // the way it does a photo, so they go through this instead. fileUrl is the same kind of
+    // short-lived SAS URL as SendPhotoAsync's photoUrl.
+    Task SendDocumentAsync(ChannelAddress to, string fileUrl, string fileName, string? caption, CancellationToken ct);
+
     // Fetches the raw bytes for an inbound attachment (docs/03-integrazioni.md) — every
     // provider requires its own get-file-info-then-download dance (Telegram: getFile then a
     // separate download URL), so this has to live behind the channel abstraction rather than

@@ -11,4 +11,5 @@ public class Expense
     public DateOnly Date { get; set; }
     public string? Note { get; set; }
     public Guid CreatedByUserId { get; set; }
+    public ICollection<ExpenseLine> Lines { get; set; } = [];
 }

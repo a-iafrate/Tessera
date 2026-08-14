@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Tessera.Core.Abstractions;
 using Tessera.Core.Shopping;
@@ -16,10 +15,6 @@ namespace Tessera.Data;
 // Named, it resolves (or creates, on add) that specific list instead.
 public sealed class ShoppingListService(TesseraDbContext db, IAccessPolicy accessPolicy)
 {
-    private static readonly Regex LeadingArticle = new(
-        @"^(il|lo|la|i|gli|le|un|uno|una|the|a|an)\s+",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
     public async Task<ShoppingItem> AddItemAsync(
         Guid spaceId, Guid userId, string rawText, string? listName, CancellationToken ct)
     {
@@ -31,7 +26,7 @@ public sealed class ShoppingListService(TesseraDbContext db, IAccessPolicy acces
             Id = Guid.NewGuid(),
             ShoppingListId = list!.Id,
             RawText = rawText,
-            NormalizedName = Normalize(rawText),
+            NormalizedName = ProductNameNormalizer.Normalize(rawText),
             AddedByUserId = userId,
             AddedAt = DateTimeOffset.UtcNow,
         };
@@ -50,7 +45,7 @@ public sealed class ShoppingListService(TesseraDbContext db, IAccessPolicy acces
             return null;
         }
 
-        var target = Normalize(itemText);
+        var target = ProductNameNormalizer.Normalize(itemText);
         var item = await db.ShoppingItems
             .Where(x => x.ShoppingListId == list.Id && !x.IsChecked && x.NormalizedName.Contains(target))
             .OrderBy(x => x.AddedAt)
@@ -97,7 +92,7 @@ public sealed class ShoppingListService(TesseraDbContext db, IAccessPolicy acces
             return null;
         }
 
-        var target = Normalize(itemText);
+        var target = ProductNameNormalizer.Normalize(itemText);
         var item = await db.ShoppingItems
             .Where(x => x.ShoppingListId == list.Id && x.NormalizedName.Contains(target))
             .OrderBy(x => x.AddedAt)
@@ -129,7 +124,7 @@ public sealed class ShoppingListService(TesseraDbContext db, IAccessPolicy acces
         }
 
         item.RawText = correctedText;
-        item.NormalizedName = Normalize(correctedText);
+        item.NormalizedName = ProductNameNormalizer.Normalize(correctedText);
         await db.SaveChangesAsync(ct);
         return item;
     }
@@ -268,10 +263,4 @@ public sealed class ShoppingListService(TesseraDbContext db, IAccessPolicy acces
             .Where(x => x.SpaceId == spaceId)
             .Select(x => x.Item)
             .FirstOrDefaultAsync(ct);
-
-    private static string Normalize(string rawText)
-    {
-        var text = LeadingArticle.Replace(rawText.Trim().ToLowerInvariant(), "");
-        return text.Trim();
-    }
 }

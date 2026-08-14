@@ -63,6 +63,11 @@ public sealed class TelegramChannel(ITelegramBotClient client) : IChannel
         await client.SendPhoto(to.ExternalChatId, InputFile.FromUri(new Uri(photoUrl)), caption: caption, cancellationToken: ct);
     }
 
+    public async Task SendDocumentAsync(ChannelAddress to, string fileUrl, string fileName, string? caption, CancellationToken ct)
+    {
+        await client.SendDocument(to.ExternalChatId, InputFile.FromUri(new Uri(fileUrl)), caption: caption, cancellationToken: ct);
+    }
+
     public async Task<Stream> DownloadMediaAsync(string fileId, CancellationToken ct)
     {
         var file = await client.GetFile(fileId, ct);

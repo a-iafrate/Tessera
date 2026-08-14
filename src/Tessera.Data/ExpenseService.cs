@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Tessera.Core.Abstractions;
 using Tessera.Core.Expenses;
+using Tessera.Core.Shopping;
 using Tessera.Core.Spaces;
 
 namespace Tessera.Data;
@@ -38,6 +39,63 @@ public sealed class ExpenseService(TesseraDbContext db, IAccessPolicy accessPoli
         db.Expenses.Add(expense);
         await db.SaveChangesAsync(ct);
         return expense;
+    }
+
+    // Persists the per-product lines extracted from a receipt (docs/06-roadmap.md "Storico
+    // prezzi") — a best-effort addendum to RecordAsync, not access-checked on its own since
+    // it only ever runs immediately after RecordAsync succeeded for the same expense.
+    public async Task AddLinesAsync(Guid expenseId, IEnumerable<(string Name, decimal Price)> items, CancellationToken ct)
+    {
+        foreach (var (name, price) in items)
+        {
+            db.ExpenseLines.Add(new ExpenseLine
+            {
+                Id = Guid.NewGuid(),
+                ExpenseId = expenseId,
+                RawText = name,
+                NormalizedName = ProductNameNormalizer.Normalize(name),
+                Price = price,
+            });
+        }
+
+        await db.SaveChangesAsync(ct);
+    }
+
+    // "Does coffee cost more than it used to" (docs/06-roadmap.md "Storico prezzi") — compares
+    // the latest observed price for a product against a comparison point: the closest
+    // observation on or before compareDate, or the earliest one on file if compareDate is
+    // omitted. Built entirely from ExpenseLine rows recorded via receipt scanning.
+    public async Task<PriceHistoryResult> QueryPriceHistoryAsync(
+        Guid spaceId, Guid userId, string productText, DateOnly? compareDate, CancellationToken ct)
+    {
+        await EnsureAccessAsync(spaceId, userId, AccessLevel.Read, ct);
+        var space = await db.Spaces.AsNoTracking().FirstAsync(x => x.Id == spaceId, ct);
+
+        var target = ProductNameNormalizer.Normalize(productText);
+        var observations = await db.ExpenseLines
+            .Where(l => l.NormalizedName.Contains(target))
+            .Join(db.Expenses, l => l.ExpenseId, e => e.Id, (l, e) => new { e.SpaceId, e.Date, e.Merchant, l.Price })
+            .Where(x => x.SpaceId == spaceId)
+            .OrderBy(x => x.Date)
+            .AsNoTracking()
+            .ToListAsync(ct);
+
+        if (observations.Count == 0)
+        {
+            return new PriceHistoryResult(space.Currency, null, null, null, null, null, null, 0);
+        }
+
+        var latest = observations[^1];
+        var comparison = compareDate is null
+            ? observations[0]
+            : observations.Where(o => o.Date <= compareDate.Value).OrderByDescending(o => o.Date).FirstOrDefault()
+              ?? observations[0];
+
+        return new PriceHistoryResult(
+            space.Currency,
+            latest.Price, latest.Date, latest.Merchant,
+            comparison.Price, comparison.Date, comparison.Merchant,
+            observations.Count);
     }
 
     // Merchant learning (docs/02-modello-dati.md): per space, not global — "Esselunga"

@@ -17,6 +17,7 @@ public static class LlmTools
     public const string RecordExpense = "record_expense";
     public const string QueryMonthlyExpenses = "query_monthly_expenses";
     public const string QueryExpenseHistory = "query_expense_history";
+    public const string QueryPriceHistory = "query_price_history";
     public const string CreateReminder = "create_reminder";
     public const string CreateNote = "create_note";
     public const string ShowNotes = "show_notes";
@@ -155,6 +156,22 @@ public static class LlmTools
                     }
                   },
                   "required": ["aggregation"]
+                }
+                """)),
+        ChatTool.CreateFunctionTool(
+            QueryPriceHistory,
+            "Look up how a product's price has changed over time, from products previously " +
+            "extracted from scanned receipts. Use for questions like \"does coffee cost more " +
+            "than it used to\", \"has the price of milk gone up\", \"how much more expensive is " +
+            "olive oil than 6 months ago\".",
+            BinaryData.FromString("""
+                {
+                  "type": "object",
+                  "properties": {
+                    "product": { "type": "string", "description": "The product name to look up, e.g. \"coffee\", \"olive oil\"." },
+                    "compare_to_date": { "type": "string", "description": "An ISO date (YYYY-MM-DD) to compare the current price against, worked out from the current date given in the context (e.g. \"6 months ago\"). Omit to compare against the earliest price on file." }
+                  },
+                  "required": ["product"]
                 }
                 """)),
         ChatTool.CreateFunctionTool(

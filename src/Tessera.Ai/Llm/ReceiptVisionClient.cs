@@ -4,7 +4,13 @@ using OpenAI.Chat;
 
 namespace Tessera.Ai.Llm;
 
-public sealed record ReceiptExtraction(string? Merchant, decimal Total, IReadOnlyList<string> Items);
+// Price is nullable because not every receipt prints a clean per-line price the model can
+// separate from quantity/discount markup — when it can't, the item still checks off the
+// shopping list and lands in Expense.Note, it just doesn't feed price history
+// (docs/06-roadmap.md "Storico prezzi").
+public sealed record ReceiptItem(string Name, decimal? Price);
+
+public sealed record ReceiptExtraction(string? Merchant, decimal Total, IReadOnlyList<ReceiptItem> Items);
 
 // A distinct LLM surface from LlmFallbackClient — not part of the L1/L2/L3 router, no
 // conversational tone, no general tool set, single purpose. Real per-call cost
@@ -21,10 +27,11 @@ public sealed class ReceiptVisionClient(ChatClient chatClient, ILogger<ReceiptVi
         total amount actually paid, and the individual products bought. For each product, give
         an ordinary shopping-list-style name (e.g. "milk", "bread") rather than the abbreviated
         or coded text a receipt often prints — normalize it the way a person would say it out
-        loud, in whatever language the receipt is in. Skip lines that aren't products (bag fees,
-        loyalty discounts, subtotals). Call extract_receipt exactly once with what you can read.
-        If the image isn't a legible receipt, don't call the tool — reply with a short
-        plain-text message saying so instead.
+        loud, in whatever language the receipt is in. Also give the price actually paid for
+        that line, if you can read it clearly; omit it rather than guessing. Skip lines that
+        aren't products (bag fees, loyalty discounts, subtotals). Call extract_receipt exactly
+        once with what you can read. If the image isn't a legible receipt, don't call the tool
+        — reply with a short plain-text message saying so instead.
         """;
 
     private static readonly ChatTool Tool = ChatTool.CreateFunctionTool(
@@ -38,8 +45,15 @@ public sealed class ReceiptVisionClient(ChatClient chatClient, ILogger<ReceiptVi
                 "total": { "type": "number", "description": "The total amount actually paid, as a plain decimal number." },
                 "items": {
                   "type": "array",
-                  "items": { "type": "string" },
-                  "description": "Ordinary shopping-list-style names of the products bought, one per line item, in the receipt's own language. Omit if none are legible."
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": { "type": "string", "description": "Ordinary shopping-list-style name of the product, in the receipt's own language." },
+                      "price": { "type": "number", "description": "The price actually paid for this line, as a plain decimal number. Omit if not clearly legible." }
+                    },
+                    "required": ["name"]
+                  },
+                  "description": "One entry per purchased product line item. Omit if none are legible."
                 }
               },
               "required": ["total"]
@@ -69,7 +83,14 @@ public sealed class ReceiptVisionClient(ChatClient chatClient, ILogger<ReceiptVi
             var args = JsonDocument.Parse(completion.ToolCalls[0].FunctionArguments).RootElement;
             var merchant = args.TryGetProperty("merchant", out var merchantProp) ? merchantProp.GetString() : null;
             var items = args.TryGetProperty("items", out var itemsProp) && itemsProp.ValueKind == JsonValueKind.Array
-                ? itemsProp.EnumerateArray().Select(x => x.GetString()).Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x!).ToList()
+                ? itemsProp.EnumerateArray()
+                    .Where(x => x.TryGetProperty("name", out var nameProp) && !string.IsNullOrWhiteSpace(nameProp.GetString()))
+                    .Select(x => new ReceiptItem(
+                        x.GetProperty("name").GetString()!,
+                        x.TryGetProperty("price", out var priceProp) && priceProp.ValueKind == JsonValueKind.Number
+                            ? priceProp.GetDecimal()
+                            : null))
+                    .ToList()
                 : [];
             return new ReceiptExtraction(merchant, args.GetProperty("total").GetDecimal(), items);
         }

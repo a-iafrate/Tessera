@@ -40,6 +40,9 @@ public class IntentRouterTests
         // italiano — devono cadere a L3
         { "it", "finito il detersivo", null },
         { "it", "sposta la riunione con Marco e avvisalo", null },
+        { "it", "aggiungi nota test", null },
+        { "it", "aggiungi una nota che dice test", null },
+        { "it", "metti note su questo", null },
 
         // inglese — L2
         { "en", "add milk", "shopping.add" },
@@ -68,6 +71,8 @@ public class IntentRouterTests
 
         // inglese — L3
         { "en", "we're out of detergent", null },
+        { "en", "add note test", null },
+        { "en", "add a note that says test", null },
 
         // lingua senza matcher — sempre L3, per progetto
         { "de", "milch hinzufügen", null },

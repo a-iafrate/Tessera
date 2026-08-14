@@ -14,5 +14,9 @@ public sealed class ExpenseConfiguration : IEntityTypeConfiguration<Expense>
 
         // Aggregations (monthly, per category) are the hot query on this entity.
         builder.HasIndex(x => new { x.SpaceId, x.Date });
+
+        builder.HasMany(x => x.Lines)
+            .WithOne()
+            .HasForeignKey(x => x.ExpenseId);
     }
 }

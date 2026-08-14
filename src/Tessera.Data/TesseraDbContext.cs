@@ -41,6 +41,8 @@ public sealed class TesseraDbContext(DbContextOptions<TesseraDbContext> options)
 
     public DbSet<Expense> Expenses => Set<Expense>();
 
+    public DbSet<ExpenseLine> ExpenseLines => Set<ExpenseLine>();
+
     public DbSet<Category> Categories => Set<Category>();
 
     public DbSet<MerchantCategoryMapping> MerchantCategoryMappings => Set<MerchantCategoryMapping>();

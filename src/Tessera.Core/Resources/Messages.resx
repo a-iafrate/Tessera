@@ -112,6 +112,21 @@
   <data name="History.NotFound" xml:space="preserve">
     <value>I couldn't find anything matching that in your expense history.</value>
   </data>
+  <data name="PriceHistory.NotFound" xml:space="preserve">
+    <value>I haven't seen a price for "{0}" in any scanned receipt yet.</value>
+  </data>
+  <data name="PriceHistory.SingleObservation" xml:space="preserve">
+    <value>The only price on file for "{0}" is {1}, from {2}.</value>
+  </data>
+  <data name="PriceHistory.Increased" xml:space="preserve">
+    <value>"{0}" now costs {1} — that's {2}% more than on {3}.</value>
+  </data>
+  <data name="PriceHistory.Decreased" xml:space="preserve">
+    <value>"{0}" now costs {1} — that's {2}% less than on {3}.</value>
+  </data>
+  <data name="PriceHistory.Unchanged" xml:space="preserve">
+    <value>"{0}" still costs {1}, same as on {2}.</value>
+  </data>
   <data name="Errors.NotUnderstood" xml:space="preserve">
     <value>I didn't get that. Try /help</value>
   </data>
