@@ -49,6 +49,7 @@ public sealed class MessageProcessor(
         ["/lingua"] = "/language",
         ["/aiuto"] = "/help",
         ["/nota"] = "/note",
+        ["/ricette"] = "/recipes",
         ["/utilizzo"] = "/usage",
     };
 
@@ -544,6 +545,18 @@ public sealed class MessageProcessor(
                 }
                 return;
             }
+
+            case NativeCommand.Recipes:
+            {
+                var preference = text["/recipes".Length..].Trim();
+                var recipesReply = await HandleSuggestRecipesAsync(
+                    scope, shopping, usage, spaceId, user.Id, culture, preference.Length > 0 ? preference : null, ct);
+                if (recipesReply is not null)
+                {
+                    await channel.SendTextAsync(address, recipesReply, ct);
+                }
+                return;
+            }
         }
 
         string? reply;
@@ -644,6 +657,8 @@ public sealed class MessageProcessor(
             LlmTools.QueryMonthlyExpenses => await HandleExpensesQueryAsync(expenses, spaceId, user, culture, ct),
             LlmTools.QueryExpenseHistory => await HandleHistoryQueryAsync(expenses, spaceId, user, culture, args, ct),
             LlmTools.QueryPriceHistory => await HandlePriceHistoryQueryAsync(expenses, spaceId, user, culture, args, ct),
+            LlmTools.SuggestRecipes => await HandleSuggestRecipesAsync(
+                scope, shopping, usage, spaceId, user.Id, culture, GetOptionalString(args, "preference"), ct),
             LlmTools.CreateReminder => await HandleLlmReminderAsync(scope, address, spaceId, user, culture, args, ct),
             LlmTools.CreateNote => await CreateNoteAndReplyAsync(
                 notes, undo, onboarding, address, spaceId, user.Id,
@@ -1308,6 +1323,7 @@ public sealed class MessageProcessor(
         Month,
         Note,
         Usage,
+        Recipes,
     }
 
     private static NativeCommand DetectNativeCommand(string text) => text switch
@@ -1321,6 +1337,7 @@ public sealed class MessageProcessor(
         _ when text.StartsWith("/month", StringComparison.OrdinalIgnoreCase) => NativeCommand.Month,
         _ when text.StartsWith("/note", StringComparison.OrdinalIgnoreCase) => NativeCommand.Note,
         _ when text.StartsWith("/usage", StringComparison.OrdinalIgnoreCase) => NativeCommand.Usage,
+        _ when text.StartsWith("/recipes", StringComparison.OrdinalIgnoreCase) => NativeCommand.Recipes,
         _ => NativeCommand.None,
     };
 
@@ -1343,6 +1360,7 @@ public sealed class MessageProcessor(
         NativeCommand.List => (ResourceKind.ShoppingList, AccessLevel.Read),
         NativeCommand.Month => (ResourceKind.Expenses, AccessLevel.Read),
         NativeCommand.Note => (ResourceKind.Notes, AccessLevel.Read),
+        NativeCommand.Recipes => (ResourceKind.ShoppingList, AccessLevel.Read),
         _ => (ResourceKind.ShoppingList, AccessLevel.Read),
     };
 
@@ -2179,6 +2197,38 @@ public sealed class MessageProcessor(
         };
     }
 
+    // "Ricette e suggerimenti dalla lista" (docs/06-roadmap.md) — reads whatever is currently
+    // on the default shopping list (bought or not: both count as "what the household has or
+    // is about to have") and asks the model for a couple of recipe ideas. No plan gate like
+    // receipts: this is an ordinary text completion, the same cost class as any other L3
+    // turn, so it only spends the space's normal daily allowance. The native /recipes command
+    // spends one call (the generation itself); natural language spends two, since the router's
+    // own decision that this is a suggest_recipes request is a first L3 call.
+    private async Task<string?> HandleSuggestRecipesAsync(
+        AsyncServiceScope scope, ShoppingListService shopping, UsageService usage, Guid spaceId, Guid userId,
+        CultureInfo culture, string? preference, CancellationToken ct)
+    {
+        var items = await shopping.GetItemsAsync(spaceId, userId, listName: null, ct);
+        if (items.Count == 0)
+        {
+            return localizer["Recipes.ListEmpty"];
+        }
+
+        var recipes = scope.ServiceProvider.GetService<RecipeSuggestionClient>();
+        if (recipes is null)
+        {
+            return localizer["Recipes.NotConfigured"];
+        }
+
+        if (!await usage.TryRecordL3CallAsync(spaceId, ct))
+        {
+            return localizer["Usage.LimitExceeded"];
+        }
+
+        var suggestion = await recipes.SuggestAsync(items.Select(i => i.RawText).ToList(), preference, culture.Name, ct);
+        return suggestion ?? localizer["Recipes.NotAvailable"];
+    }
+
     private static DateOnly? ParseOptionalDate(string? text) =>
         text is not null && DateOnly.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
             ? date
@@ -2830,6 +2880,7 @@ public sealed class MessageProcessor(
         $"/expense — {localizer["Commands.Expense.Description"]}",
         $"/remind — {localizer["Commands.Remind.Description"]}",
         $"/note — {localizer["Commands.Note.Description"]}",
+        $"/recipes — {localizer["Commands.Recipes.Description"]}",
         $"/usage — {localizer["Commands.Usage.Description"]}",
         $"/month — {localizer["Commands.Month.Description"]}",
         $"/link — {localizer["Commands.Link.Description"]}",

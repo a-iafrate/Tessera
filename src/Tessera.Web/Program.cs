@@ -164,6 +164,10 @@ if (azureOpenAiEnabled)
     // (gpt-4o-mini reads images too), gated on the same config since there's no separate
     // "vision endpoint" to configure.
     builder.Services.AddSingleton<ReceiptVisionClient>();
+
+    // Recipes and suggestions (docs/06-roadmap.md Fase 4) — plain text completion, same
+    // deployment and gate as everything else above.
+    builder.Services.AddSingleton<RecipeSuggestionClient>();
 }
 
 // Refresh tokens may only ever live in Key Vault, never the database (hard rule 4,
@@ -337,6 +341,7 @@ else
             new("expense", commandsLocalizer["Commands.Expense.Description"]),
             new("remind", commandsLocalizer["Commands.Remind.Description"]),
             new("note", commandsLocalizer["Commands.Note.Description"]),
+            new("recipes", commandsLocalizer["Commands.Recipes.Description"]),
             new("usage", commandsLocalizer["Commands.Usage.Description"]),
             new("month", commandsLocalizer["Commands.Month.Description"]),
             new("link", commandsLocalizer["Commands.Link.Description"]),

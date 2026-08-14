@@ -376,6 +376,18 @@
   <data name="Commands.Note.Description" xml:space="preserve">
     <value>Notes</value>
   </data>
+  <data name="Commands.Recipes.Description" xml:space="preserve">
+    <value>Recipe ideas from your list</value>
+  </data>
+  <data name="Recipes.ListEmpty" xml:space="preserve">
+    <value>Your shopping list is empty — add a few items first and I'll suggest something.</value>
+  </data>
+  <data name="Recipes.NotConfigured" xml:space="preserve">
+    <value>Recipe suggestions aren't available right now.</value>
+  </data>
+  <data name="Recipes.NotAvailable" xml:space="preserve">
+    <value>I couldn't come up with anything this time — try again in a moment.</value>
+  </data>
   <data name="Commands.Usage.Description" xml:space="preserve">
     <value>Plan and daily usage</value>
   </data>

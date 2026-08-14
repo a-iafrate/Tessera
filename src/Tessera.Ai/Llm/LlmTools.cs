@@ -28,6 +28,7 @@ public static class LlmTools
     public const string DeleteCalendarEvent = "delete_calendar_event";
     public const string MoveCalendarEvent = "move_calendar_event";
     public const string CorrectLastShoppingItem = "correct_last_shopping_item";
+    public const string SuggestRecipes = "suggest_recipes";
 
     // Tools filtered per context (docs/05-ottimizzazioni.md) — the correction tool only makes
     // sense, and only gets included, when LlmContext.RecentAction is actually set.
@@ -172,6 +173,19 @@ public static class LlmTools
                     "compare_to_date": { "type": "string", "description": "An ISO date (YYYY-MM-DD) to compare the current price against, worked out from the current date given in the context (e.g. \"6 months ago\"). Omit to compare against the earliest price on file." }
                   },
                   "required": ["product"]
+                }
+                """)),
+        ChatTool.CreateFunctionTool(
+            SuggestRecipes,
+            "Suggest recipes using the items currently on the shopping list. Use for questions " +
+            "like \"what can I cook with what's on the list\", \"give me a dinner idea\", " +
+            "\"suggest a quick vegetarian recipe from my list\".",
+            BinaryData.FromString("""
+                {
+                  "type": "object",
+                  "properties": {
+                    "preference": { "type": "string", "description": "A cuisine, dietary restriction, or constraint the user mentioned (e.g. \"vegetarian\", \"quick\", \"italian\"), if any." }
+                  }
                 }
                 """)),
         ChatTool.CreateFunctionTool(

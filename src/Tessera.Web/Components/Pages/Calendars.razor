@@ -38,9 +38,10 @@
             <div class="alert alert-danger">@Localizer[$"Calendars.Error.{errorKey}", errorProviderName ?? ""]</div>
         }
 
+        <div style="display: flex; gap: var(--space-4); flex-wrap: wrap;">
         @foreach (var state in providers)
         {
-            <div class="card" style="max-width: 32rem;">
+            <div class="card" style="flex: 1; min-width: 22rem;">
                 <h2>@Localizer["Calendars.ProviderHeading", state.DisplayName]</h2>
 
                 @if (!state.IsLinked)
@@ -86,6 +87,7 @@
                 }
             </div>
         }
+        </div>
 
         @if (providers.Any(p => p.IsLinked && p.Calendars.Count > 0))
         {
