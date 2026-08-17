@@ -1,6 +1,6 @@
-@if (!string.IsNullOrWhiteSpace(PictureUrl))
+@if (!string.IsNullOrWhiteSpace(PictureUrl) && !imageFailed)
 {
-    <img class="user-avatar" style="width: @(Size)rem; height: @(Size)rem;" src="@PictureUrl" alt="@DisplayName" />
+    <img class="user-avatar" style="width: @(Size)rem; height: @(Size)rem;" src="@PictureUrl" alt="@DisplayName" @onerror="() => imageFailed = true" />
 }
 else
 {
@@ -19,7 +19,22 @@ else
     [Parameter]
     public double Size { get; set; } = 2.5;
 
+    // A third-party URL (Google's CDN today) can fail to load for reasons outside our control
+    // — an ad blocker, a corporate filter, a since-rotated URL — so a load failure falls back
+    // to the initial rather than leaving the browser's broken-image icon on screen.
+    private bool imageFailed;
+    private string? lastPictureUrl;
+
     private string Initial => string.IsNullOrWhiteSpace(DisplayName)
         ? "?"
         : DisplayName.Trim()[..1].ToUpperInvariant();
+
+    protected override void OnParametersSet()
+    {
+        if (PictureUrl != lastPictureUrl)
+        {
+            lastPictureUrl = PictureUrl;
+            imageFailed = false;
+        }
+    }
 }
