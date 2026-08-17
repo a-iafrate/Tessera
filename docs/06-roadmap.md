@@ -208,6 +208,13 @@ Non prevista nella pianificazione originale — aggiunta su richiesta esplicita,
 - [ ] **Non fatto**: promemoria/digest proattivi recapitati anche sul canale web — restano solo su Telegram per ora, non è stato esteso in questa iterazione.
 - [ ] **Non fatto**: più schede/dispositivi aperti in contemporanea sullo stesso account — `WebChannel.Subscribe` sostituisce la mailbox precedente, non la affianca.
 
+## Login social e profilo utente
+
+- [x] **Login con Google**: `AddGoogle` (ASP.NET Core Identity), stesso client OAuth di Google Calendar — nessuna seconda review Google, scope non sensibili (`openid`/`profile`/`email`). Dettagli in [03-integrazioni.md](03-integrazioni.md#login-social-google---console).
+- [x] **Nome e foto profilo** (`User.DisplayName`/`PictureUrl`): valorizzati dalle claim Google alla creazione dell'account, editabili in qualsiasi momento da `/account`. Mostrati in console (barra di navigazione, `/chat`) e usati per il saluto personalizzato nella chat web.
+- [ ] **Non fatto**: login con Microsoft — stessa logica di riuso del client già usato per Microsoft Calendar, non ancora cablato.
+- [ ] **Non fatto**: nome/foto usati anche nei messaggi proattivi del bot (digest, promemoria) — per ora solo la console/chat web salutano per nome.
+
 ## Fase 5 — Ipotesi remote
 
 - Custom skill Alexa con invocation name — solo se emerge che l'Echo è il punto d'ingresso principale dell'utenza. Il sync bidirezionale resta impossibile, vedi [03-integrazioni.md](03-integrazioni.md).

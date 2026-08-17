@@ -36,6 +36,24 @@
 
         <div style="display: flex; gap: var(--space-4); flex-wrap: wrap;">
             <div class="card" style="flex: 1; min-width: 18rem;">
+                <h2>@Localizer["Profile.NameHeading"]</h2>
+                <div style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3);">
+                    <UserAvatar DisplayName="@displayName" PictureUrl="@pictureUrl" Size="3" />
+                    <div style="flex: 1;">
+                        <div class="form-floating mb-3">
+                            <input class="form-control" id="displayName" value="@displayName" disabled="@isBusy" @onchange="OnDisplayNameChangedAsync" />
+                            <label for="displayName">@Localizer["Profile.NameLabel"]</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-floating mb-3">
+                    <input class="form-control" id="pictureUrl" value="@pictureUrl" disabled="@isBusy" @onchange="OnPictureUrlChangedAsync" />
+                    <label for="pictureUrl">@Localizer["Profile.PictureUrlLabel"]</label>
+                </div>
+                <p class="text-soft">@Localizer["Profile.NameBody"]</p>
+            </div>
+
+            <div class="card" style="flex: 1; min-width: 18rem;">
                 <h2>@Localizer["Profile.LanguageHeading"]</h2>
                 <div class="form-floating mb-3">
                     <select class="form-control" id="culture" value="@culture" disabled="@isBusy" @onchange="OnCultureChangedAsync">
@@ -95,6 +113,8 @@
     private Guid userId;
     private bool loaded;
     private bool isBusy;
+    private string? displayName;
+    private string? pictureUrl;
     private string culture = "en";
     private string? timeZoneId;
     private Guid? defaultSpaceId;
@@ -107,12 +127,54 @@
         userId = Guid.Parse(authState.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
         var user = await UserProvisioningService.GetAsync(userId, CancellationToken.None);
+        displayName = user.DisplayName;
+        pictureUrl = user.PictureUrl;
         culture = user.PreferredCulture;
         timeZoneId = user.TimeZoneId;
         defaultSpaceId = user.DefaultSpaceId;
 
         spaces = await SpaceService.GetForUserAsync(userId, CancellationToken.None);
         loaded = true;
+    }
+
+    private async Task OnDisplayNameChangedAsync(ChangeEventArgs e)
+    {
+        if (isBusy)
+        {
+            return;
+        }
+
+        isBusy = true;
+        try
+        {
+            displayName = e.Value?.ToString();
+            await UserProvisioningService.SetDisplayNameAsync(userId, displayName, CancellationToken.None);
+            statusMessage = Localizer["Profile.Saved"];
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task OnPictureUrlChangedAsync(ChangeEventArgs e)
+    {
+        if (isBusy)
+        {
+            return;
+        }
+
+        isBusy = true;
+        try
+        {
+            pictureUrl = e.Value?.ToString();
+            await UserProvisioningService.SetPictureUrlAsync(userId, pictureUrl, CancellationToken.None);
+            statusMessage = Localizer["Profile.Saved"];
+        }
+        finally
+        {
+            isBusy = false;
+        }
     }
 
     private async Task OnCultureChangedAsync(ChangeEventArgs e)

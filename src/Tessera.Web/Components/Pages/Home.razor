@@ -198,7 +198,11 @@
     <NotAuthorized>
         <div class="hero">
             <div>
-                <h1>@Localizer["Landing.Tagline"]</h1>
+                <!-- The literal brand name is hardcoded, not localized, same as the navbar
+                     wordmark (MainLayout.razor) — Google's OAuth verification checks that the
+                     app name on the consent screen appears, as-is, next to a description of
+                     what the app does, right on the home page (docs/07-compliance.md). -->
+                <h1>Tessera: @Localizer["Landing.Tagline"]</h1>
                 <p class="lead">@Localizer["Landing.Lead"]</p>
                 <a class="btn btn-primary btn-lg" href="Account/Register">@Localizer["Landing.CtaPrimary"]</a>
                 <a class="btn btn-secondary btn-lg" href="Account/Login" style="margin-left: var(--space-3);">@Localizer["Landing.CtaSecondary"]</a>

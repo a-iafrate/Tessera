@@ -16,6 +16,7 @@
 @inject WebChannel WebChannel
 @inject MessageQueue Queue
 @inject LinkService LinkService
+@inject UserProvisioningService UserProvisioningService
 @inject IStringLocalizer<Messages> Localizer
 @inject IJSRuntime JsRuntime
 
@@ -23,7 +24,7 @@
 
 <div class="container" style="max-width: 40rem;">
     <h1>@Localizer["Chat.PageTitle"]</h1>
-    <p class="text-soft">@Localizer["Chat.Intro"]</p>
+    <p class="text-soft">@(displayName is null ? Localizer["Chat.Intro"] : Localizer["Chat.Greeting", displayName])</p>
 
     <div class="card" style="padding: 0; overflow: hidden;">
         <div class="chat-window" id="chat-window">
@@ -33,34 +34,17 @@
             }
             @foreach (var msg in messages)
             {
-                <div class="chat-bubble @(msg.FromUser ? "from-user" : "from-bot")" @key="msg.MessageId">
-                    @if (msg.Text is { Length: > 0 })
-                    {
-                        <p style="margin: 0; white-space: pre-wrap;">@msg.Text</p>
-                    }
-                    @if (msg.PhotoUrl is not null)
-                    {
-                        <img src="@msg.PhotoUrl" alt="" style="max-width: 100%; border-radius: var(--radius-sm); margin-top: var(--space-2);" />
-                    }
-                    @if (msg.DocumentUrl is not null)
-                    {
-                        <a href="@msg.DocumentUrl" target="_blank" rel="noopener" style="display: block; margin-top: var(--space-2);">📎 @msg.DocumentFileName</a>
-                    }
-                    @if (msg.Rows.Count > 0)
-                    {
-                        <div class="chat-choices">
-                            @foreach (var row in msg.Rows)
-                            {
-                                <div class="chat-choices-row">
-                                    @foreach (var choice in row)
-                                    {
-                                        <button type="button" class="btn btn-secondary" disabled="@isSending" @onclick="() => OnChoiceClickedAsync(msg.MessageId, choice.Value)">@choice.Text</button>
-                                    }
-                                </div>
-                            }
-                        </div>
-                    }
-                </div>
+                @if (msg.FromUser)
+                {
+                    <div class="chat-row from-user" @key="msg.MessageId">
+                        <div class="chat-bubble from-user">@ChatBubbleContent(msg)</div>
+                        <UserAvatar DisplayName="@displayName" PictureUrl="@pictureUrl" Size="1.75" />
+                    </div>
+                }
+                else
+                {
+                    <div class="chat-bubble from-bot" @key="msg.MessageId">@ChatBubbleContent(msg)</div>
+                }
             }
             @if (isSending)
             {
@@ -103,6 +87,8 @@
     private const long MaxAttachmentBytes = 10 * 1024 * 1024;
 
     private string chatId = "";
+    private string? displayName;
+    private string? pictureUrl;
     private string draft = "";
     private bool isSending;
     private readonly List<ChatBubble> messages = [];
@@ -115,6 +101,10 @@
         var authState = await AuthenticationStateTask!;
         var userId = Guid.Parse(authState.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         chatId = userId.ToString();
+
+        var user = await UserProvisioningService.GetAsync(userId, CancellationToken.None);
+        displayName = user.DisplayName;
+        pictureUrl = user.PictureUrl;
 
         // Web chat has no /link token flow — the identity is provisioned the first time this
         // page loads, idempotently (docs/06-roadmap.md: web chat channel).
@@ -246,6 +236,35 @@
             CallbackData: value,
             CallbackMessageId: messageId), CancellationToken.None);
     }
+
+    private RenderFragment ChatBubbleContent(ChatBubble msg) => @<text>
+        @if (msg.Text is { Length: > 0 })
+        {
+            <p style="margin: 0; white-space: pre-wrap;">@msg.Text</p>
+        }
+        @if (msg.PhotoUrl is not null)
+        {
+            <img src="@msg.PhotoUrl" alt="" style="max-width: 100%; border-radius: var(--radius-sm); margin-top: var(--space-2);" />
+        }
+        @if (msg.DocumentUrl is not null)
+        {
+            <a href="@msg.DocumentUrl" target="_blank" rel="noopener" style="display: block; margin-top: var(--space-2);">📎 @msg.DocumentFileName</a>
+        }
+        @if (msg.Rows.Count > 0)
+        {
+            <div class="chat-choices">
+                @foreach (var row in msg.Rows)
+                {
+                    <div class="chat-choices-row">
+                        @foreach (var choice in row)
+                        {
+                            <button type="button" class="btn btn-secondary" disabled="@isSending" @onclick="() => OnChoiceClickedAsync(msg.MessageId, choice.Value)">@choice.Text</button>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </text>;
 
     private async Task ScrollToBottomAsync()
     {

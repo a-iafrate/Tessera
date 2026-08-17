@@ -16,7 +16,9 @@ public sealed class UserProvisioningService(TesseraDbContext db)
     // IStringLocalizer (same convention as OnboardingService's hint keys) — the caller already
     // has one, and at signup time there's no User.PreferredCulture yet, only the ambient
     // CurrentUICulture the request-localization middleware set from Accept-Language.
-    public async Task ProvisionAsync(Guid userId, string email, string? timeZoneId, string personalSpaceName, CancellationToken ct)
+    public async Task ProvisionAsync(
+        Guid userId, string email, string? timeZoneId, string personalSpaceName, CancellationToken ct,
+        string? displayName = null, string? pictureUrl = null)
     {
         var now = DateTimeOffset.UtcNow;
         var space = new Space
@@ -35,6 +37,8 @@ public sealed class UserProvisioningService(TesseraDbContext db)
             CreatedAt = now,
             DefaultSpaceId = space.Id,
             TimeZoneId = timeZoneId,
+            DisplayName = displayName,
+            PictureUrl = pictureUrl,
         };
         var membership = new Membership
         {
@@ -66,6 +70,23 @@ public sealed class UserProvisioningService(TesseraDbContext db)
     {
         var user = await db.DomainUsers.FirstAsync(x => x.Id == userId, ct);
         user.TimeZoneId = timeZoneId;
+        await db.SaveChangesAsync(ct);
+    }
+
+    // Set on Profile, independent of how the account signed in — a value here always wins
+    // over whatever a future Google sign-in claim would otherwise suggest, since provisioning
+    // only ever writes DisplayName/PictureUrl once, at account creation (see ExternalLogin.razor).
+    public async Task SetDisplayNameAsync(Guid userId, string? displayName, CancellationToken ct)
+    {
+        var user = await db.DomainUsers.FirstAsync(x => x.Id == userId, ct);
+        user.DisplayName = string.IsNullOrWhiteSpace(displayName) ? null : displayName.Trim();
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task SetPictureUrlAsync(Guid userId, string? pictureUrl, CancellationToken ct)
+    {
+        var user = await db.DomainUsers.FirstAsync(x => x.Id == userId, ct);
+        user.PictureUrl = string.IsNullOrWhiteSpace(pictureUrl) ? null : pictureUrl.Trim();
         await db.SaveChangesAsync(ct);
     }
 

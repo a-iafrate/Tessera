@@ -7,6 +7,11 @@ public class User
     public Guid Id { get; set; }
     public string Email { get; set; } = null!;
     public string? DisplayName { get; set; }
+
+    // URL only, never a stored blob — set from the Google "picture" claim at first sign-in
+    // (Program.cs), editable afterward from Profile. Falls back to an initial-on-color avatar
+    // (docs/12-stile-sito.md) wherever it's null.
+    public string? PictureUrl { get; set; }
     public string PreferredCulture { get; set; } = "en";
     public string? TimeZoneId { get; set; }
     public Guid? DefaultSpaceId { get; set; }

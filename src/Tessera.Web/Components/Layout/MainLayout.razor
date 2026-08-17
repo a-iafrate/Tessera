@@ -1,9 +1,13 @@
 @inherits LayoutComponentBase
+@using System.Security.Claims
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
 @using Microsoft.Extensions.Localization
 @using Tessera.Core.Resources
+@using Tessera.Data
 
 @inject IStringLocalizer<Messages> Localizer
+@inject IDbContextFactory<TesseraDbContext> DbContextFactory
 
 <div class="navbar">
     <a class="wordmark" href="/">Tessera</a>
@@ -18,7 +22,10 @@
                 <a href="/chat">@Localizer["Nav.Chat"]</a>
                 <a href="/link/telegram">@Localizer["Nav.LinkTelegram"]</a>
                 <a href="/calendars">@Localizer["Nav.Calendars"]</a>
-                <a href="/account">@Localizer["Nav.Account"]</a>
+                <a href="/account" class="nav-account">
+                    <UserAvatar DisplayName="@displayName" PictureUrl="@pictureUrl" Size="1.75" />
+                    @(displayName ?? Localizer["Nav.Account"].Value)
+                </a>
                 <form action="Account/Logout" method="post" style="margin: 0;">
                     <AntiforgeryToken />
                     <input type="hidden" name="returnUrl" value="" />
@@ -48,7 +55,36 @@
 </div>
 
 @code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
     private bool isMenuOpen;
+    private string? displayName;
+    private string? pictureUrl;
 
     private void ToggleMenu() => isMenuOpen = !isMenuOpen;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthenticationStateTask is null)
+        {
+            return;
+        }
+
+        var authState = await AuthenticationStateTask;
+        if (authState.User.FindFirstValue(ClaimTypes.NameIdentifier) is not { } rawUserId
+            || !Guid.TryParse(rawUserId, out var userId))
+        {
+            return;
+        }
+
+        // A dedicated, short-lived context (see Program.cs) rather than a scoped/injected
+        // service — the routed page under this layout is very likely running its own
+        // OnInitializedAsync concurrently against the circuit's shared DbContext, and EF Core
+        // throws if two operations touch the same context instance at once.
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        var user = await db.DomainUsers.AsNoTracking().FirstOrDefaultAsync(x => x.Id == userId);
+        displayName = user?.DisplayName;
+        pictureUrl = user?.PictureUrl;
+    }
 }

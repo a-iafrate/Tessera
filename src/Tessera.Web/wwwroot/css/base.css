@@ -241,6 +241,20 @@ a.card:hover { border-color: var(--clay); }
   color: var(--ink);
 }
 
+/* Wraps only user bubbles on the live /chat page so the sender's avatar can sit next to their
+   own messages — bot bubbles stay untouched, still direct .chat-window children, same as the
+   marketing mockup above. */
+.chat-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  max-width: 85%;
+}
+
+.chat-row.from-user {
+  align-self: flex-end;
+}
+
 /* Live chat page (/chat) — same bubble language as the marketing mockup above, but a
    scrollable window with an input bar instead of a handful of fixed example lines. */
 .chat-window {
@@ -276,6 +290,29 @@ a.card:hover { border-color: var(--clay); }
 
 .chat-input-bar input {
   flex: 1;
+}
+
+.nav-account {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* User avatar — a photo from the login provider, or an initial on the brand color when there
+   isn't one (docs/12-stile-sito.md's space-avatar convention, reused for users). */
+.user-avatar {
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.user-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--clay);
+  color: #fff;
+  font-weight: 600;
 }
 
 /* Dashboard preview sections — a boxed divider so 4-5 grid cells scan as

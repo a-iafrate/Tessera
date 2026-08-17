@@ -1,0 +1,25 @@
+@if (!string.IsNullOrWhiteSpace(PictureUrl))
+{
+    <img class="user-avatar" style="width: @(Size)rem; height: @(Size)rem;" src="@PictureUrl" alt="@DisplayName" />
+}
+else
+{
+    <span class="user-avatar user-avatar-fallback" style="width: @(Size)rem; height: @(Size)rem; font-size: @(Size * 0.5)rem;">
+        @Initial
+    </span>
+}
+
+@code {
+    [Parameter]
+    public string? DisplayName { get; set; }
+
+    [Parameter]
+    public string? PictureUrl { get; set; }
+
+    [Parameter]
+    public double Size { get; set; } = 2.5;
+
+    private string Initial => string.IsNullOrWhiteSpace(DisplayName)
+        ? "?"
+        : DisplayName.Trim()[..1].ToUpperInvariant();
+}

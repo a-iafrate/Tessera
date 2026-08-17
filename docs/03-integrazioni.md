@@ -156,6 +156,20 @@ var valid = CryptographicOperations.FixedTimeEquals(
 
 L'HMAC va calcolato sul **body raw**, prima di qualunque deserializzazione. Serve `EnableBuffering()` o un middleware che catturi il corpo grezzo.
 
+## Login social (Google) — console
+
+`AddGoogle` (ASP.NET Core Identity, `Program.cs`) usa **lo stesso client OAuth** di Google Calendar più sotto — stesso `Google:ClientId`/`Google:ClientSecret`, nessun secondo progetto da creare in Google Cloud Console. Sono due autorizzazioni indipendenti sullo stesso client:
+
+| | Login | Google Calendar |
+|---|---|---|
+| Scope | `openid`, `profile`, `email` (**non sensitive**) | `calendar.*` (**sensitive**, review Google) |
+| Serve un refresh token? | No — una lettura una tantum delle claim al sign-in | Sì, in Key Vault (regola 4) |
+| Redirect URI | `/signin-google` (default del middleware) | `/oauth/google/callback` (`CalendarOAuthEndpoints`) |
+
+Entrambi i redirect URI vanno registrati sullo stesso client, per ambiente (dev e produzione). Aggiungere `profile`/`email` come scope di login **non riapre la review Google**: sono scope non sensibili, concessi anche mentre l'app è in coda per la review dei permessi Calendar.
+
+Nome e foto dell'account (`User.DisplayName`/`PictureUrl`) sono valorizzati dalle claim `name`/`picture` **solo alla creazione dell'account** (`ExternalLogin.razor`) — un utente esistente che collega Google in un secondo momento non li sovrascrive, e un valore impostato a mano da Profilo resta tale sui sign-in successivi.
+
 ## Google Calendar — fase 2
 
 ### Classificazione degli scope

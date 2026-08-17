@@ -84,6 +84,7 @@ La differenza è la ragione per cui Gmail è in Fase 4 con un punto di domanda e
 
 - [ ] Dominio verificato in Google Search Console
 - [ ] Homepage pubblica sul dominio che descriva l'applicazione — la console assolve
+- [ ] Il nome app configurato nella schermata di consenso OAuth (Google Cloud Console → OAuth consent screen → nome app) compare **letteralmente** e in modo prominente sulla home page, accanto alla descrizione — non basta un wordmark in un angolo: il controllo automatico di Google confronta il testo, non il logo. Verificare anche che il campo "Application home page" della stessa schermata punti esattamente al dominio pubblicato (non un placeholder, non l'host `*.azurewebsites.net`)
 - [ ] Privacy policy raggiungibile, con sezione **specifica** sull'uso dei dati Google
 - [ ] Termini di servizio
 - [ ] Video demo su YouTube che mostri: il consent screen, cosa l'utente autorizza, l'uso concreto di ogni scope richiesto
@@ -123,7 +124,7 @@ Nota sui tenant aziendali: alcune organizzazioni richiedono il consenso dell'amm
 
 | Categoria | Dove | Base giuridica |
 |---|---|---|
-| Email, nome | Azure SQL | Esecuzione del contratto |
+| Email, nome, URL foto profilo | Azure SQL — la foto è un link all'hosting del provider (Google), mai un blob copiato | Esecuzione del contratto |
 | Identità di canale (chat_id) | Azure SQL | Esecuzione del contratto |
 | Lista della spesa, spese | Azure SQL | Esecuzione del contratto |
 | Refresh token OAuth | Key Vault | Consenso esplicito |

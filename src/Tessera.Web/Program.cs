@@ -5,6 +5,7 @@ using Azure.AI.OpenAI;
 using Azure.Identity;
 using Azure.Security.KeyVault.Secrets;
 using Azure.Storage.Blobs;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
@@ -58,26 +59,71 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<IdentityRedirectManager>();
 builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
 
-builder.Services.AddAuthentication(options =>
+// Same Google Cloud OAuth client as calendar linking below (Google:ClientId/ClientSecret) —
+// one registered app, two unrelated authorization requests. Login only ever asks for the
+// non-sensitive openid/profile/email scopes, so unlike calendar's calendar.* scopes it needs
+// no Google OAuth review of its own and doesn't touch Key Vault (docs/03-integrazioni.md):
+// there's no ongoing API access to refresh, just a one-time read of the signed-in user's
+// claims. Read here, before AddAuthentication, so AddGoogle can be chained conditionally;
+// googleCalendarEnabled below reuses the same two variables rather than re-reading them.
+var googleClientId = builder.Configuration["Google:ClientId"];
+var googleClientSecret = builder.Configuration["Google:ClientSecret"];
+var googleLoginEnabled = !string.IsNullOrWhiteSpace(googleClientId) && !string.IsNullOrWhiteSpace(googleClientSecret);
+
+// AddIdentityCookies returns an IdentityCookiesBuilder, not the AuthenticationBuilder itself —
+// AddGoogle needs the latter, so it's captured from AddAuthentication directly rather than
+// chained off AddIdentityCookies's result.
+var authenticationBuilder = builder.Services.AddAuthentication(options =>
+{
+    options.DefaultScheme = IdentityConstants.ApplicationScheme;
+    options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
+});
+authenticationBuilder.AddIdentityCookies(cookies =>
+{
+    // HttpOnly + Secure + SameSite=Lax: the console never needs script access to the
+    // auth cookie, and OAuth external-login callbacks are top-level GET redirects.
+    cookies.ApplicationCookie?.Configure(options =>
     {
-        options.DefaultScheme = IdentityConstants.ApplicationScheme;
-        options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
-    })
-    .AddIdentityCookies(cookies =>
-    {
-        // HttpOnly + Secure + SameSite=Lax: the console never needs script access to the
-        // auth cookie, and OAuth external-login callbacks are top-level GET redirects.
-        cookies.ApplicationCookie?.Configure(options =>
-        {
-            options.Cookie.HttpOnly = true;
-            options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-            options.Cookie.SameSite = SameSiteMode.Lax;
-        });
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.Cookie.SameSite = SameSiteMode.Lax;
     });
+});
+
+if (googleLoginEnabled)
+{
+    // Must be registered in the same OAuth client's "Authorized redirect URIs" as calendar
+    // linking's /oauth/google/callback — the handler's own default callback path is
+    // /signin-google, for both the local dev and production origins.
+    authenticationBuilder.AddGoogle(options =>
+    {
+        options.ClientId = googleClientId!;
+        options.ClientSecret = googleClientSecret!;
+        options.Scope.Add("profile");
+        options.ClaimActions.MapJsonKey("urn:google:picture", "picture");
+    });
+}
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 builder.Services.AddDbContext<TesseraDbContext>(options => options.UseSqlServer(connectionString));
+
+// A second, independent way to get a TesseraDbContext, alongside the scoped one AddDbContext
+// registers above — MainLayout needs its own short-lived context for the nav-bar avatar
+// lookup because it isn't safe to share the circuit's scoped DbContext with whatever the
+// routed page underneath it is doing in its own OnInitializedAsync: Blazor starts rendering
+// (and running child OnInitializedAsync) before a layout's own async OnInitializedAsync
+// necessarily completes, so two components sharing one DbContext instance can end up calling
+// it concurrently — EF Core's concurrency detector then throws
+// "A second operation was started on this context instance...". A factory-created context
+// sidesteps this because it's never shared with anything else.
+// Scoped, not the default Singleton — AddDbContext above registers
+// DbContextOptions<TesseraDbContext> as scoped, and a singleton factory can't consume a scoped
+// dependency. Scoped still gives every CreateDbContextAsync() call a brand-new DbContext
+// instance, which is all that's needed here; it just means the factory itself doesn't outlive
+// the circuit, which is irrelevant to that guarantee.
+builder.Services.AddDbContextFactory<TesseraDbContext>(
+    options => options.UseSqlServer(connectionString), ServiceLifetime.Scoped);
 
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
     {
@@ -203,11 +249,7 @@ if (blobStorageEnabled)
 // LinkedAccountService/CalendarSpaceService/CalendarQueryService are provider-agnostic, so
 // they're registered once as soon as any provider is enabled (hard rule 15's effective-level
 // computation doesn't care which provider a given LinkedAccount came from).
-var googleClientId = builder.Configuration["Google:ClientId"];
-var googleClientSecret = builder.Configuration["Google:ClientSecret"];
-var googleCalendarEnabled = keyVaultEnabled
-    && !string.IsNullOrWhiteSpace(googleClientId)
-    && !string.IsNullOrWhiteSpace(googleClientSecret);
+var googleCalendarEnabled = keyVaultEnabled && googleLoginEnabled;
 
 var microsoftClientId = builder.Configuration["Microsoft:ClientId"];
 var microsoftClientSecret = builder.Configuration["Microsoft:ClientSecret"];

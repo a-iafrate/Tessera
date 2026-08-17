@@ -168,8 +168,15 @@
         Logger.LogInformation("User created an account using {Name} provider.", externalLoginInfo.LoginProvider);
 
         // No form of its own to collect a time zone from — falls back to UTC until the person
-        // visits Profile and sets it (docs/09-localizzazione.md).
-        await UserProvisioning.ProvisionAsync(user.Id, Input.Email, timeZoneId: null, Localizer["Spaces.PersonalDefaultName"].Value, CancellationToken.None);
+        // visits Profile and sets it (docs/09-localizzazione.md). Name/picture come from the
+        // provider's claims (Program.cs maps Google's "picture" to urn:google:picture) and are
+        // only ever applied here, at account creation — a later Profile edit always wins over
+        // whatever the provider would otherwise suggest on a subsequent sign-in.
+        var displayName = externalLoginInfo.Principal.FindFirstValue(ClaimTypes.Name);
+        var pictureUrl = externalLoginInfo.Principal.FindFirstValue("urn:google:picture");
+        await UserProvisioning.ProvisionAsync(
+            user.Id, Input.Email, timeZoneId: null, Localizer["Spaces.PersonalDefaultName"].Value, CancellationToken.None,
+            displayName, pictureUrl);
 
         await SignInManager.SignInAsync(user, isPersistent: false, externalLoginInfo.LoginProvider);
         RedirectManager.RedirectTo(ReturnUrl);

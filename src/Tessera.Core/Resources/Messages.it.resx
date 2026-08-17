@@ -752,6 +752,9 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   <data name="Chat.Intro" xml:space="preserve">
     <value>Parla con l'assistente direttamente da qui — non serve Telegram.</value>
   </data>
+  <data name="Chat.Greeting" xml:space="preserve">
+    <value>Ciao {0} — parla con l'assistente direttamente da qui, non serve Telegram.</value>
+  </data>
   <data name="Chat.Empty" xml:space="preserve">
     <value>Scrivi un saluto, o prova "cosa c'è in lista?"</value>
   </data>
@@ -787,6 +790,18 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   </data>
   <data name="Profile.Saving" xml:space="preserve">
     <value>Salvataggio…</value>
+  </data>
+  <data name="Profile.NameHeading" xml:space="preserve">
+    <value>Nome e foto</value>
+  </data>
+  <data name="Profile.NameLabel" xml:space="preserve">
+    <value>Nome visualizzato</value>
+  </data>
+  <data name="Profile.PictureUrlLabel" xml:space="preserve">
+    <value>URL della foto</value>
+  </data>
+  <data name="Profile.NameBody" xml:space="preserve">
+    <value>Impostati dal tuo account Google al primo accesso, se ne hai usato uno — modificabili in qualsiasi momento. Mostrati nella console e usati dal bot per chiamarti per nome.</value>
   </data>
   <data name="Profile.LanguageHeading" xml:space="preserve">
     <value>Lingua</value>
@@ -1064,7 +1079,7 @@ Provami subito:</value>
     <value>Chi siamo</value>
   </data>
   <data name="Privacy.IntroBody" xml:space="preserve">
-    <value>Tessera è gestita da [nome del gestore — segnaposto], contattabile a [privacy@example.com — segnaposto]. Questa informativa spiega quali dati trattiamo quando usi il bot e la console di Tessera, e perché.</value>
+    <value>Tessera è gestita da Acquariusoft, contattabile a acquariusoft@gmail.com. Questa informativa spiega quali dati trattiamo quando usi il bot e la console di Tessera, e perché.</value>
   </data>
   <data name="Privacy.DataHeading" xml:space="preserve">
     <value>Dati che trattiamo</value>
@@ -1139,7 +1154,7 @@ Provami subito:</value>
     <value>Contatti</value>
   </data>
   <data name="Privacy.ContactBody" xml:space="preserve">
-    <value>Domande su questa informativa o sui tuoi dati: [privacy@example.com — segnaposto].</value>
+    <value>Domande su questa informativa o sui tuoi dati: acquariusoft@gmail.com.</value>
   </data>
   <data name="Terms.Title" xml:space="preserve">
     <value>Termini di servizio</value>
@@ -1151,7 +1166,7 @@ Provami subito:</value>
     <value>Ultimo aggiornamento: agosto 2026</value>
   </data>
   <data name="Terms.IntroBody" xml:space="preserve">
-    <value>Questi termini regolano il tuo uso del bot e della console web di Tessera, gestita da [nome del gestore — segnaposto]. Usando Tessera, li accetti.</value>
+    <value>Questi termini regolano il tuo uso del bot e della console web di Tessera, gestita da Acquariusoft. Usando Tessera, li accetti.</value>
   </data>
   <data name="Terms.ServiceHeading" xml:space="preserve">
     <value>Cos'è Tessera</value>
@@ -1187,7 +1202,7 @@ Provami subito:</value>
     <value>Limitazione di responsabilità</value>
   </data>
   <data name="Terms.LiabilityBody" xml:space="preserve">
-    <value>Nei limiti consentiti dalla legge, [nome del gestore — segnaposto] non è responsabile per danni indiretti o consequenziali derivanti dall'uso di Tessera.</value>
+    <value>Nei limiti consentiti dalla legge, Acquariusoft non è responsabile per danni indiretti o consequenziali derivanti dall'uso di Tessera.</value>
   </data>
   <data name="Terms.TerminationHeading" xml:space="preserve">
     <value>Chiusura dell'account</value>
@@ -1205,7 +1220,7 @@ Provami subito:</value>
     <value>Contatti</value>
   </data>
   <data name="Terms.ContactBody" xml:space="preserve">
-    <value>Domande su questi termini: [legal@example.com — segnaposto].</value>
+    <value>Domande su questi termini: acquariusoft@gmail.com.</value>
   </data>
   <data name="Notes.PageTitle" xml:space="preserve">
     <value>Note</value>

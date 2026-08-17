@@ -20,6 +20,7 @@ public class User
     public Guid Id { get; set; }
     public string Email { get; set; } = null!;         // account console
     public string? DisplayName { get; set; }
+    public string? PictureUrl { get; set; }               // URL, non un blob — vedi 03/07
     public string PreferredCulture { get; set; } = "en";  // IETF: "it", "en" — vedi 09
     public string? TimeZoneId { get; set; }               // IANA: "Europe/Rome"
     public Guid? DefaultSpaceId { get; set; }             // disambiguazione in chat privata

@@ -752,6 +752,9 @@ Note: I only read messages that start with / or mention me.</value>
   <data name="Chat.Intro" xml:space="preserve">
     <value>Talk to the assistant right here — no Telegram needed.</value>
   </data>
+  <data name="Chat.Greeting" xml:space="preserve">
+    <value>Hi {0} — talk to the assistant right here, no Telegram needed.</value>
+  </data>
   <data name="Chat.Empty" xml:space="preserve">
     <value>Say hello, or try "what's on my list?"</value>
   </data>
@@ -787,6 +790,18 @@ Note: I only read messages that start with / or mention me.</value>
   </data>
   <data name="Profile.Saving" xml:space="preserve">
     <value>Saving…</value>
+  </data>
+  <data name="Profile.NameHeading" xml:space="preserve">
+    <value>Name &amp; photo</value>
+  </data>
+  <data name="Profile.NameLabel" xml:space="preserve">
+    <value>Display name</value>
+  </data>
+  <data name="Profile.PictureUrlLabel" xml:space="preserve">
+    <value>Photo URL</value>
+  </data>
+  <data name="Profile.NameBody" xml:space="preserve">
+    <value>Set from your Google account on first sign-in, if you used one — change either at any time. Shown in the console and used by the bot to greet you by name.</value>
   </data>
   <data name="Profile.LanguageHeading" xml:space="preserve">
     <value>Language</value>
@@ -1064,7 +1079,7 @@ Try it now:</value>
     <value>Who this is from</value>
   </data>
   <data name="Privacy.IntroBody" xml:space="preserve">
-    <value>Tessera is operated by [operator name — placeholder], contactable at [privacy@example.com — placeholder]. This policy explains what data we process when you use the Tessera bot and console, and why.</value>
+    <value>Tessera is operated by Acquariusoft, contactable at acquariusoft@gmail.com. This policy explains what data we process when you use the Tessera bot and console, and why.</value>
   </data>
   <data name="Privacy.DataHeading" xml:space="preserve">
     <value>Data we process</value>
@@ -1139,7 +1154,7 @@ Try it now:</value>
     <value>Contact</value>
   </data>
   <data name="Privacy.ContactBody" xml:space="preserve">
-    <value>Questions about this policy or your data: [privacy@example.com — placeholder].</value>
+    <value>Questions about this policy or your data: acquariusoft@gmail.com.</value>
   </data>
   <data name="Terms.Title" xml:space="preserve">
     <value>Terms of Service</value>
@@ -1151,7 +1166,7 @@ Try it now:</value>
     <value>Last updated: August 2026</value>
   </data>
   <data name="Terms.IntroBody" xml:space="preserve">
-    <value>These terms cover your use of the Tessera bot and web console, operated by [operator name — placeholder]. By using Tessera, you agree to them.</value>
+    <value>These terms cover your use of the Tessera bot and web console, operated by Acquariusoft. By using Tessera, you agree to them.</value>
   </data>
   <data name="Terms.ServiceHeading" xml:space="preserve">
     <value>What Tessera is</value>
@@ -1187,7 +1202,7 @@ Try it now:</value>
     <value>Limitation of liability</value>
   </data>
   <data name="Terms.LiabilityBody" xml:space="preserve">
-    <value>To the extent permitted by law, [operator name — placeholder] isn't liable for indirect or consequential damages arising from your use of Tessera.</value>
+    <value>To the extent permitted by law, Acquariusoft isn't liable for indirect or consequential damages arising from your use of Tessera.</value>
   </data>
   <data name="Terms.TerminationHeading" xml:space="preserve">
     <value>Ending your account</value>
@@ -1205,7 +1220,7 @@ Try it now:</value>
     <value>Contact</value>
   </data>
   <data name="Terms.ContactBody" xml:space="preserve">
-    <value>Questions about these terms: [legal@example.com — placeholder].</value>
+    <value>Questions about these terms: acquariusoft@gmail.com.</value>
   </data>
   <data name="Notes.PageTitle" xml:space="preserve">
     <value>Notes</value>
