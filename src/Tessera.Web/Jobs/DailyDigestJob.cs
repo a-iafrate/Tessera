@@ -14,7 +14,7 @@ namespace Tessera.Web.Jobs;
 // rather than running once at one fixed hour (docs/01-architettura.md).
 public sealed class DailyDigestJob(
     IServiceScopeFactory scopeFactory,
-    IChannel channel,
+    IChannelRegistry channelRegistry,
     IStringLocalizer<Messages> localizer,
     ILogger<DailyDigestJob> logger) : IScheduledJob
 {
@@ -59,14 +59,15 @@ public sealed class DailyDigestJob(
             var userIdentities = await identities.GetForUserAsync(user.Id, ct);
             foreach (var identity in userIdentities)
             {
-                if (identity.ChannelName != channel.Name || identity.ExternalChatId is not { } chatId)
+                if (channelRegistry.TryGet(identity.ChannelName) is not { } identityChannel
+                    || identity.ExternalChatId is not { } chatId)
                 {
                     continue;
                 }
 
                 try
                 {
-                    await channel.SendTextAsync(new ChannelAddress(identity.ChannelName, chatId), text, ct);
+                    await identityChannel.SendTextAsync(new ChannelAddress(identity.ChannelName, chatId), text, ct);
                 }
                 catch (Exception ex)
                 {

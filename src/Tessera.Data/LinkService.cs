@@ -50,6 +50,33 @@ public sealed class LinkService(TesseraDbContext db)
         return await db.DomainUsers.AsNoTracking().FirstOrDefaultAsync(x => x.Id == linkToken.UserId, ct);
     }
 
+    // Web chat has no linking flow — the user is already authenticated in console, so their
+    // ChannelIdentity is provisioned automatically instead of via a token (docs/06-roadmap.md:
+    // web chat channel). ExternalUserId and ExternalChatId are both just the user's own id:
+    // one identity per user, no external chat_id to disambiguate.
+    public async Task<ChannelIdentity> EnsureWebIdentityAsync(Guid userId, CancellationToken ct)
+    {
+        var existing = await db.ChannelIdentities
+            .FirstOrDefaultAsync(x => x.ChannelName == "web" && x.ExternalUserId == userId.ToString(), ct);
+        if (existing is not null)
+        {
+            return existing;
+        }
+
+        var identity = new ChannelIdentity
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            ChannelName = "web",
+            ExternalUserId = userId.ToString(),
+            ExternalChatId = userId.ToString(),
+            LinkedAt = DateTimeOffset.UtcNow,
+        };
+        db.ChannelIdentities.Add(identity);
+        await db.SaveChangesAsync(ct);
+        return identity;
+    }
+
     private static string GenerateToken() =>
         Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
             .TrimEnd('=')

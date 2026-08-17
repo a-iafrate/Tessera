@@ -18,7 +18,7 @@ public sealed class NotificationService(
     TesseraDbContext db,
     IChannelIdentityRepository identities,
     ActorNameResolver actorNames,
-    IChannel channel,
+    IChannelRegistry channelRegistry,
     IStringLocalizer<Messages> localizer,
     ILogger<NotificationService> logger)
 {
@@ -76,7 +76,8 @@ public sealed class NotificationService(
             var recipientIdentities = await identities.GetForUserAsync(recipient.Id, ct);
             foreach (var identity in recipientIdentities)
             {
-                if (identity.ChannelName != channel.Name || identity.ExternalChatId is not { } chatId)
+                if (channelRegistry.TryGet(identity.ChannelName) is not { } identityChannel
+                    || identity.ExternalChatId is not { } chatId)
                 {
                     continue;
                 }
@@ -91,7 +92,7 @@ public sealed class NotificationService(
 
                 try
                 {
-                    await channel.SendTextAsync(new ChannelAddress(identity.ChannelName, chatId), text, ct);
+                    await identityChannel.SendTextAsync(new ChannelAddress(identity.ChannelName, chatId), text, ct);
                 }
                 catch (Exception ex)
                 {

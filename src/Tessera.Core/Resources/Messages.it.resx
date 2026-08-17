@@ -743,6 +743,30 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   <data name="Nav.YourSpaces" xml:space="preserve">
     <value>I tuoi spazi</value>
   </data>
+  <data name="Nav.Chat" xml:space="preserve">
+    <value>Chat</value>
+  </data>
+  <data name="Chat.PageTitle" xml:space="preserve">
+    <value>Chat</value>
+  </data>
+  <data name="Chat.Intro" xml:space="preserve">
+    <value>Parla con l'assistente direttamente da qui — non serve Telegram.</value>
+  </data>
+  <data name="Chat.Empty" xml:space="preserve">
+    <value>Scrivi un saluto, o prova "cosa c'è in lista?"</value>
+  </data>
+  <data name="Chat.InputPlaceholder" xml:space="preserve">
+    <value>Scrivi un messaggio…</value>
+  </data>
+  <data name="Chat.SendButton" xml:space="preserve">
+    <value>Invia</value>
+  </data>
+  <data name="Chat.AttachButton" xml:space="preserve">
+    <value>Allega una foto o un PDF</value>
+  </data>
+  <data name="Chat.AttachmentTooLarge" xml:space="preserve">
+    <value>Il file è troppo grande — prova con uno sotto i 10 MB.</value>
+  </data>
   <data name="Nav.LogIn" xml:space="preserve">
     <value>Accedi</value>
   </data>

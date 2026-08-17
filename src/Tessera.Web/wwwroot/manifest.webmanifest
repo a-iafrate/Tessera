@@ -1,0 +1,18 @@
+{
+  "name": "Tessera",
+  "short_name": "Tessera",
+  "description": "Family assistant for shopping lists, expenses, reminders and calendars.",
+  "start_url": "/chat",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ECEAE3",
+  "theme_color": "#B5502E",
+  "icons": [
+    {
+      "src": "images/tessera-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

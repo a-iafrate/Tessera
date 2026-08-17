@@ -17,7 +17,7 @@ namespace Tessera.Web.Jobs;
 // member without Read-level Calendar access, so no separate permission pass is needed here.
 public sealed class CalendarReminderJob(
     IServiceScopeFactory scopeFactory,
-    IChannel channel,
+    IChannelRegistry channelRegistry,
     IStringLocalizer<Messages> localizer,
     ILogger<CalendarReminderJob> logger) : IScheduledJob
 {
@@ -80,14 +80,15 @@ public sealed class CalendarReminderJob(
                     var recipientIdentities = await identities.GetForUserAsync(memberId, ct);
                     foreach (var identity in recipientIdentities)
                     {
-                        if (identity.ChannelName != channel.Name || identity.ExternalChatId is not { } chatId)
+                        if (channelRegistry.TryGet(identity.ChannelName) is not { } identityChannel
+                            || identity.ExternalChatId is not { } chatId)
                         {
                             continue;
                         }
 
                         try
                         {
-                            await channel.SendTextAsync(new ChannelAddress(identity.ChannelName, chatId), text, ct);
+                            await identityChannel.SendTextAsync(new ChannelAddress(identity.ChannelName, chatId), text, ct);
                         }
                         catch (Exception ex)
                         {

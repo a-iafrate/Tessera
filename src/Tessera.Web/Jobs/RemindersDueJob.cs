@@ -13,7 +13,7 @@ namespace Tessera.Web.Jobs;
 // if nobody is chatting with the bot at that moment (docs/01-architettura.md).
 public sealed class RemindersDueJob(
     IServiceScopeFactory scopeFactory,
-    IChannel channel,
+    IChannelRegistry channelRegistry,
     IStringLocalizer<Messages> localizer,
     ILogger<RemindersDueJob> logger) : IScheduledJob
 {
@@ -54,14 +54,15 @@ public sealed class RemindersDueJob(
 
             foreach (var identity in recipientIdentities)
             {
-                if (identity.ChannelName != channel.Name || identity.ExternalChatId is not { } chatId)
+                if (channelRegistry.TryGet(identity.ChannelName) is not { } identityChannel
+                    || identity.ExternalChatId is not { } chatId)
                 {
                     continue;
                 }
 
                 try
                 {
-                    await channel.SendChoicesAsync(
+                    await identityChannel.SendChoicesAsync(
                         new ChannelAddress(identity.ChannelName, chatId), localizer["Reminders.DueNotification"], choices, ct);
                 }
                 catch (Exception ex)

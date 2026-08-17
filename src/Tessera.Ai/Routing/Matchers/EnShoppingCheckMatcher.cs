@@ -8,8 +8,10 @@ public sealed class EnShoppingCheckMatcher : IIntentMatcher
 
     public string Culture => "en";
 
+    // (the|my|your|our) matters: without it, "check off milk from my list" fails to strip
+    // the suffix and the whole tail gets swallowed into item.
     private static readonly Regex Pattern = new(
-        @"^\s*check(\s+off)?\s+(?<item>.+?)(\s+(from|on)\s+the\s+list.*)?[?!.]*$",
+        @"^\s*check(\s+off)?\s+(?<item>.+?)(\s+(from|on)\s+(the|my|your|our)\s+list.*)?[?!.]*$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     public IntentMatch? TryMatch(string text)

@@ -39,7 +39,7 @@ src/
     Notifications/            ← eventi di dominio strutturati (vedi 09)
     Resources/                ← Messages.resx, Messages.it.resx
     Abstractions/             ← interfacce dei repository e dei servizi
-  Tessera.Channels/         ← IChannel, TelegramChannel, WhatsAppChannel
+  Tessera.Channels/         ← IChannel, IChannelRegistry, TelegramChannel, WebChannel, WhatsAppChannel
   Tessera.Integrations/     ← GraphCalendarClient, GoogleCalendarClient
   Tessera.Ai/               ← router di intent, client Azure OpenAI, tool schema
   Tessera.Data/             ← EF Core: DbContext, configurazioni, migrations
@@ -72,6 +72,18 @@ public record ChannelCapabilities(
     bool SupportsDeepLinkPayload  // Telegram: true (/start <token>) — WhatsApp: false
 );
 ```
+
+### Canale Web (console) e `IChannelRegistry`
+
+Un terzo canale, oltre a Telegram e WhatsApp: la pagina `/chat` della console stessa, per chi non ha Telegram, accede da un altro dispositivo, o vuole solo provare l'assistente. Nessun provider esterno, nessun webhook — l'invio non è una chiamata HTTP in uscita ma la scrittura in una mailbox in memoria per utente, che la pagina Blazor legge in streaming finché resta aperta. `WebChannel.Capabilities` ha `SupportsGroups: false` (nessun concetto di gruppo in console) e `SupportsDeepLinkPayload: false` (l'utente è già autenticato, non serve un token `/start`).
+
+L'identità segue lo stesso schema di Telegram — `ChannelIdentity` con `ChannelName = "web"` — ma **auto-provisionata** invece che tramite `LinkToken`: chi è già loggato in console non ha bisogno di un flusso di collegamento, `LinkService.EnsureWebIdentityAsync` crea la riga idempotentemente al primo caricamento di `/chat`. Questo evita qualunque ramo speciale nel resto della pipeline: `MessageProcessor` risolve l'utente da `ChannelIdentity` esattamente come per Telegram.
+
+Aggiungere un secondo canale ha reso evidente un problema che esisteva già in nuce: `MessageProcessor`, `NotificationService` e i job proattivi (`RemindersDueJob` e simili) iniettavano un singolo `IChannel` — corretto quando ne esisteva uno solo, ma con due registrazioni la DI di .NET risolve silenziosamente l'ultima registrata invece di segnalare un errore. `IChannelRegistry` (in `Tessera.Core.Channels`, implementato in `Tessera.Channels`) risolve il canale giusto per `ChannelName` in ognuno di questi punti — la stessa astrazione che il canale WhatsApp di Fase 3 dovrà usare, non qualcosa di nuovo introdotto solo per il web.
+
+**v1 vs v2.** La v1 è solo testo: nessun `IBrowserFile` in ingresso, `WebChannel.DownloadMediaAsync` non aveva nulla da scaricare. La v2 aggiunge gli allegati: la pagina legge i byte del file scelto nel browser (già disponibili localmente, a differenza del `file_id` di Telegram che va risolto con una chiamata al provider) e li deposita in `WebChannel.StageUpload`, che restituisce un id usato come `InboundMedia.FileId` — `DownloadMediaAsync` lo consuma una sola volta quando `MessageProcessor` lo richiede. Stessa pipeline di scontrini/note-con-foto di Telegram, zero rami speciali.
+
+**Limite noto**: una sola scheda per utente riceve gli aggiornamenti live (`WebChannel.Subscribe` sostituisce la mailbox precedente anziché accodarsi); più schede aperte contemporaneamente sullo stesso account non è un caso gestito. I job proattivi (promemoria, digest) restano per ora solo su Telegram — non sono stati estesi al canale web in questa iterazione.
 
 Le differenze fra canali non vanno nascoste dietro un'astrazione finta: sono esposte via `Capabilities` e la logica applicativa si adatta. Un promemoria proattivo su Telegram è un messaggio libero, su WhatsApp è un template a pagamento — la pipeline deve saperlo.
 

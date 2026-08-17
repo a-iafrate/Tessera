@@ -8,8 +8,10 @@ public sealed class EnShoppingAddMatcher : IIntentMatcher
 
     public string Culture => "en";
 
+    // (the|my|your|our) matters: without it, "add milk to my list" fails to strip the suffix
+    // (no literal match for "to the list") and the whole tail gets swallowed into item.
     private static readonly Regex Pattern = new(
-        @"^\s*(add|put)\s+(?<item>.+?)(\s+on\s+the\s+list.*)?[?!.]*$",
+        @"^\s*(add|put)\s+(?<item>.+?)(\s+(on|to)\s+(the|my|your|our)\s+list.*)?[?!.]*$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     // "add note X" means create a note, not add "note X" to the shopping list — notes have

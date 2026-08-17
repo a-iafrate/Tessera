@@ -8,8 +8,11 @@ public sealed class EnShoppingRemoveMatcher : IIntentMatcher
 
     public string Culture => "en";
 
+    // (the|my|your|our) matters: without it, "remove the milk from my list" fails to strip
+    // the suffix (no literal match for "from the list") and the whole tail — "the milk from
+    // my list" — gets swallowed into item.
     private static readonly Regex Pattern = new(
-        @"^\s*(remove|delete)\s+(?<item>.+?)(\s+(from|on)\s+the\s+list.*)?[?!.]*$",
+        @"^\s*(remove|delete)\s+(?<item>.+?)(\s+(from|on)\s+(the|my|your|our)\s+list.*)?[?!.]*$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     public IntentMatch? TryMatch(string text)

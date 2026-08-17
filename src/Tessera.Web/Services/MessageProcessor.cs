@@ -30,13 +30,20 @@ public sealed class MessageProcessor(
     MessageQueue queue,
     IServiceScopeFactory scopeFactory,
     IntentRouter router,
-    IChannel channel,
+    IChannelRegistry channelRegistry,
     PartitionedRateLimiter<string> rateLimiter,
     IStringLocalizer<Messages> localizer,
     ILogger<MessageProcessor> logger,
     TelemetryClient? telemetry = null,
     LlmFallbackClient? llmFallback = null) : BackgroundService
 {
+    // Resolved once per message at the top of ProcessAsync, then read by every handler below
+    // as if it were the single channel this class used to be hardwired to (docs/01-architettura.md).
+    // Safe as a mutable field only because the queue is drained strictly sequentially
+    // (ExecuteAsync awaits each ProcessAsync fully before reading the next message) — this
+    // would need to become a parameter instead if that ever changes.
+    private IChannel channel = null!;
+
     // Command names are canonical English and never shown localized in the menu — these are
     // the router-accepted shortcuts for users who type from habit (docs/09-localizzazione.md,
     // docs/03-integrazioni.md). Kept in sync with Program.cs's setMyCommands registration.
@@ -99,6 +106,17 @@ public sealed class MessageProcessor(
 
     private async Task ProcessAsync(InboundMessage message, CancellationToken ct)
     {
+        // Resolved first, before anything else can throw — the ExecuteAsync catch block below
+        // relies on `channel` already matching this exact message's platform for its own
+        // best-effort error reply.
+        if (channelRegistry.TryGet(message.ChannelName) is not { } resolvedChannel)
+        {
+            logger.LogError("No channel registered for '{ChannelName}' — message dropped", message.ChannelName);
+            return;
+        }
+
+        channel = resolvedChannel;
+
         // Economic safety net, not a feature (docs/07-compliance.md): a loop bug or a bad-
         // faith user must not translate into unlimited DB/LLM cost. Keyed on the raw channel
         // identity, before any DB lookup, so it also caps an unlinked user hammering /start.

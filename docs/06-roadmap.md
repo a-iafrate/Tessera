@@ -198,6 +198,16 @@ Nessuna urgenza, nessun ordine obbligato. In ordine di rapporto valore/sforzo:
 | Task di casa con turni e assegnazioni | Retention notoriamente bassa, tocca dinamiche familiari delicate, non connette nulla di esistente |
 | Sync con la lista Alexa | Strutturalmente impossibile, API deprecate. Vedi [03](03-integrazioni.md) |
 
+## Canale Web (console) e PWA
+
+Non prevista nella pianificazione originale — aggiunta su richiesta esplicita, come terzo canale accanto a Telegram e WhatsApp: chi non ha Telegram, accede da un dispositivo che non è il proprio, o vuole solo provare l'assistente, può farlo dalla pagina `/chat` della console. Dettagli architetturali in [01-architettura.md](01-architettura.md#canale-web-console-e-ichannelregistry).
+
+- [x] **v1 — chat testuale autenticata**: `WebChannel : IChannel`, pagina `/chat`, `IChannelRegistry` per risolvere il canale giusto per messaggio (prerequisito riusato anche da `NotificationService` e dai job proattivi, non solo dal canale web). Identità auto-provisionata (`LinkService.EnsureWebIdentityAsync`), nessun flusso di collegamento a token. Manifest + service worker minimale per l'installabilità (nessuna cache offline: è un'app Blazor Server, non ha senso funzionare offline).
+- [x] **v2 — allegati**: upload di foto/PDF dalla pagina (`InputFile`), `WebChannel.StageUpload`/`DownloadMediaAsync` per farli fluire nella stessa pipeline di scontrini e note-con-foto già usata da Telegram, zero rami speciali in `MessageProcessor`.
+- [ ] **Non fatto**: uso anonimo/di prova senza login — rimandato deliberatamente, richiede una decisione a parte su chi paga le chiamate LLM di un visitatore non autenticato (quota/sandboxing dedicati).
+- [ ] **Non fatto**: promemoria/digest proattivi recapitati anche sul canale web — restano solo su Telegram per ora, non è stato esteso in questa iterazione.
+- [ ] **Non fatto**: più schede/dispositivi aperti in contemporanea sullo stesso account — `WebChannel.Subscribe` sostituisce la mailbox precedente, non la affianca.
+
 ## Fase 5 — Ipotesi remote
 
 - Custom skill Alexa con invocation name — solo se emerge che l'Echo è il punto d'ingresso principale dell'utenza. Il sync bidirezionale resta impossibile, vedi [03-integrazioni.md](03-integrazioni.md).

@@ -241,6 +241,43 @@ a.card:hover { border-color: var(--clay); }
   color: var(--ink);
 }
 
+/* Live chat page (/chat) — same bubble language as the marketing mockup above, but a
+   scrollable window with an input bar instead of a handful of fixed example lines. */
+.chat-window {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  height: 60vh;
+  min-height: 20rem;
+  overflow-y: auto;
+  padding: var(--space-4);
+}
+
+.chat-choices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.chat-choices-row {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.chat-input-bar {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-top: 1px solid var(--line);
+  margin: 0;
+}
+
+.chat-input-bar input {
+  flex: 1;
+}
+
 /* Dashboard preview sections — a boxed divider so 4-5 grid cells scan as
    distinct sections instead of running together (docs/12-stile-sito.md). */
 .dashboard-section {

@@ -8,8 +8,10 @@ public sealed class ItShoppingRemoveMatcher : IIntentMatcher
 
     public string Culture => "it";
 
+    // The (mia|tua|nostra)? before "lista" matters: without it, "rimuovi il latte dalla mia
+    // lista" fails to strip the suffix and the whole tail gets swallowed into item.
     private static readonly Regex Pattern = new(
-        @"^\s*(rimuovi|togli|elimina)\s+(?<item>.+?)(\s+(dalla|nella)\s+lista.*)?[?!.]*$",
+        @"^\s*(rimuovi|togli|elimina)\s+(?<item>.+?)(\s+(dalla|nella)\s+(mia\s+|tua\s+|nostra\s+)?lista.*)?[?!.]*$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     public IntentMatch? TryMatch(string text)

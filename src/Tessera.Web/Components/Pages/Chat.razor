@@ -1,0 +1,282 @@
+@page "/chat"
+@attribute [Authorize]
+@implements IAsyncDisposable
+
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.Extensions.Localization
+@using Tessera.Channels
+@using Tessera.Core.Channels
+@using Tessera.Core.Resources
+@using Tessera.Data
+@using Tessera.Web.Services
+
+@inject WebChannel WebChannel
+@inject MessageQueue Queue
+@inject LinkService LinkService
+@inject IStringLocalizer<Messages> Localizer
+@inject IJSRuntime JsRuntime
+
+<PageTitle>@Localizer["Chat.PageTitle"]</PageTitle>
+
+<div class="container" style="max-width: 40rem;">
+    <h1>@Localizer["Chat.PageTitle"]</h1>
+    <p class="text-soft">@Localizer["Chat.Intro"]</p>
+
+    <div class="card" style="padding: 0; overflow: hidden;">
+        <div class="chat-window" id="chat-window">
+            @if (messages.Count == 0)
+            {
+                <p class="text-soft" style="margin: auto;">@Localizer["Chat.Empty"]</p>
+            }
+            @foreach (var msg in messages)
+            {
+                <div class="chat-bubble @(msg.FromUser ? "from-user" : "from-bot")" @key="msg.MessageId">
+                    @if (msg.Text is { Length: > 0 })
+                    {
+                        <p style="margin: 0; white-space: pre-wrap;">@msg.Text</p>
+                    }
+                    @if (msg.PhotoUrl is not null)
+                    {
+                        <img src="@msg.PhotoUrl" alt="" style="max-width: 100%; border-radius: var(--radius-sm); margin-top: var(--space-2);" />
+                    }
+                    @if (msg.DocumentUrl is not null)
+                    {
+                        <a href="@msg.DocumentUrl" target="_blank" rel="noopener" style="display: block; margin-top: var(--space-2);">📎 @msg.DocumentFileName</a>
+                    }
+                    @if (msg.Rows.Count > 0)
+                    {
+                        <div class="chat-choices">
+                            @foreach (var row in msg.Rows)
+                            {
+                                <div class="chat-choices-row">
+                                    @foreach (var choice in row)
+                                    {
+                                        <button type="button" class="btn btn-secondary" disabled="@isSending" @onclick="() => OnChoiceClickedAsync(msg.MessageId, choice.Value)">@choice.Text</button>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+            @if (isSending)
+            {
+                <div class="chat-bubble from-bot"><span class="spinner" aria-hidden="true"></span></div>
+            }
+        </div>
+
+        @if (attachmentError is not null)
+        {
+            <div class="alert alert-danger" style="margin: var(--space-4) var(--space-4) 0;">@attachmentError</div>
+        }
+
+        @if (pendingAttachment is not null)
+        {
+            <div style="display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-4) 0; color: var(--ink-soft); font-size: var(--text-sm);">
+                <span>📎 @pendingAttachment.FileName</span>
+                <button type="button" class="btn btn-secondary" style="padding: 0 var(--space-2); min-height: auto;" @onclick="() => pendingAttachment = null">✕</button>
+            </div>
+        }
+
+        <form class="chat-input-bar" @onsubmit="SendAsync">
+            <label class="btn btn-secondary" style="cursor: pointer;" title="@Localizer["Chat.AttachButton"]">
+                📎
+                <InputFile OnChange="OnFileSelectedAsync" style="display: none;" accept="image/*,application/pdf" disabled="@isSending" />
+            </label>
+            <input class="form-control" @bind="draft" @bind:event="oninput" placeholder="@Localizer["Chat.InputPlaceholder"]" disabled="@isSending" />
+            <button type="submit" class="btn btn-primary" disabled="@(isSending || (string.IsNullOrWhiteSpace(draft) && pendingAttachment is null))">@Localizer["Chat.SendButton"]</button>
+        </form>
+    </div>
+</div>
+
+<script src="js/chat.js"></script>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    // Comparable to Telegram's own photo/document size ceiling — big enough for a real receipt
+    // photo, small enough that a Blazor Server circuit doesn't choke buffering it in memory.
+    private const long MaxAttachmentBytes = 10 * 1024 * 1024;
+
+    private string chatId = "";
+    private string draft = "";
+    private bool isSending;
+    private readonly List<ChatBubble> messages = [];
+    private CancellationTokenSource? listenCts;
+    private PendingAttachment? pendingAttachment;
+    private string? attachmentError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateTask!;
+        var userId = Guid.Parse(authState.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        chatId = userId.ToString();
+
+        // Web chat has no /link token flow — the identity is provisioned the first time this
+        // page loads, idempotently (docs/06-roadmap.md: web chat channel).
+        await LinkService.EnsureWebIdentityAsync(userId, CancellationToken.None);
+
+        listenCts = new CancellationTokenSource();
+        _ = ListenAsync(listenCts.Token);
+    }
+
+    private async Task ListenAsync(CancellationToken ct)
+    {
+        try
+        {
+            await foreach (var evt in WebChannel.Subscribe(chatId, ct))
+            {
+                await InvokeAsync(() =>
+                {
+                    Apply(evt);
+                    isSending = false;
+                    StateHasChanged();
+                });
+                await ScrollToBottomAsync();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // The page was closed/navigated away — the subscription's own lifetime ending,
+            // not a failure.
+        }
+    }
+
+    private void Apply(WebChatEvent evt)
+    {
+        if (evt.IsEdit)
+        {
+            var existing = messages.FirstOrDefault(m => m.MessageId == evt.MessageId);
+            if (existing is not null)
+            {
+                existing.Text = evt.Text;
+                existing.Rows = evt.Rows;
+                return;
+            }
+        }
+
+        messages.Add(new ChatBubble
+        {
+            MessageId = evt.MessageId,
+            FromUser = false,
+            Text = evt.Text,
+            Rows = evt.Rows,
+            PhotoUrl = evt.PhotoUrl,
+            DocumentUrl = evt.DocumentUrl,
+            DocumentFileName = evt.DocumentFileName,
+        });
+    }
+
+    private async Task OnFileSelectedAsync(InputFileChangeEventArgs e)
+    {
+        attachmentError = null;
+        try
+        {
+            var file = e.File;
+            using var stream = file.OpenReadStream(MaxAttachmentBytes);
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer);
+            pendingAttachment = new PendingAttachment(file.Name, file.ContentType, buffer.ToArray());
+        }
+        catch (IOException)
+        {
+            // Too large — the same honest, brief failure tone as everywhere else
+            // (docs/10-conversazione.md), not a stack trace.
+            attachmentError = Localizer["Chat.AttachmentTooLarge"].Value;
+        }
+    }
+
+    private async Task SendAsync()
+    {
+        if (isSending || (string.IsNullOrWhiteSpace(draft) && pendingAttachment is null))
+        {
+            return;
+        }
+
+        var text = string.IsNullOrWhiteSpace(draft) ? null : draft.Trim();
+        var attachment = pendingAttachment;
+        draft = "";
+        pendingAttachment = null;
+        isSending = true;
+
+        var bubbleText = attachment is null ? text : $"📎 {attachment.FileName}" + (text is null ? "" : $"\n{text}");
+        messages.Add(new ChatBubble { MessageId = Guid.NewGuid().ToString("N"), FromUser = true, Text = bubbleText, Rows = [] });
+
+        IReadOnlyList<InboundMedia> media = [];
+        if (attachment is not null)
+        {
+            var fileId = WebChannel.StageUpload(attachment.Bytes);
+            var kind = attachment.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ? "photo" : "document";
+            media = [new InboundMedia(kind, fileId, attachment.FileName, attachment.ContentType)];
+        }
+
+        await Queue.EnqueueAsync(new InboundMessage(
+            ChannelName: "web",
+            ExternalChatId: chatId,
+            ExternalUserId: chatId,
+            Text: text,
+            Media: media,
+            ProviderMessageId: Guid.NewGuid().ToString(),
+            SentAt: DateTimeOffset.UtcNow), CancellationToken.None);
+
+        await ScrollToBottomAsync();
+    }
+
+    private async Task OnChoiceClickedAsync(string messageId, string value)
+    {
+        if (isSending)
+        {
+            return;
+        }
+
+        isSending = true;
+
+        await Queue.EnqueueAsync(new InboundMessage(
+            ChannelName: "web",
+            ExternalChatId: chatId,
+            ExternalUserId: chatId,
+            Text: null,
+            Media: [],
+            ProviderMessageId: Guid.NewGuid().ToString(),
+            SentAt: DateTimeOffset.UtcNow,
+            CallbackData: value,
+            CallbackMessageId: messageId), CancellationToken.None);
+    }
+
+    private async Task ScrollToBottomAsync()
+    {
+        try
+        {
+            await JsRuntime.InvokeVoidAsync("tesseraChat.scrollToBottom", "chat-window");
+        }
+        catch
+        {
+            // Best-effort — a scroll failure shouldn't break the chat.
+        }
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        listenCts?.Cancel();
+        WebChannel.Unsubscribe(chatId);
+        listenCts?.Dispose();
+        return ValueTask.CompletedTask;
+    }
+
+    private sealed record PendingAttachment(string FileName, string ContentType, byte[] Bytes);
+
+    private sealed class ChatBubble
+    {
+        public required string MessageId { get; init; }
+        public required bool FromUser { get; init; }
+        public string? Text { get; set; }
+        public IReadOnlyList<IReadOnlyList<Choice>> Rows { get; set; } = [];
+        public string? PhotoUrl { get; init; }
+        public string? DocumentUrl { get; init; }
+        public string? DocumentFileName { get; init; }
+    }
+}

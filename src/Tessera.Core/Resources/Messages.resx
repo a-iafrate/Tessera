@@ -743,6 +743,30 @@ Note: I only read messages that start with / or mention me.</value>
   <data name="Nav.YourSpaces" xml:space="preserve">
     <value>Your spaces</value>
   </data>
+  <data name="Nav.Chat" xml:space="preserve">
+    <value>Chat</value>
+  </data>
+  <data name="Chat.PageTitle" xml:space="preserve">
+    <value>Chat</value>
+  </data>
+  <data name="Chat.Intro" xml:space="preserve">
+    <value>Talk to the assistant right here — no Telegram needed.</value>
+  </data>
+  <data name="Chat.Empty" xml:space="preserve">
+    <value>Say hello, or try "what's on my list?"</value>
+  </data>
+  <data name="Chat.InputPlaceholder" xml:space="preserve">
+    <value>Type a message…</value>
+  </data>
+  <data name="Chat.SendButton" xml:space="preserve">
+    <value>Send</value>
+  </data>
+  <data name="Chat.AttachButton" xml:space="preserve">
+    <value>Attach a photo or PDF</value>
+  </data>
+  <data name="Chat.AttachmentTooLarge" xml:space="preserve">
+    <value>That file is too large — try one under 10 MB.</value>
+  </data>
   <data name="Nav.LogIn" xml:space="preserve">
     <value>Log in</value>
   </data>

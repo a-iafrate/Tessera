@@ -19,6 +19,9 @@ public class IntentRouterTests
         { "it", "spunta il latte", "shopping.check" },
         { "it", "rimuovi il pane", "shopping.remove" },
         { "it", "togli il pane dalla lista", "shopping.remove" },
+        { "it", "rimuovi il latte dalla mia lista", "shopping.remove" },
+        { "it", "aggiungi il latte alla mia lista", "shopping.add" },
+        { "it", "spunta il latte dalla mia lista", "shopping.check" },
         { "it", "svuota la lista", "shopping.clear" },
         { "it", "svuota la lista!", "shopping.clear" },
         { "it", "quanto ho speso a gennaio", "expenses.query" },
@@ -51,6 +54,9 @@ public class IntentRouterTests
         { "en", "what's on the list?", "shopping.show" },
         { "en", "check off milk", "shopping.check" },
         { "en", "remove bread", "shopping.remove" },
+        { "en", "remove the milk from my list", "shopping.remove" },
+        { "en", "add milk to my list", "shopping.add" },
+        { "en", "check off the milk from my list", "shopping.check" },
         { "en", "clear the list", "shopping.clear" },
         { "en", "clear the list!", "shopping.clear" },
         { "en", "how much did I spend in January", "expenses.query" },
@@ -94,6 +100,9 @@ public class IntentRouterTests
     [InlineData("metti 2 litri di latte nella lista", "2 litri di latte")]
     [InlineData("segna pane", "pane")]
     [InlineData("aggiungi il latte?", "il latte")]
+    [InlineData("aggiungi il latte alla mia lista", "il latte")]
+    [InlineData("rimuovi il latte dalla mia lista", "il latte")]
+    [InlineData("spunta il latte dalla mia lista", "il latte")]
     public void TryRoute_estrae_lo_slot_item_in_italiano(string input, string expectedSlot)
     {
         var router = new IntentRouter(Matchers.All);
@@ -106,6 +115,9 @@ public class IntentRouterTests
     [Theory]
     [InlineData("add milk", "milk")]
     [InlineData("put bread on the list", "bread")]
+    [InlineData("add milk to my list", "milk")]
+    [InlineData("remove the milk from my list", "the milk")]
+    [InlineData("check off the milk from my list", "the milk")]
     public void TryRoute_estrae_lo_slot_item_in_inglese(string input, string expectedSlot)
     {
         var router = new IntentRouter(Matchers.All);

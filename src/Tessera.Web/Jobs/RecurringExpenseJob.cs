@@ -14,7 +14,7 @@ namespace Tessera.Web.Jobs;
 // own timezone, since RecurringExpense itself has no timezone of its own.
 public sealed class RecurringExpenseJob(
     IServiceScopeFactory scopeFactory,
-    IChannel channel,
+    IChannelRegistry channelRegistry,
     IStringLocalizer<Messages> localizer,
     ILogger<RecurringExpenseJob> logger) : IScheduledJob
 {
@@ -73,14 +73,15 @@ public sealed class RecurringExpenseJob(
             var ownerIdentities = await identities.GetForUserAsync(owner.Id, ct);
             foreach (var identity in ownerIdentities)
             {
-                if (identity.ChannelName != channel.Name || identity.ExternalChatId is not { } chatId)
+                if (channelRegistry.TryGet(identity.ChannelName) is not { } identityChannel
+                    || identity.ExternalChatId is not { } chatId)
                 {
                     continue;
                 }
 
                 try
                 {
-                    await channel.SendTextAsync(new ChannelAddress(identity.ChannelName, chatId), text, ct);
+                    await identityChannel.SendTextAsync(new ChannelAddress(identity.ChannelName, chatId), text, ct);
                 }
                 catch (Exception ex)
                 {

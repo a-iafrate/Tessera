@@ -234,6 +234,17 @@ if (microsoftCalendarEnabled)
     builder.Services.AddSingleton<ICalendarProvider, GraphCalendarClient>();
 }
 
+// The web chat channel (docs/06-roadmap.md) needs no external configuration — it's the
+// console's own /chat page — so the message pipeline itself is always wired up, unlike the
+// Telegram-specific pieces below which stay opt-in. IChannelRegistry is what lets
+// MessageProcessor/NotificationService/the scheduled jobs resolve the right IChannel per
+// message instead of assuming there's only ever one (docs/01-architettura.md).
+builder.Services.AddSingleton<MessageQueue>();
+builder.Services.AddHostedService<MessageProcessor>();
+builder.Services.AddSingleton<WebChannel>();
+builder.Services.AddSingleton<IChannel>(sp => sp.GetRequiredService<WebChannel>());
+builder.Services.AddSingleton<IChannelRegistry, ChannelRegistry>();
+
 // The bot pipeline is only wired up once a bot token is configured, so the console works
 // standalone during development before a Telegram bot exists (dotnet user-secrets set
 // "Telegram:BotToken" ... / "Telegram:WebhookSecret" ..., see docs/08-setup-sviluppo.md).
@@ -243,9 +254,7 @@ if (telegramEnabled)
 {
     builder.Services.AddSingleton<ITelegramBotClient>(_ => new TelegramBotClient(telegramBotToken!));
     builder.Services.AddSingleton<IChannel, TelegramChannel>();
-    builder.Services.AddSingleton<MessageQueue>();
     builder.Services.AddScoped<TelegramUpdateIngestor>();
-    builder.Services.AddHostedService<MessageProcessor>();
 
     // Long polling instead of the webhook while developing locally — no ngrok tunnel to
     // manage, and the debugger attaches normally (docs/08-setup-sviluppo.md). Use a
@@ -321,7 +330,7 @@ if (!azureOpenAiEnabled)
 
 if (!telegramEnabled)
 {
-    app.Logger.LogWarning("Telegram:BotToken is not configured — the bot pipeline is disabled.");
+    app.Logger.LogWarning("Telegram:BotToken is not configured — the Telegram channel is disabled (web chat still works).");
 }
 else
 {

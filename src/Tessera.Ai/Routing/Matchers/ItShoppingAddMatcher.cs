@@ -8,8 +8,11 @@ public sealed class ItShoppingAddMatcher : IIntentMatcher
 
     public string Culture => "it";
 
+    // The (mia|tua|nostra)? before "lista" matters: without it, "aggiungi il latte alla mia
+    // lista" fails to strip the suffix (no literal match for "alla ... lista" with "mia" in
+    // between) and the whole tail — "il latte alla mia lista" — gets swallowed into item.
     private static readonly Regex Pattern = new(
-        @"^\s*(aggiungi|metti|segna|aggiungimi)\s+(?<item>.+?)(\s+(alla|in|nella)\s+lista.*)?[?!.]*$",
+        @"^\s*(aggiungi|metti|segna|aggiungimi)\s+(?<item>.+?)(\s+(alla|in|nella)\s+(mia\s+|tua\s+|nostra\s+)?lista.*)?[?!.]*$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     // "aggiungi nota X" means create a note, not add "nota X" to the shopping list — notes

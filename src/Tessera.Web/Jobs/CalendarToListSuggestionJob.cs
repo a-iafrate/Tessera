@@ -17,7 +17,7 @@ namespace Tessera.Web.Jobs;
 // free and good enough for a nudge, not a hard requirement.
 public sealed class CalendarToListSuggestionJob(
     IServiceScopeFactory scopeFactory,
-    IChannel channel,
+    IChannelRegistry channelRegistry,
     IStringLocalizer<Messages> localizer,
     ILogger<CalendarToListSuggestionJob> logger) : IScheduledJob
 {
@@ -88,14 +88,15 @@ public sealed class CalendarToListSuggestionJob(
                     var recipientIdentities = await identities.GetForUserAsync(memberId, ct);
                     foreach (var identity in recipientIdentities)
                     {
-                        if (identity.ChannelName != channel.Name || identity.ExternalChatId is not { } chatId)
+                        if (channelRegistry.TryGet(identity.ChannelName) is not { } identityChannel
+                            || identity.ExternalChatId is not { } chatId)
                         {
                             continue;
                         }
 
                         try
                         {
-                            await channel.SendChoicesAsync(new ChannelAddress(identity.ChannelName, chatId), text, choices, ct);
+                            await identityChannel.SendChoicesAsync(new ChannelAddress(identity.ChannelName, chatId), text, choices, ct);
                         }
                         catch (Exception ex)
                         {
