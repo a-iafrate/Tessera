@@ -85,11 +85,11 @@ La differenza è la ragione per cui Gmail è in Fase 4 con un punto di domanda e
 - [ ] Dominio verificato in Google Search Console
 - [ ] Homepage pubblica sul dominio che descriva l'applicazione — la console assolve
 - [ ] Il nome app configurato nella schermata di consenso OAuth (Google Cloud Console → OAuth consent screen → nome app) compare **letteralmente** e in modo prominente sulla home page, accanto alla descrizione — non basta un wordmark in un angolo: il controllo automatico di Google confronta il testo, non il logo. Verificare anche che il campo "Application home page" della stessa schermata punti esattamente al dominio pubblicato (non un placeholder, non l'host `*.azurewebsites.net`)
-- [ ] Privacy policy raggiungibile, con sezione **specifica** sull'uso dei dati Google
+- [x] Privacy policy raggiungibile, con sezione **specifica** sull'uso dei dati Google (`Privacy.GoogleDataHeading`/`Privacy.GoogleDataBody`, `/privacy`) e una sezione separata sui meccanismi di protezione dei dati sensibili (`Privacy.SecurityHeading`) — Google ha respinto una prima sottomissione per l'assenza di entrambe
 - [ ] Termini di servizio
 - [ ] Video demo su YouTube che mostri: il consent screen, cosa l'utente autorizza, l'uso concreto di ogni scope richiesto
 - [ ] Giustificazione scritta per ciascuno scope
-- [ ] Dichiarazione di conformità alla Limited Use policy
+- [x] Dichiarazione di conformità alla Limited Use policy — testo esatto suggerito da Google nella loro stessa email di rigetto, pubblicato **in inglese anche nella pagina italiana** (`Privacy.GoogleDataStatement`) per garantire il match letterale che il controllo cerca: "The use of raw or derived user data received from Workspace APIs will adhere to the Google User Data Policy, including the Limited Use requirements."
 
 Il video è la parte che si sottovaluta: deve mostrare il flusso reale, non delle slide.
 

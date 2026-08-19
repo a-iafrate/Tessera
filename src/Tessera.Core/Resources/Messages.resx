@@ -1069,9 +1069,6 @@ Try it now:</value>
   <data name="Privacy.Title" xml:space="preserve">
     <value>Privacy Policy</value>
   </data>
-  <data name="Privacy.Disclaimer" xml:space="preserve">
-    <value>This is a draft reflecting how Tessera actually works today. It hasn't been reviewed by a lawyer — replace the placeholders below and get professional review before opening the service beyond your own household.</value>
-  </data>
   <data name="Privacy.LastUpdated" xml:space="preserve">
     <value>Last updated: August 2026</value>
   </data>
@@ -1097,10 +1094,37 @@ Try it now:</value>
     <value>Message text — sent to Azure OpenAI to interpret natural-language requests; not stored beyond what's needed to reply.</value>
   </data>
   <data name="Privacy.DataCalendar" xml:space="preserve">
-    <value>Calendar events (once calendar integration ships) — read at the moment they're needed and not stored.</value>
+    <value>Calendar events (Google and Microsoft, once you link a calendar) — read at the moment they're needed to show your schedule or check availability, and not stored.</value>
   </data>
   <data name="Privacy.DataTokens" xml:space="preserve">
-    <value>OAuth tokens (once calendar integration ships) — kept encrypted in Azure Key Vault, never in the database, only with your explicit consent for that integration.</value>
+    <value>OAuth tokens (once you link a calendar) — kept encrypted in Azure Key Vault, never in the database, only with your explicit consent for that integration.</value>
+  </data>
+  <data name="Privacy.SecurityHeading" xml:space="preserve">
+    <value>How we protect it</value>
+  </data>
+  <data name="Privacy.SecurityBody" xml:space="preserve">
+    <value>Sensitive data gets protection on top of the access controls described elsewhere in this policy:</value>
+  </data>
+  <data name="Privacy.SecurityTransit" xml:space="preserve">
+    <value>All traffic between your device, the bot, and our servers is encrypted in transit (HTTPS/TLS).</value>
+  </data>
+  <data name="Privacy.SecurityAtRest" xml:space="preserve">
+    <value>The database is encrypted at rest (Azure SQL Transparent Data Encryption).</value>
+  </data>
+  <data name="Privacy.SecurityTokens" xml:space="preserve">
+    <value>OAuth refresh tokens are never stored in the database — only in Azure Key Vault, encrypted, reachable exclusively by the application's own managed identity.</value>
+  </data>
+  <data name="Privacy.SecurityAccess" xml:space="preserve">
+    <value>Access to a shared space's data is enforced per resource and per member — nobody sees a space's content without being a member of it.</value>
+  </data>
+  <data name="Privacy.GoogleDataHeading" xml:space="preserve">
+    <value>Google user data and AI</value>
+  </data>
+  <data name="Privacy.GoogleDataBody" xml:space="preserve">
+    <value>Calendar events read through Google's API are used only to show you your schedule or check availability inside the bot and console, at the moment you ask — never stored, and never used to train or improve any AI model, foundational or otherwise. The same applies to Azure OpenAI, which interprets your messages to route them to the right feature but does not use that data to train its models.</value>
+  </data>
+  <data name="Privacy.GoogleDataStatement" xml:space="preserve">
+    <value>The use of raw or derived user data received from Workspace APIs will adhere to the Google User Data Policy, including the Limited Use requirements.</value>
   </data>
   <data name="Privacy.LegalBasisHeading" xml:space="preserve">
     <value>Why we process it</value>
@@ -1158,9 +1182,6 @@ Try it now:</value>
   </data>
   <data name="Terms.Title" xml:space="preserve">
     <value>Terms of Service</value>
-  </data>
-  <data name="Terms.Disclaimer" xml:space="preserve">
-    <value>This is a draft and hasn't been reviewed by a lawyer — replace the placeholders below and get professional review before opening the service beyond your own household.</value>
   </data>
   <data name="Terms.LastUpdated" xml:space="preserve">
     <value>Last updated: August 2026</value>

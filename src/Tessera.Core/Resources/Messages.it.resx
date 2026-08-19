@@ -1069,9 +1069,6 @@ Provami subito:</value>
   <data name="Privacy.Title" xml:space="preserve">
     <value>Informativa sulla privacy</value>
   </data>
-  <data name="Privacy.Disclaimer" xml:space="preserve">
-    <value>Questa è una bozza che riflette come funziona oggi Tessera. Non è stata revisionata da un legale — sostituisci i segnaposto qui sotto e fai una revisione professionale prima di aprire il servizio oltre la tua famiglia.</value>
-  </data>
   <data name="Privacy.LastUpdated" xml:space="preserve">
     <value>Ultimo aggiornamento: agosto 2026</value>
   </data>
@@ -1097,10 +1094,37 @@ Provami subito:</value>
     <value>Testo dei messaggi — inviato ad Azure OpenAI per interpretare le richieste in linguaggio naturale; non conservato oltre quanto serve per risponderti.</value>
   </data>
   <data name="Privacy.DataCalendar" xml:space="preserve">
-    <value>Eventi di calendario (quando arriverà l'integrazione con il calendario) — letti al momento in cui servono e non conservati.</value>
+    <value>Eventi di calendario (Google e Microsoft, se colleghi un calendario) — letti al momento in cui servono per mostrarti i tuoi impegni o verificare la disponibilità, e non conservati.</value>
   </data>
   <data name="Privacy.DataTokens" xml:space="preserve">
-    <value>Token OAuth (quando arriverà l'integrazione con il calendario) — conservati cifrati in Azure Key Vault, mai nel database, solo con il tuo consenso esplicito per quell'integrazione.</value>
+    <value>Token OAuth (se colleghi un calendario) — conservati cifrati in Azure Key Vault, mai nel database, solo con il tuo consenso esplicito per quell'integrazione.</value>
+  </data>
+  <data name="Privacy.SecurityHeading" xml:space="preserve">
+    <value>Come lo proteggiamo</value>
+  </data>
+  <data name="Privacy.SecurityBody" xml:space="preserve">
+    <value>I dati sensibili ricevono protezione in aggiunta ai controlli di accesso descritti nel resto di questa informativa:</value>
+  </data>
+  <data name="Privacy.SecurityTransit" xml:space="preserve">
+    <value>Tutto il traffico fra il tuo dispositivo, il bot e i nostri server è cifrato in transito (HTTPS/TLS).</value>
+  </data>
+  <data name="Privacy.SecurityAtRest" xml:space="preserve">
+    <value>Il database è cifrato a riposo (Transparent Data Encryption di Azure SQL).</value>
+  </data>
+  <data name="Privacy.SecurityTokens" xml:space="preserve">
+    <value>I refresh token OAuth non sono mai salvati nel database — solo in Azure Key Vault, cifrati, raggiungibili esclusivamente dall'identità gestita dell'applicazione.</value>
+  </data>
+  <data name="Privacy.SecurityAccess" xml:space="preserve">
+    <value>L'accesso ai dati di uno spazio condiviso è applicato per risorsa e per membro — nessuno vede il contenuto di uno spazio senza esserne membro.</value>
+  </data>
+  <data name="Privacy.GoogleDataHeading" xml:space="preserve">
+    <value>Dati utente Google e intelligenza artificiale</value>
+  </data>
+  <data name="Privacy.GoogleDataBody" xml:space="preserve">
+    <value>Gli eventi di calendario letti tramite le API Google sono usati solo per mostrarti i tuoi impegni o verificare la disponibilità dentro il bot e la console, nel momento in cui li richiedi — non vengono mai salvati, né usati per addestrare o migliorare alcun modello di intelligenza artificiale, di base o meno. Lo stesso vale per Azure OpenAI, che interpreta i tuoi messaggi per instradarli alla funzione giusta ma non li usa per addestrare i propri modelli.</value>
+  </data>
+  <data name="Privacy.GoogleDataStatement" xml:space="preserve">
+    <value>The use of raw or derived user data received from Workspace APIs will adhere to the Google User Data Policy, including the Limited Use requirements.</value>
   </data>
   <data name="Privacy.LegalBasisHeading" xml:space="preserve">
     <value>Perché li trattiamo</value>
@@ -1158,9 +1182,6 @@ Provami subito:</value>
   </data>
   <data name="Terms.Title" xml:space="preserve">
     <value>Termini di servizio</value>
-  </data>
-  <data name="Terms.Disclaimer" xml:space="preserve">
-    <value>Questa è una bozza e non è stata revisionata da un legale — sostituisci i segnaposto qui sotto e fai una revisione professionale prima di aprire il servizio oltre la tua famiglia.</value>
   </data>
   <data name="Terms.LastUpdated" xml:space="preserve">
     <value>Ultimo aggiornamento: agosto 2026</value>
