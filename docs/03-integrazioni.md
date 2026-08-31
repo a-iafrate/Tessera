@@ -295,6 +295,42 @@ L'ultima riga del punto 3 è la ragione per cui conviene implementare Microsoft 
 
 Suggerimento: **implementare Microsoft prima di Google.** Il ciclo di feedback è molto più corto e permette di validare l'astrazione del calendario mentre la review Google è in coda.
 
+## PayPal Subscriptions — pagamenti
+
+Decisione presa e **implementata**: **PayPal Subscriptions REST API**, non Stripe — motivazione fiscale (regime forfettario), non tecnica, in [04-costi.md](04-costi.md#provider-di-pagamento-paypal-non-stripe). Schema dati in [02-modello-dati.md](02-modello-dati.md#abbonamento-paypal-per-spazio). `PayPalClient` (`Tessera.Integrations`) implementa `IPaymentProvider` (`Tessera.Core.Abstractions`) — stessa ragione di `ICalendarProvider`: `Tessera.Data` (`PayPalSubscriptionService`) non deve referenziare `Tessera.Integrations` direttamente, anche se qui c'è una sola implementazione per scelta di prodotto, non per polimorfismo. Config opzionale — vedi [08-setup-sviluppo.md](08-setup-sviluppo.md); senza `PayPal:ClientId`/`ClientSecret`/`WebhookId` la feature resta silenziosamente disattivata, stesso pattern di Calendar/BlobStorage.
+
+### Autenticazione: client_credentials, non authorization code
+
+A differenza di Google/Microsoft Calendar, qui non c'è un account utente da collegare: Tessera stesso è il merchant. Un solo scambio OAuth2 `client_credentials` (Client ID/Secret dell'app PayPal, Basic auth su `POST /v1/oauth2/token`) restituisce un access token applicativo, usato per tutte le chiamate — creare/modificare piani, creare/leggere abbonamenti. Nessun refresh token da conservare in Key Vault: il token si rigenera on demand, ha vita breve (poche ore), non è per-utente.
+
+### Prodotto e piani: creati una volta, non per spazio
+
+`POST /v1/catalogs/products` (un prodotto, "Tessera") poi `POST /v1/billing/plans` (uno per ciascuno dei 4 piani a pagamento — Free non ha un piano PayPal). Fatto automaticamente all'avvio (`PayPalSubscriptionService.EnsurePlansProvisionedAsync`, idempotente), non serve setup manuale. L'id restituito da ciascuna chiamata va in `SubscriptionPlan.PayPalPlanIdSandbox` o `...IdLive` a seconda di `PayPal:Environment` — vedi [02-modello-dati.md](02-modello-dati.md#abbonamento-paypal-per-spazio) per il perché delle due colonne separate. Il prodotto stesso non ha questo problema: sandbox e live sono account PayPal completamente separati, quindi `EnsureProductAsync` (che cerca per nome invece di salvare l'id) non rischia mai di trovare il prodotto dell'altro ambiente.
+
+### Flusso di sottoscrizione
+
+1. Console: l'utente sceglie un piano → `POST /v1/billing/subscriptions` con il `PayPalPlanId` corrispondente → la risposta contiene un link HATEOAS `rel: "approve"`.
+2. Redirect dell'utente su quel link (dominio PayPal) per l'approvazione del pagamento.
+3. PayPal reindirizza a un `return_url`/`cancel_url` nostro con l'id della subscription in query string — **da trattare solo come segnale UX**, non come conferma di attivazione: un utente può chiudere il browser dopo aver approvato ma prima del redirect.
+4. Il webhook è l'unica fonte di verità sullo stato reale (stesso principio del hard rule 6 sui webhook Telegram: 200 OK subito, elaborazione in background).
+
+### Webhook e validazione della firma
+
+Endpoint dedicato (`/hooks/paypal`, `PayPalWebhookEndpoints`), stesso pattern di deduplica di Telegram — riusa la stessa tabella `ProcessedMessage` (`ChannelName = "paypal"`, `ProviderMessageId = event_id`) invece di una tabella dedicata, perché la forma del problema è identica. La firma va verificata via `POST /v1/notifications/verify-webhook-signature`, passando gli header `PAYPAL-TRANSMISSION-ID`, `PAYPAL-TRANSMISSION-TIME`, `PAYPAL-CERT-URL`, `PAYPAL-AUTH-ALGO`, `PAYPAL-TRANSMISSION-SIG` più il `webhook_id` configurato lato app — **mai fidarsi di un evento senza questa verifica**, a differenza dell'HMAC calcolabile localmente di WhatsApp, qui la verifica richiede una chiamata di rete a PayPal per ogni evento ricevuto, fatta **prima** di dedurre l'evento come processato (una firma non valida risponde `401`, non `200`).
+
+Eventi da gestire per aggiornare `SpaceSubscription`/`Space.PlanId`:
+
+| Evento | Effetto |
+|---|---|
+| `BILLING.SUBSCRIPTION.ACTIVATED` | `Space.PlanId` → piano acquistato, `SpaceSubscription.Status` → `ACTIVE` |
+| `BILLING.SUBSCRIPTION.SUSPENDED` | Pagamento fallito → `Space.PlanId` → `Free` immediatamente, nessun periodo di grazia (deciso, [02-modello-dati.md](02-modello-dati.md#abbonamento-paypal-per-spazio)) |
+| `BILLING.SUBSCRIPTION.CANCELLED` / `EXPIRED` | `Space.PlanId` → `Free` |
+| `PAYMENT.SALE.COMPLETED` | Rinnovo periodico riuscito — utile per un log dei pagamenti, non cambia lo stato del piano |
+
+### Sandbox
+
+App separata su [developer.paypal.com](https://developer.paypal.com) con le proprie credenziali (`api-m.sandbox.paypal.com` invece di `api-m.paypal.com`) e conti sandbox buyer/merchant finti — permette di testare l'intero ciclo (sottoscrizione, rinnovo, cancellazione, webhook) senza soldi reali. Da configurare come coppia di variabili separate (`PayPal:Environment` = `sandbox`/`live`), stesso principio del profilo `http`/`https` già in `launchSettings.json`.
+
 ## Alexa — non praticabile, decisione presa
 
 L'obiettivo iniziale era il **sync bidirezionale** fra la lista della spesa del bot e la lista nativa di Alexa. Non è realizzabile.

@@ -215,6 +215,15 @@ Non prevista nella pianificazione originale — aggiunta su richiesta esplicita,
 - [ ] **Non fatto**: login con Microsoft — stessa logica di riuso del client già usato per Microsoft Calendar, non ancora cablato.
 - [ ] **Non fatto**: nome/foto usati anche nei messaggi proattivi del bot (digest, promemoria) — per ora solo la console/chat web salutano per nome.
 
+## Pagamenti
+
+- [x] **Provider deciso: PayPal Subscriptions REST API**, non Stripe — motivazione fiscale (regime forfettario), dettagli in [04-costi.md](04-costi.md#provider-di-pagamento-paypal-non-stripe).
+- [x] **Implementato**: `IPaymentProvider`/`PayPalClient`, `SpaceSubscription`, endpoint webhook (`/hooks/paypal`) con verifica firma e deduplica, provisioning automatico dei billing plan PayPal all'avvio, pulsante "Sottoscrivi con PayPal" su `/spaces/{id}/usage`. Dettagli in [03-integrazioni.md](03-integrazioni.md#paypal-subscriptions--pagamenti), schema dati in [02-modello-dati.md](02-modello-dati.md#abbonamento-paypal-per-spazio). Spento finché `PayPal:ClientId`/`ClientSecret`/`WebhookId` non sono configurati — vedi [08-setup-sviluppo.md](08-setup-sviluppo.md).
+- [x] **Deciso**: pagamento fallito (`BILLING.SUBSCRIPTION.SUSPENDED`) → downgrade immediato a `Free`, nessun periodo di grazia — non c'è perdita di dati, solo di funzioni oltre le soglie del piano gratuito.
+- [ ] **Non fatto**: enforcement di `MaxLinkedBots`/`MaxCallsPerDay` contro `Space.PlanId` — il pagamento aggiorna il piano, ma nessun punto del codice blocca ancora chi supera le soglie (stesso gap descritto in [04-costi.md](04-costi.md#piani-a-pagamento)).
+- [ ] **Non fatto**: non ancora testato contro un vero account sandbox PayPal — da fare non appena le credenziali sandbox sono configurate in locale.
+- [ ] **Da confermare con il commercialista**: interazione fra regime forfettario e soglia OSS (10.000 € lordi annui) per vendite a privati in altri Paesi UE — non bloccante per l'implementazione tecnica, ma condiziona cosa mostrare in fattura/corrispettivi.
+
 ## Fase 5 — Ipotesi remote
 
 - Custom skill Alexa con invocation name — solo se emerge che l'Echo è il punto d'ingresso principale dell'utenza. Il sync bidirezionale resta impossibile, vedi [03-integrazioni.md](03-integrazioni.md).

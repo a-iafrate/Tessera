@@ -133,6 +133,36 @@ I piani sono righe seedate (`SubscriptionPlanConfiguration.HasData`), condivise 
 
 **Lo schema esiste, l'enforcement non ancora.** Nessun punto del codice blocca oggi un collegamento oltre `MaxLinkedBots` né conta le chiamate giornaliere contro `MaxCallsPerDay` — è deliberatamente rimandato (vedi [06-roadmap.md](06-roadmap.md)) per non anticipare pagamenti/fatturazione prima del punto di decisione di Fase 1. Il rate limiting fisso da 60 messaggi/ora per identità (vedi [07-compliance.md](07-compliance.md)) resta la sola protezione attiva nel frattempo, ed è indipendente dal piano.
 
+### Abbonamento PayPal per spazio
+
+**PayPal Subscriptions REST API** come flusso di pagamento reale (non Stripe — vedi [04-costi.md](04-costi.md#piani-a-pagamento) per il perché). Implementato.
+
+```csharp
+public class SpaceSubscription
+{
+    public Guid Id { get; set; }
+    public Guid SpaceId { get; set; }
+    public string PayPalSubscriptionId { get; set; } = null!;  // "I-XXXXXXXXXXXX", assegnato da PayPal alla creazione
+    public Guid PlanId { get; set; }                            // FK a SubscriptionPlan
+    public string Status { get; set; } = null!;                 // rispecchia lo stato PayPal: APPROVAL_PENDING, ACTIVE, SUSPENDED, CANCELLED, EXPIRED
+    public DateTimeOffset? CurrentPeriodEnd { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+}
+```
+
+Entità separata da `Space`, stesso principio di `LinkedAccount`/`ExternalCalendar`: lo stato di un abbonamento cambia per eventi esterni (webhook PayPal), non ha senso annidarlo in `Space` come colonne dirette. `SubscriptionPlan` guadagna due campi:
+
+```csharp
+public string? PayPalPlanIdSandbox { get; set; }  // id del billing plan lato PayPal (v1/billing/plans)
+public string? PayPalPlanIdLive { get; set; }      // null per Free, che non ha un piano PayPal
+```
+
+Due colonne, non una: il database è condiviso fra test e produzione (docs/03-integrazioni.md), e sandbox/live sono account PayPal diversi con id incompatibili fra loro. Una sola colonna avrebbe fatto sì che il primo avvio in `live` trovasse la colonna già valorizzata dal sandbox e non creasse i piani veri — bug scoperto e corretto prima di andare in produzione, non dopo.
+
+`Space.PlanId` resta la fonte di verità per l'enforcement (`MaxLinkedBots`/`MaxCallsPerDay`) — `SpaceSubscription` è lo stato del pagamento che lo tiene aggiornato, aggiornato dagli eventi webhook (`BILLING.SUBSCRIPTION.ACTIVATED` → aggiorna `Space.PlanId` al piano acquistato, `BILLING.SUBSCRIPTION.CANCELLED`/`EXPIRED` → retrocede a `Free`). Dettagli del flusso OAuth/webhook in [03-integrazioni.md](03-integrazioni.md#paypal-subscriptions--pagamenti).
+
+**Deciso**: su `BILLING.SUBSCRIPTION.SUSPENDED`, retrocessione immediata a `Free` — nessun periodo di grazia. Il downgrade non perde dati (liste, spese, promemoria restano intatti), limita solo le funzioni oltre le soglie del piano gratuito, quindi non serve ammortizzare l'effetto con un avviso preventivo.
+
 ### Un bot, molte chat, spazi indipendenti
 
 Lo stesso bot vive contemporaneamente in più chat con comportamenti autonomi. L'isolamento **non lo fa Telegram**: ogni update arriva allo stesso webhook, e la separazione la produce la risoluzione `chat_id → spazio` nel codice.

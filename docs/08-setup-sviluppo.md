@@ -98,9 +98,15 @@ dotnet user-secrets set "ConnectionStrings:Default" \
   "Server=(localdb)\\MSSQLLocalDB;Database=Tessera;Trusted_Connection=True;"
 dotnet user-secrets set "BlobStorage:ConnectionString" \
   "DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...;EndpointSuffix=core.windows.net"
+dotnet user-secrets set "PayPal:ClientId"     "..."
+dotnet user-secrets set "PayPal:ClientSecret" "..."
+dotnet user-secrets set "PayPal:WebhookId"    "..."
+dotnet user-secrets set "PayPal:Environment"  "sandbox"
 ```
 
 `BlobStorage:ConnectionString` è opzionale: se assente, la registrazione di `IBlobStorage`/`AttachmentService` viene saltata e gli allegati restano disabilitati (nessun errore, solo un warning di avvio). Il container `attachments` deve esistere già sullo Storage Account — l'app non lo crea.
+
+`PayPal:*` è opzionale allo stesso modo (docs/03-integrazioni.md, docs/04-costi.md) — senza le tre chiavi, i piani a pagamento restano semplicemente non acquistabili. `PayPal:Environment` vale `sandbox` (default se omesso) o `live`; il `WebhookId` si ottiene creando un webhook sulla app sandbox/live in [developer.paypal.com](https://developer.paypal.com), puntato su `/hooks/paypal`. Da testare in locale con lo stesso ngrok usato per Telegram sotto — l'URL ngrok cambia a ogni riavvio, quindi va aggiornato anche lato configurazione webhook PayPal, non solo `setWebhook`.
 
 In produzione le stesse chiavi arrivano da Key Vault via Managed Identity. Configurazione in `Program.cs`:
 

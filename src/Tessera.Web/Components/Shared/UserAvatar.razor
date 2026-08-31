@@ -1,10 +1,10 @@
 @if (!string.IsNullOrWhiteSpace(PictureUrl) && !imageFailed)
 {
-    <img class="user-avatar" style="width: @(Size)rem; height: @(Size)rem;" src="@PictureUrl" alt="@DisplayName" @onerror="() => imageFailed = true" />
+    <img class="user-avatar" style="width: @(SizeRem)rem; height: @(SizeRem)rem;" src="@PictureUrl" alt="@DisplayName" @onerror="() => imageFailed = true" />
 }
 else
 {
-    <span class="user-avatar user-avatar-fallback" style="width: @(Size)rem; height: @(Size)rem; font-size: @(Size * 0.5)rem;">
+    <span class="user-avatar user-avatar-fallback" style="width: @(SizeRem)rem; height: @(SizeRem)rem; font-size: @(FontSizeRem)rem;">
         @Initial
     </span>
 }
@@ -28,6 +28,14 @@ else
     private string Initial => string.IsNullOrWhiteSpace(DisplayName)
         ? "?"
         : DisplayName.Trim()[..1].ToUpperInvariant();
+
+    // CSS needs a "." decimal separator regardless of the request's culture — interpolating
+    // Size directly (@Size) renders with CurrentCulture, which under it-IT gives "1,75rem":
+    // invalid CSS, silently dropped, and the box collapses to its content size instead of a
+    // square (border-radius: 50% on a non-square box is what drew the eye/leaf shape instead
+    // of a circle).
+    private string SizeRem => Size.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    private string FontSizeRem => (Size * 0.5).ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     protected override void OnParametersSet()
     {

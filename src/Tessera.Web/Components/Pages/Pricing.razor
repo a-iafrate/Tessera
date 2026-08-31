@@ -1,6 +1,8 @@
 @page "/pricing"
 
 @using System.Globalization
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.Extensions.Localization
 @using Tessera.Core.Resources
 @using Tessera.Core.Spaces
@@ -8,6 +10,7 @@
 @using Tessera.Web.Services
 
 @inject UsageService UsageService
+@inject SpaceService SpaceService
 @inject IStringLocalizer<Messages> Localizer
 
 <PageTitle>@Localizer["Pricing.Title"]</PageTitle>
@@ -48,15 +51,57 @@
             }
         </div>
 
-        <p class="text-soft" style="margin-top: var(--space-6);">@Localizer["Pricing.UpgradeNote"]</p>
+        @if (isAuthenticated)
+        {
+            @if (ownedSpaces.Count > 0)
+            {
+                <div class="card" style="max-width: 32rem; margin-top: var(--space-6);">
+                    <h2>@Localizer["Pricing.SubscribeHeading"]</h2>
+                    <p class="text-soft">@Localizer["Pricing.SubscribeBody"]</p>
+                    <div style="display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-3);">
+                        @foreach (var s in ownedSpaces)
+                        {
+                            <a class="btn btn-primary" href="@($"/spaces/{s.Id}/usage")">@Localizer["Pricing.SubscribeLinkForSpace", s.Name]</a>
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                <p class="text-soft" style="margin-top: var(--space-6);">@Localizer["Pricing.NoOwnedSpaceNote"]</p>
+            }
+        }
+        else
+        {
+            <p class="text-soft" style="margin-top: var(--space-6);">
+                @Localizer["Pricing.LoginToSubscribeNote"] <a href="Account/Login">@Localizer["Nav.LogIn"]</a>
+            </p>
+        }
     }
 </div>
 
 @code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
     private IReadOnlyList<SubscriptionPlan> plans = [];
+    private bool isAuthenticated;
+    private IReadOnlyList<Space> ownedSpaces = [];
 
     protected override async Task OnInitializedAsync()
     {
         plans = await UsageService.GetAllPlansAsync(CancellationToken.None);
+
+        var authState = await AuthenticationStateTask!;
+        isAuthenticated = authState.User.Identity?.IsAuthenticated == true;
+        if (isAuthenticated)
+        {
+            var userId = Guid.Parse(authState.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var spaces = await SpaceService.GetForUserAsync(userId, CancellationToken.None);
+
+            // Only the owner manages billing for a space (SpaceUsage.razor has the same gate)
+            // — a member with no ownership has nowhere to click through to yet.
+            ownedSpaces = spaces.Where(x => x.OwnerId == userId).ToList();
+        }
     }
 }

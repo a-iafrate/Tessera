@@ -674,6 +674,39 @@ Note: I only read messages that start with / or mention me.</value>
   <data name="SpaceUsage.SeePlansButton" xml:space="preserve">
     <value>See all plans</value>
   </data>
+  <data name="SpaceUsage.SubscriptionStatus" xml:space="preserve">
+    <value>Subscription: {0}</value>
+  </data>
+  <data name="SpaceUsage.UpgradeHeading" xml:space="preserve">
+    <value>Upgrade this space</value>
+  </data>
+  <data name="SpaceUsage.SubscribeButton" xml:space="preserve">
+    <value>Subscribe with PayPal</value>
+  </data>
+  <data name="SpaceUsage.SubscribeError" xml:space="preserve">
+    <value>Couldn't start the PayPal subscription. Try again in a moment.</value>
+  </data>
+  <data name="SpaceUsage.PayPalApprovedNote" xml:space="preserve">
+    <value>Thanks! Your subscription is being activated — this can take a few moments.</value>
+  </data>
+  <data name="SpaceUsage.PayPalCancelledNote" xml:space="preserve">
+    <value>Subscription cancelled — this space is still on its current plan.</value>
+  </data>
+  <data name="SpaceUsage.StatusApprovalPending" xml:space="preserve">
+    <value>waiting for approval</value>
+  </data>
+  <data name="SpaceUsage.StatusActive" xml:space="preserve">
+    <value>active</value>
+  </data>
+  <data name="SpaceUsage.StatusSuspended" xml:space="preserve">
+    <value>suspended</value>
+  </data>
+  <data name="SpaceUsage.StatusCancelled" xml:space="preserve">
+    <value>cancelled</value>
+  </data>
+  <data name="SpaceUsage.StatusExpired" xml:space="preserve">
+    <value>expired</value>
+  </data>
   <data name="SpaceDetail.ShoppingListButton" xml:space="preserve">
     <value>Shopping list</value>
   </data>
@@ -1063,8 +1096,20 @@ Try it now:</value>
   <data name="Pricing.ReceiptScanningNotIncluded" xml:space="preserve">
     <value>Receipt scanning not included</value>
   </data>
-  <data name="Pricing.UpgradeNote" xml:space="preserve">
-    <value>Online upgrades aren't open yet. If you need a higher plan, get in touch.</value>
+  <data name="Pricing.SubscribeHeading" xml:space="preserve">
+    <value>Upgrade a space</value>
+  </data>
+  <data name="Pricing.SubscribeBody" xml:space="preserve">
+    <value>Pick a space below to see its current plan and subscribe with PayPal.</value>
+  </data>
+  <data name="Pricing.SubscribeLinkForSpace" xml:space="preserve">
+    <value>Manage the plan for {0}</value>
+  </data>
+  <data name="Pricing.NoOwnedSpaceNote" xml:space="preserve">
+    <value>You're not the owner of any space yet — only a space's owner can change its plan.</value>
+  </data>
+  <data name="Pricing.LoginToSubscribeNote" xml:space="preserve">
+    <value>Log in to subscribe a space to a paid plan.</value>
   </data>
   <data name="Privacy.Title" xml:space="preserve">
     <value>Privacy Policy</value>

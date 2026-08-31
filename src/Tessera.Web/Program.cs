@@ -276,6 +276,27 @@ if (microsoftCalendarEnabled)
     builder.Services.AddSingleton<ICalendarProvider, GraphCalendarClient>();
 }
 
+// PayPal Subscriptions (docs/04-costi.md, docs/03-integrazioni.md) — chosen over Stripe for
+// fiscal reasons specific to a regime forfettario operator, not technical ones. No Key Vault
+// dependency: unlike calendar linking there's no per-user refresh token, just a single
+// app-level client_credentials secret. WebhookId is required alongside the client
+// credentials — without it, signature verification (and therefore trusting any webhook event)
+// isn't possible, so the whole feature stays off rather than accept unverified events.
+var payPalClientId = builder.Configuration["PayPal:ClientId"];
+var payPalClientSecret = builder.Configuration["PayPal:ClientSecret"];
+var payPalWebhookId = builder.Configuration["PayPal:WebhookId"];
+var payPalEnabled = !string.IsNullOrWhiteSpace(payPalClientId)
+    && !string.IsNullOrWhiteSpace(payPalClientSecret)
+    && !string.IsNullOrWhiteSpace(payPalWebhookId);
+if (payPalEnabled)
+{
+    var payPalIsLive = string.Equals(builder.Configuration["PayPal:Environment"], "live", StringComparison.OrdinalIgnoreCase);
+    builder.Services.AddHttpClient();
+    builder.Services.AddSingleton<IPaymentProvider>(sp => new PayPalClient(
+        sp.GetRequiredService<IHttpClientFactory>(), payPalClientId!, payPalClientSecret!, payPalWebhookId!, payPalIsLive));
+    builder.Services.AddScoped<PayPalSubscriptionService>();
+}
+
 // The web chat channel (docs/06-roadmap.md) needs no external configuration — it's the
 // console's own /chat page — so the message pipeline itself is always wired up, unlike the
 // Telegram-specific pieces below which stay opt-in. IChannelRegistry is what lets
@@ -370,6 +391,27 @@ if (!azureOpenAiEnabled)
     app.Logger.LogWarning("AzureOpenAI configuration is missing — the L3 fallback is disabled.");
 }
 
+if (!payPalEnabled)
+{
+    app.Logger.LogWarning("PayPal:ClientId/ClientSecret/WebhookId are not configured — paid plans can't be purchased.");
+}
+else
+{
+    // Idempotent (PayPalSubscriptionService.EnsurePlansProvisionedAsync) — safe to run on
+    // every startup. Non-fatal: a PayPal outage or a bad credential at boot shouldn't take the
+    // whole app down over a feature that degrades to "can't buy a plan yet", the same
+    // tolerance every other optional integration here gets.
+    await using var payPalScope = app.Services.CreateAsyncScope();
+    try
+    {
+        await payPalScope.ServiceProvider.GetRequiredService<PayPalSubscriptionService>().EnsurePlansProvisionedAsync(CancellationToken.None);
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning(ex, "PayPal billing plan provisioning failed at startup — paid plans may not be purchasable until this is retried.");
+    }
+}
+
 if (!telegramEnabled)
 {
     app.Logger.LogWarning("Telegram:BotToken is not configured — the Telegram channel is disabled (web chat still works).");
@@ -451,6 +493,11 @@ if (telegramEnabled)
 if (calendarIntegrationEnabled)
 {
     app.MapCalendarOAuthEndpoints();
+}
+
+if (payPalEnabled)
+{
+    app.MapPayPalWebhook();
 }
 
 app.Run();

@@ -141,7 +141,19 @@ Lo schema esiste già (`SubscriptionPlan`, per spazio non per utente — vedi [0
 
 - Un conteggio giornaliero delle chiamate per spazio (`Space`), con reset a mezzanotte — stesso pattern di idempotenza già usato per `Budget.LastAlertedFor`/`RecurringExpense.LastGeneratedFor`.
 - Un controllo al momento del collegamento di una nuova identità di canale allo spazio, contro `MaxLinkedBots`.
-- Un flusso di pagamento reale (Stripe o simile) e la UI in console per scegliere/cambiare piano.
+- Il flusso di pagamento reale e la UI in console per scegliere/cambiare piano — vedi sotto per il provider scelto.
 - Le implicazioni di fatturazione/IVA che questo introduce, non coperte da [07-compliance.md](07-compliance.md) (che tratta solo GDPR).
 
 Deliberatamente rimandato a dopo il punto di decisione di Fase 1: introdurlo prima significherebbe costruire fatturazione per un prodotto che non ha ancora dimostrato di essere usato.
+
+### Provider di pagamento: PayPal, non Stripe
+
+Decisione presa (non più "Stripe o simile"): **PayPal Subscriptions REST API**. Motivo principale — non tecnico, fiscale, specifico a un operatore in **regime forfettario** italiano come Acquariusoft:
+
+- Le commissioni PayPal sono trattate come servizio finanziario esente IVA. Le commissioni Stripe arrivano invece da un fornitore con sede in Irlanda: ogni fattura commissioni triggera reverse charge, con autofattura elettronica (TD17) e F24 mensile — un adempimento ricorrente che PayPal evita quasi del tutto.
+- Nessun obbligo di posizione VIES per le commissioni del gateway, non avendo acquisti intracomunitari soggetti a reverse charge da parte sua.
+- Con solo 4 piani fissi (vedi [02-modello-dati.md](02-modello-dati.md#piano-di-abbonamento)) e nessuna necessità di scalare a logiche di fatturazione complesse, la superficie di integrazione resta comunque piccola.
+
+**Non verificato da un commercialista in questa sede** — la lettura sopra viene da una consulenza esterna dell'utente, non da un parere fiscale raccolto qui. In particolare resta da confermare con chi segue la posizione forfettaria: l'interazione fra regime forfettario (niente IVA sulle vendite italiane) e registrazione OSS (necessaria solo superati i 10.000 € lordi annui di vendite verso privati in altri Paesi UE) — sotto soglia le vendite estere UE si trattano come vendite italiane, sopra soglia serve OSS a parte.
+
+Dettagli del flusso tecnico (API, webhook, sandbox) in [03-integrazioni.md](03-integrazioni.md#paypal-subscriptions--pagamenti); schema dati proposto in [02-modello-dati.md](02-modello-dati.md#abbonamento-paypal-per-spazio).

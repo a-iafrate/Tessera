@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Tessera.Data;
 
@@ -11,9 +12,11 @@ using Tessera.Data;
 namespace Tessera.Data.Migrations
 {
     [DbContext(typeof(TesseraDbContext))]
-    partial class TesseraDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260831105021_AddPayPalSubscriptions")]
+    partial class AddPayPalSubscriptions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1001,10 +1004,7 @@ namespace Tessera.Data.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("PayPalPlanIdLive")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PayPalPlanIdSandbox")
+                    b.Property<string>("PayPalPlanId")
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
