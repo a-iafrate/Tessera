@@ -46,12 +46,37 @@ public sealed class PayPalSubscriptionService(TesseraDbContext db, IPaymentProvi
         await db.SaveChangesAsync(ct);
     }
 
+    // A Space with one of these already has money moving on PayPal's side — ACTIVE obviously,
+    // APPROVAL_PENDING because the user may still complete the approval and end up with two
+    // live subscriptions if a second one is started in the meantime. SUSPENDED/CANCELLED/EXPIRED
+    // don't block: nothing is being charged, so starting a fresh subscription is safe.
+    private static readonly string[] BlockingStatuses = ["ACTIVE", "APPROVAL_PENDING"];
+
     // Starts a subscription and returns the PayPal URL the browser must be redirected to for
     // approval — the subscription only becomes real once the webhook confirms ACTIVATED
     // (docs/03-integrazioni.md), so the row created here starts in APPROVAL_PENDING and
     // Space.PlanId is deliberately left untouched until then.
     public async Task<string> CreateSubscriptionAsync(Guid spaceId, Guid planId, string returnUrl, string cancelUrl, string locale, CancellationToken ct)
     {
+        // Checked here too, not just in the UI (SpaceUsage.razor) — without this, clicking
+        // Subscribe twice (two tabs, a slow first redirect) would leave PayPal charging the
+        // same Space for two plans at once, with nothing in Tessera itself to notice.
+        //
+        // Only the most recent row matters — a Space accumulates history (subscribe, cancel,
+        // subscribe again), and an old superseded row can be sitting in APPROVAL_PENDING
+        // forever (e.g. its webhook was never delivered, docs/03-integrazioni.md's ngrok
+        // caveat) without that meaning anything about the space's *current* state. Matches the
+        // ordering GetForSpaceAsync/ReviseSubscriptionAsync/CancelSubscriptionAsync already use.
+        var latest = await db.SpaceSubscriptions
+            .Where(x => x.SpaceId == spaceId)
+            .OrderByDescending(x => x.CreatedAt)
+            .FirstOrDefaultAsync(ct);
+        if (latest is not null && BlockingStatuses.Contains(latest.Status))
+        {
+            throw new InvalidOperationException(
+                $"Space {spaceId} already has a {latest.Status} PayPal subscription — cancel it before starting another.");
+        }
+
         var plan = await db.SubscriptionPlans.AsNoTracking().FirstAsync(x => x.Id == planId, ct);
         var payPalPlanId = paymentProvider.IsLive ? plan.PayPalPlanIdLive : plan.PayPalPlanIdSandbox;
         if (payPalPlanId is null)
@@ -74,6 +99,67 @@ public sealed class PayPalSubscriptionService(TesseraDbContext db, IPaymentProvi
         await db.SaveChangesAsync(ct);
 
         return approveUrl;
+    }
+
+    // Changes an already-ACTIVE subscription to a different plan instead of creating a second
+    // one — the same PayPal subscription id keeps billing, just for a different plan. Returns
+    // an approve URL if PayPal needs the payer to confirm the new terms, same redirect pattern
+    // as CreateSubscriptionAsync; null means it applied immediately, and Space.PlanId is
+    // updated right away rather than waiting for a webhook that may never distinctly fire.
+    public async Task<string?> ReviseSubscriptionAsync(Guid spaceId, Guid newPlanId, string returnUrl, string cancelUrl, CancellationToken ct)
+    {
+        var current = await db.SpaceSubscriptions
+            .Where(x => x.SpaceId == spaceId && x.Status == "ACTIVE")
+            .OrderByDescending(x => x.CreatedAt)
+            .FirstOrDefaultAsync(ct);
+        if (current is null)
+        {
+            throw new InvalidOperationException($"Space {spaceId} has no ACTIVE PayPal subscription to revise.");
+        }
+
+        var plan = await db.SubscriptionPlans.AsNoTracking().FirstAsync(x => x.Id == newPlanId, ct);
+        var payPalPlanId = paymentProvider.IsLive ? plan.PayPalPlanIdLive : plan.PayPalPlanIdSandbox;
+        if (payPalPlanId is null)
+        {
+            throw new InvalidOperationException(
+                $"Plan {plan.Name} has no PayPal plan id for the {(paymentProvider.IsLive ? "live" : "sandbox")} environment — run EnsurePlansProvisionedAsync first.");
+        }
+
+        var approveUrl = await paymentProvider.ReviseSubscriptionAsync(current.PayPalSubscriptionId, payPalPlanId, returnUrl, cancelUrl, ct);
+
+        current.PlanId = newPlanId;
+        if (approveUrl is null)
+        {
+            await SetSpacePlanAsync(spaceId, newPlanId, ct);
+        }
+        else
+        {
+            await db.SaveChangesAsync(ct);
+        }
+
+        return approveUrl;
+    }
+
+    // User-initiated from the console, not a webhook reaction — applied immediately
+    // (Space.PlanId -> Free right away) since PayPal's cancel call is synchronous and final,
+    // unlike Create/Revise there's no approval step to wait for. The
+    // BILLING.SUBSCRIPTION.CANCELLED webhook that follows later just re-confirms the same
+    // state, which HandleWebhookEventAsync already applies idempotently.
+    public async Task CancelSubscriptionAsync(Guid spaceId, CancellationToken ct)
+    {
+        var current = await db.SpaceSubscriptions
+            .Where(x => x.SpaceId == spaceId && BlockingStatuses.Contains(x.Status))
+            .OrderByDescending(x => x.CreatedAt)
+            .FirstOrDefaultAsync(ct);
+        if (current is null)
+        {
+            throw new InvalidOperationException($"Space {spaceId} has no active or pending PayPal subscription to cancel.");
+        }
+
+        await paymentProvider.CancelSubscriptionAsync(current.PayPalSubscriptionId, "Cancelled by the space owner from the Tessera console.", ct);
+
+        current.Status = "CANCELLED";
+        await SetSpacePlanAsync(spaceId, SystemPlanIds.Free, ct);
     }
 
     public Task<SpaceSubscription?> GetForSpaceAsync(Guid spaceId, CancellationToken ct) =>
@@ -115,6 +201,16 @@ public sealed class PayPalSubscriptionService(TesseraDbContext db, IPaymentProvi
             case "BILLING.SUBSCRIPTION.EXPIRED":
                 subscription.Status = eventType == "BILLING.SUBSCRIPTION.CANCELLED" ? "CANCELLED" : "EXPIRED";
                 await SetSpacePlanAsync(subscription.SpaceId, SystemPlanIds.Free, ct);
+                break;
+
+            case "BILLING.SUBSCRIPTION.UPDATED":
+                // Fires after a plan revision when PayPal required the payer's approval —
+                // ReviseSubscriptionAsync already updated subscription.PlanId locally before
+                // redirecting for approval, so this just confirms it and re-syncs Space.PlanId.
+                // Empirically unverified against a real sandbox revise (docs/03-integrazioni.md).
+                subscription.Status = "ACTIVE";
+                subscription.CurrentPeriodEnd = await paymentProvider.GetNextBillingTimeAsync(payPalSubscriptionId, ct);
+                await SetSpacePlanAsync(subscription.SpaceId, subscription.PlanId, ct);
                 break;
 
             case "PAYMENT.SALE.COMPLETED":

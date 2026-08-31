@@ -16,6 +16,7 @@
 @inject UsageService UsageService
 @inject IServiceProvider ServiceProvider
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JsRuntime
 @inject IStringLocalizer<Messages> Localizer
 
 <PageTitle>@Localizer["SpaceUsage.PageTitle"]</PageTitle>
@@ -53,6 +54,18 @@
                 <p class="text-soft" style="font-size: var(--text-sm);">@Localizer["SpaceUsage.SubscriptionStatus", SubscriptionStatusLabel(currentSubscription.Status)]</p>
             }
 
+            @if (cancelError is not null)
+            {
+                <div class="alert alert-danger">@cancelError</div>
+            }
+
+            @if (CanCancel)
+            {
+                <button type="button" class="btn btn-danger" disabled="@isCancelling" @onclick="CancelAsync">
+                    @Localizer["SpaceUsage.CancelSubscriptionButton"]
+                </button>
+            }
+
             <div class="seam" aria-hidden="true">
                 <span></span><span></span><span></span>
             </div>
@@ -69,7 +82,7 @@
 
         <a class="btn btn-secondary" href="/pricing">@Localizer["SpaceUsage.SeePlansButton"]</a>
 
-        @if (isOwner && payPalSubscriptions is not null && otherPlans.Count > 0)
+        @if (isOwner && payPalSubscriptions is not null && (otherPlans.Count > 0 || IsPendingApproval))
         {
             <div class="seam" aria-hidden="true">
                 <span></span><span></span><span></span>
@@ -80,18 +93,34 @@
             {
                 <div class="alert alert-danger">@subscribeError</div>
             }
-            <div style="display: flex; gap: var(--space-4); flex-wrap: wrap; margin-top: var(--space-4);">
-                @foreach (var other in otherPlans)
-                {
-                    <div class="card" style="flex: 1; min-width: 14rem;">
-                        <h3 style="margin-bottom: var(--space-2);">@other.Name</h3>
-                        <p class="text-soft">@MoneyFormatter.Format(other.MonthlyPrice, other.Currency, CultureInfo.CurrentUICulture.Name) @Localizer["Pricing.PerMonth"]</p>
-                        <button type="button" class="btn btn-primary" disabled="@isSubscribing" @onclick="() => SubscribeAsync(other.Id)">
-                            @Localizer["SpaceUsage.SubscribeButton"]
-                        </button>
-                    </div>
-                }
-            </div>
+            @if (IsPendingApproval)
+            {
+                <p class="text-soft">@Localizer["SpaceUsage.AlreadySubscribedNote", SubscriptionStatusLabel(currentSubscription!.Status)]</p>
+            }
+            else
+            {
+                <div style="display: flex; gap: var(--space-4); flex-wrap: wrap; margin-top: var(--space-4);">
+                    @foreach (var other in otherPlans)
+                    {
+                        <div class="card" style="flex: 1; min-width: 14rem;">
+                            <h3 style="margin-bottom: var(--space-2);">@other.Name</h3>
+                            <p class="text-soft">@MoneyFormatter.Format(other.MonthlyPrice, other.Currency, CultureInfo.CurrentUICulture.Name) @Localizer["Pricing.PerMonth"]</p>
+                            @if (CanChangePlan)
+                            {
+                                <button type="button" class="btn btn-primary" disabled="@isSubscribing" @onclick="() => ReviseAsync(other.Id)">
+                                    @Localizer["SpaceUsage.ChangePlanButton"]
+                                </button>
+                            }
+                            else
+                            {
+                                <button type="button" class="btn btn-primary" disabled="@isSubscribing" @onclick="() => SubscribeAsync(other.Id)">
+                                    @Localizer["SpaceUsage.SubscribeButton"]
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            }
         }
     }
 </div>
@@ -117,6 +146,21 @@
     private bool isSubscribing;
     private string? subscribeError;
     private string? payPalStatusMessage;
+    private bool isCancelling;
+    private string? cancelError;
+
+    // A still-pending subscription can't be revised (nothing to change plan on yet) and
+    // blocks starting a second one — same PayPalSubscriptionService.BlockingStatuses rule.
+    private bool IsPendingApproval => currentSubscription is { Status: "APPROVAL_PENDING" };
+
+    // An ACTIVE subscription switches the "other plans" buttons from Subscribe (create a new
+    // subscription) to Change plan (revise the existing one) — PayPalSubscriptionService
+    // rejects CreateSubscriptionAsync in this state anyway (double-billing guard).
+    private bool CanChangePlan => currentSubscription is { Status: "ACTIVE" };
+
+    // Same set PayPalSubscriptionService.CancelSubscriptionAsync accepts — anything else
+    // (SUSPENDED/CANCELLED/EXPIRED) has no live PayPal subscription left to cancel.
+    private bool CanCancel => isOwner && currentSubscription is { Status: "ACTIVE" or "APPROVAL_PENDING" };
 
     protected override async Task OnInitializedAsync()
     {
@@ -179,6 +223,66 @@
         {
             subscribeError = Localizer["SpaceUsage.SubscribeError"];
             isSubscribing = false;
+        }
+    }
+
+    private async Task ReviseAsync(Guid planId)
+    {
+        if (isSubscribing || payPalSubscriptions is null)
+        {
+            return;
+        }
+
+        isSubscribing = true;
+        subscribeError = null;
+        try
+        {
+            var baseUri = NavigationManager.BaseUri.TrimEnd('/');
+            var returnUrl = $"{baseUri}/spaces/{SpaceId}/usage?paypal=success";
+            var cancelUrl = $"{baseUri}/spaces/{SpaceId}/usage?paypal=cancel";
+
+            var approveUrl = await payPalSubscriptions.ReviseSubscriptionAsync(SpaceId, planId, returnUrl, cancelUrl, CancellationToken.None);
+            if (approveUrl is not null)
+            {
+                NavigationManager.NavigateTo(approveUrl, forceLoad: true);
+                return;
+            }
+
+            // No redirect needed — PayPal applied the change immediately
+            // (PayPalSubscriptionService already updated Space.PlanId) — reload to show it.
+            NavigationManager.NavigateTo($"/spaces/{SpaceId}/usage?paypal=success", forceLoad: true);
+        }
+        catch (Exception)
+        {
+            subscribeError = Localizer["SpaceUsage.SubscribeError"];
+            isSubscribing = false;
+        }
+    }
+
+    private async Task CancelAsync()
+    {
+        if (isCancelling || payPalSubscriptions is null)
+        {
+            return;
+        }
+
+        cancelError = null;
+        if (!await JsRuntime.InvokeAsync<bool>("confirm", Localizer["SpaceUsage.CancelSubscriptionConfirm"].Value))
+        {
+            return;
+        }
+
+        isCancelling = true;
+        StateHasChanged();
+        try
+        {
+            await payPalSubscriptions.CancelSubscriptionAsync(SpaceId, CancellationToken.None);
+            NavigationManager.NavigateTo($"/spaces/{SpaceId}/usage", forceLoad: true);
+        }
+        catch (Exception)
+        {
+            cancelError = Localizer["SpaceUsage.CancelSubscriptionError"];
+            isCancelling = false;
         }
     }
 

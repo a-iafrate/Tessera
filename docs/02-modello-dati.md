@@ -131,7 +131,7 @@ I piani sono righe seedate (`SubscriptionPlanConfiguration.HasData`), condivise 
 | Plus | 3 | 1000 | 12 € |
 | Family | 10 | 5000 | 25 € |
 
-**Lo schema esiste, l'enforcement non ancora.** Nessun punto del codice blocca oggi un collegamento oltre `MaxLinkedBots` né conta le chiamate giornaliere contro `MaxCallsPerDay` — è deliberatamente rimandato (vedi [06-roadmap.md](06-roadmap.md)) per non anticipare pagamenti/fatturazione prima del punto di decisione di Fase 1. Il rate limiting fisso da 60 messaggi/ora per identità (vedi [07-compliance.md](07-compliance.md)) resta la sola protezione attiva nel frattempo, ed è indipendente dal piano.
+**Enforcement**: `MaxCallsPerDay` (`UsageService.TryRecordL3CallAsync`) e `AllowsReceiptScanning` (`MessageProcessor`) sono applicati. `MaxLinkedBots` è applicato solo al collegamento di un **gruppo Telegram** a uno spazio (`LinkService.CanLinkAnotherBotAsync`, controllato nei due punti di `MessageProcessor` dove `Space.GroupChatId` viene impostato) — non al collegamento dell'account Telegram privato di un singolo membro, perché quell'azione non è scopabile a un singolo spazio: `ChannelIdentity` è per-utente, non per-spazio, e un utente può appartenere a più spazi contemporaneamente. Il conteggio (`LinkService.GetLinkedBotCountAsync`) è quindi derivato: membri dello spazio con almeno un'identità collegata (esclusa la chat web, che non conta) più uno se lo spazio ha un gruppo Telegram collegato. Il rate limiting fisso da 60 messaggi/ora per identità (vedi [07-compliance.md](07-compliance.md)) resta comunque attivo in parallelo, indipendente dal piano.
 
 ### Abbonamento PayPal per spazio
 

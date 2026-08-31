@@ -7,6 +7,46 @@ namespace Tessera.Data;
 
 public sealed class LinkService(TesseraDbContext db)
 {
+    // "Linked bots" for a Space (docs/02-modello-dati.md, docs/04-costi.md) has no direct
+    // column to read: ChannelIdentity is per-User, not per-Space (one Telegram account can
+    // belong to several spaces via Membership), and a linked Telegram group is a completely
+    // separate mechanism (Space.GroupChatId). The count is therefore derived: members of this
+    // space who have linked at least one identity, plus one more if a group is linked. Web
+    // chat is excluded on purpose — it's the console's own always-available entry point
+    // (docs/06-roadmap.md), not an extra bot connection to gate against the plan.
+    public async Task<int> GetLinkedBotCountAsync(Guid spaceId, CancellationToken ct)
+    {
+        var memberUserIds = await db.Memberships
+            .Where(x => x.SpaceId == spaceId)
+            .Select(x => x.UserId)
+            .ToListAsync(ct);
+
+        var linkedMemberCount = await db.ChannelIdentities
+            .Where(x => memberUserIds.Contains(x.UserId) && x.ChannelName != "web")
+            .Select(x => x.UserId)
+            .Distinct()
+            .CountAsync(ct);
+
+        var hasLinkedGroup = await db.Spaces
+            .Where(x => x.Id == spaceId)
+            .Select(x => x.GroupChatId != null)
+            .FirstAsync(ct);
+
+        return linkedMemberCount + (hasLinkedGroup ? 1 : 0);
+    }
+
+    // Only enforced at the one clean, unambiguous moment: linking a Telegram group to a space
+    // (MessageProcessor). A member linking their own private Telegram isn't scoped to a single
+    // space the same way — they may belong to several — so that path isn't gated here; see the
+    // discussion in docs/06-roadmap.md.
+    public async Task<bool> CanLinkAnotherBotAsync(Guid spaceId, CancellationToken ct)
+    {
+        var space = await db.Spaces.AsNoTracking().FirstAsync(x => x.Id == spaceId, ct);
+        var plan = await db.SubscriptionPlans.AsNoTracking().FirstAsync(x => x.Id == space.PlanId, ct);
+        var current = await GetLinkedBotCountAsync(spaceId, ct);
+        return current < plan.MaxLinkedBots;
+    }
+
     public async Task<LinkToken> CreateTokenAsync(Guid userId, string channelName, CancellationToken ct)
     {
         var token = new LinkToken

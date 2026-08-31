@@ -431,6 +431,9 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   <data name="Group.Linked" xml:space="preserve">
     <value>Questo gruppo è ora collegato al tuo spazio.</value>
   </data>
+  <data name="Group.LinkLimitReached" xml:space="preserve">
+    <value>Questo spazio ha già raggiunto il limite di bot collegati previsto dal piano. Aggiorna il piano dalla console per collegare un altro gruppo o account.</value>
+  </data>
   <data name="Space.WhichOne" xml:space="preserve">
     <value>A quale spazio ti riferisci?</value>
   </data>
@@ -683,8 +686,23 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   <data name="SpaceUsage.SubscribeButton" xml:space="preserve">
     <value>Sottoscrivi con PayPal</value>
   </data>
+  <data name="SpaceUsage.ChangePlanButton" xml:space="preserve">
+    <value>Cambia piano</value>
+  </data>
+  <data name="SpaceUsage.CancelSubscriptionButton" xml:space="preserve">
+    <value>Annulla abbonamento</value>
+  </data>
+  <data name="SpaceUsage.CancelSubscriptionConfirm" xml:space="preserve">
+    <value>Annullare questo abbonamento? Lo spazio passerà subito al piano Free.</value>
+  </data>
+  <data name="SpaceUsage.CancelSubscriptionError" xml:space="preserve">
+    <value>Non è stato possibile annullare l'abbonamento. Riprova tra poco.</value>
+  </data>
   <data name="SpaceUsage.SubscribeError" xml:space="preserve">
     <value>Non è stato possibile avviare la sottoscrizione PayPal. Riprova tra poco.</value>
+  </data>
+  <data name="SpaceUsage.AlreadySubscribedNote" xml:space="preserve">
+    <value>Questo spazio ha già un abbonamento ({0}). Annullalo da PayPal prima di sottoscriverne uno per un piano diverso.</value>
   </data>
   <data name="SpaceUsage.PayPalApprovedNote" xml:space="preserve">
     <value>Grazie! L'abbonamento è in fase di attivazione — può richiedere qualche istante.</value>

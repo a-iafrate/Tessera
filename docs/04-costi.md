@@ -137,11 +137,9 @@ Questo non è un problema della Fase 1 — è la ragione per cui il punto di dec
 
 Lo schema esiste già (`SubscriptionPlan`, per spazio non per utente — vedi [02-modello-dati.md](02-modello-dati.md#piano-di-abbonamento) per l'entità e la tabella dei livelli attuali), introdotto in anticipo apposta per non dover riscrivere `Space` quando arriverà davvero la fatturazione.
 
-**L'enforcement non è ancora collegato.** Nessun punto del codice oggi impedisce di superare `MaxLinkedBots` o `MaxCallsPerDay` — l'unica protezione economica attiva è il rate limiting fisso per identità di canale (60 msg/ora, vedi [07-compliance.md](07-compliance.md)), indipendente dal piano. Restano da fare, quando si deciderà di attivarli:
+**Enforcement collegato.** `MaxCallsPerDay` (`UsageService`), `AllowsReceiptScanning` (`MessageProcessor`) e `MaxLinkedBots` (`LinkService.CanLinkAnotherBotAsync`, solo sul collegamento di un gruppo Telegram — vedi [02-modello-dati.md](02-modello-dati.md#piano-di-abbonamento) per il perché di questo limite) sono tutti applicati. Il rate limiting fisso per identità di canale (60 msg/ora, vedi [07-compliance.md](07-compliance.md)) resta comunque attivo in parallelo, indipendente dal piano. Restano da fare:
 
-- Un conteggio giornaliero delle chiamate per spazio (`Space`), con reset a mezzanotte — stesso pattern di idempotenza già usato per `Budget.LastAlertedFor`/`RecurringExpense.LastGeneratedFor`.
-- Un controllo al momento del collegamento di una nuova identità di canale allo spazio, contro `MaxLinkedBots`.
-- Il flusso di pagamento reale e la UI in console per scegliere/cambiare piano — vedi sotto per il provider scelto.
+- Il flusso di pagamento reale e la UI in console per scegliere/cambiare piano — vedi sotto per il provider scelto (implementato con PayPal, cambio piano fra due abbonamenti a pagamento ancora da fare — [06-roadmap.md](06-roadmap.md)).
 - Le implicazioni di fatturazione/IVA che questo introduce, non coperte da [07-compliance.md](07-compliance.md) (che tratta solo GDPR).
 
 Deliberatamente rimandato a dopo il punto di decisione di Fase 1: introdurlo prima significherebbe costruire fatturazione per un prodotto che non ha ancora dimostrato di essere usato.

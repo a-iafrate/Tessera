@@ -431,6 +431,9 @@ Note: I only read messages that start with / or mention me.</value>
   <data name="Group.Linked" xml:space="preserve">
     <value>This group is now linked to your space.</value>
   </data>
+  <data name="Group.LinkLimitReached" xml:space="preserve">
+    <value>This space has already reached its plan's limit of linked bots. Upgrade the plan from the console to link another group or account.</value>
+  </data>
   <data name="Space.WhichOne" xml:space="preserve">
     <value>Which space did you mean?</value>
   </data>
@@ -683,8 +686,23 @@ Note: I only read messages that start with / or mention me.</value>
   <data name="SpaceUsage.SubscribeButton" xml:space="preserve">
     <value>Subscribe with PayPal</value>
   </data>
+  <data name="SpaceUsage.ChangePlanButton" xml:space="preserve">
+    <value>Change plan</value>
+  </data>
+  <data name="SpaceUsage.CancelSubscriptionButton" xml:space="preserve">
+    <value>Cancel subscription</value>
+  </data>
+  <data name="SpaceUsage.CancelSubscriptionConfirm" xml:space="preserve">
+    <value>Cancel this subscription? The space will move to the Free plan right away.</value>
+  </data>
+  <data name="SpaceUsage.CancelSubscriptionError" xml:space="preserve">
+    <value>Couldn't cancel the subscription. Try again in a moment.</value>
+  </data>
   <data name="SpaceUsage.SubscribeError" xml:space="preserve">
     <value>Couldn't start the PayPal subscription. Try again in a moment.</value>
+  </data>
+  <data name="SpaceUsage.AlreadySubscribedNote" xml:space="preserve">
+    <value>This space already has a subscription ({0}). Cancel it from PayPal before subscribing to a different plan.</value>
   </data>
   <data name="SpaceUsage.PayPalApprovedNote" xml:space="preserve">
     <value>Thanks! Your subscription is being activated — this can take a few moments.</value>

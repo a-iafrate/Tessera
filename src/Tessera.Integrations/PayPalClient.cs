@@ -138,6 +138,53 @@ public sealed class PayPalClient(IHttpClientFactory httpClientFactory, string cl
         return (payload.Id, approveUrl);
     }
 
+    // Changes plan_id on an existing subscription rather than creating a new one — the id
+    // itself never changes, only what it bills for. Unlike CreateSubscriptionAsync a missing
+    // "approve" link isn't an error here: PayPal doesn't always require the payer to
+    // re-confirm a revision (empirically unverified against a real sandbox run, see the
+    // interface doc comment), so a response with no such link means the change already applied.
+    public async Task<string?> ReviseSubscriptionAsync(
+        string payPalSubscriptionId, string payPalPlanId, string returnUrl, string cancelUrl, CancellationToken ct)
+    {
+        var accessToken = await GetAccessTokenAsync(ct);
+        var client = httpClientFactory.CreateClient();
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{BaseUrl}/v1/billing/subscriptions/{payPalSubscriptionId}/revise");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        request.Content = JsonContent.Create(new
+        {
+            plan_id = payPalPlanId,
+            application_context = new { return_url = returnUrl, cancel_url = cancelUrl },
+        });
+        using var response = await client.SendAsync(request, ct);
+        response.EnsureSuccessStatusCode();
+
+        // Content-Length can't be trusted to distinguish "no body" from "chunked" — read the
+        // raw string instead of relying on the header before deciding whether there's JSON here.
+        var rawBody = await response.Content.ReadAsStringAsync(ct);
+        if (string.IsNullOrWhiteSpace(rawBody))
+        {
+            return null;
+        }
+
+        var payload = JsonSerializer.Deserialize<SubscriptionResponse>(rawBody);
+        return payload?.Links?.FirstOrDefault(x => x.Rel == "approve")?.Href;
+    }
+
+    // POST /v1/billing/subscriptions/{id}/cancel returns 204 with no body on success — no
+    // "approve" step, no HATEOAS links to follow, unlike Create/Revise.
+    public async Task CancelSubscriptionAsync(string payPalSubscriptionId, string reason, CancellationToken ct)
+    {
+        var accessToken = await GetAccessTokenAsync(ct);
+        var client = httpClientFactory.CreateClient();
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{BaseUrl}/v1/billing/subscriptions/{payPalSubscriptionId}/cancel");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        request.Content = JsonContent.Create(new { reason });
+        using var response = await client.SendAsync(request, ct);
+        response.EnsureSuccessStatusCode();
+    }
+
     // Used after ACTIVATED/PAYMENT.SALE.COMPLETED events to read the next renewal date —
     // that detail isn't in the webhook payload itself, only on the subscription resource.
     public async Task<DateTimeOffset?> GetNextBillingTimeAsync(string payPalSubscriptionId, CancellationToken ct)

@@ -325,7 +325,18 @@ Eventi da gestire per aggiornare `SpaceSubscription`/`Space.PlanId`:
 | `BILLING.SUBSCRIPTION.ACTIVATED` | `Space.PlanId` → piano acquistato, `SpaceSubscription.Status` → `ACTIVE` |
 | `BILLING.SUBSCRIPTION.SUSPENDED` | Pagamento fallito → `Space.PlanId` → `Free` immediatamente, nessun periodo di grazia (deciso, [02-modello-dati.md](02-modello-dati.md#abbonamento-paypal-per-spazio)) |
 | `BILLING.SUBSCRIPTION.CANCELLED` / `EXPIRED` | `Space.PlanId` → `Free` |
+| `BILLING.SUBSCRIPTION.UPDATED` | Cambio piano confermato (vedi sotto) → `Space.PlanId` ri-sincronizzato con `SpaceSubscription.PlanId` |
 | `PAYMENT.SALE.COMPLETED` | Rinnovo periodico riuscito — utile per un log dei pagamenti, non cambia lo stato del piano |
+
+### Cambio piano fra due abbonamenti a pagamento
+
+`POST /v1/billing/subscriptions/{id}/revise` cambia il `plan_id` di un abbonamento `ACTIVE` già esistente, invece di crearne uno nuovo — stesso `PayPalSubscriptionId`, cambia solo cosa fattura. `PayPalSubscriptionService.ReviseSubscriptionAsync` aggiorna subito `SpaceSubscription.PlanId`; se la risposta contiene un link `rel: "approve"` l'utente va rimandato lì per confermare (stesso principio del flusso di sottoscrizione — solo dopo webhook `BILLING.SUBSCRIPTION.UPDATED` si aggiorna anche `Space.PlanId`), altrimenti significa che PayPal ha applicato il cambio subito, e `Space.PlanId` viene aggiornato immediatamente senza aspettare webhook.
+
+**Non verificato empiricamente**: se PayPal richieda sempre la riapprovazione, mai, o solo in certi casi (es. solo per un aumento di prezzo) non è documentato in modo affidabile — va controllato al primo test reale in sandbox. Finché non è testato, non è escluso un doppio addebito o un cambio applicato senza che l'utente se ne accorga; entrambi i comportamenti nel codice sono gestiti, ma non ancora osservati.
+
+### Cancellazione dalla console
+
+`POST /v1/billing/subscriptions/{id}/cancel` — a differenza di sottoscrizione e cambio piano non ha un passaggio di conferma lato PayPal: risponde `204` e basta. `PayPalSubscriptionService.CancelSubscriptionAsync` applica `Space.PlanId → Free` immediatamente, senza aspettare il webhook `BILLING.SUBSCRIPTION.CANCELLED` che arriva comunque poco dopo a riconferma (gestito in modo idempotente da `HandleWebhookEventAsync`, quindi non fa danno se applica di nuovo lo stesso stato). Disponibile per abbonamenti `ACTIVE` o `APPROVAL_PENDING` — nel secondo caso l'utente abbandona un'approvazione mai completata.
 
 ### Sandbox
 

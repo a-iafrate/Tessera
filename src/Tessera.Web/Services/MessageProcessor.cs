@@ -304,6 +304,21 @@ public sealed class MessageProcessor(
             {
                 var linkDb = scope.ServiceProvider.GetRequiredService<TesseraDbContext>();
                 var linkSpace = await linkDb.Spaces.FirstAsync(s => s.Id == linkSpaceId, ct);
+
+                // Already linked to this exact group (a repeated /link, or the same group
+                // reconfirming) doesn't consume another slot — only null -> non-null does
+                // (LinkService.GetLinkedBotCountAsync only checks whether GroupChatId is set,
+                // not which group it is).
+                if (linkSpace.GroupChatId is null)
+                {
+                    var linkService = scope.ServiceProvider.GetRequiredService<LinkService>();
+                    if (!await linkService.CanLinkAnotherBotAsync(linkSpaceId, ct))
+                    {
+                        await channel.SendTextAsync(address, localizer["Group.LinkLimitReached"], ct);
+                        return;
+                    }
+                }
+
                 linkSpace.GroupChatId = message.ExternalChatId;
                 await linkDb.SaveChangesAsync(ct);
             }
@@ -1812,6 +1827,17 @@ public sealed class MessageProcessor(
         }
 
         var space = await db.Spaces.FirstAsync(s => s.Id == spaceId, ct);
+
+        if (space.GroupChatId is null)
+        {
+            var linkService = scope.ServiceProvider.GetRequiredService<LinkService>();
+            if (!await linkService.CanLinkAnotherBotAsync(spaceId, ct))
+            {
+                await channel.SendTextAsync(address, localizer["Group.LinkLimitReached"], ct);
+                return;
+            }
+        }
+
         space.GroupChatId = message.ExternalChatId;
         await db.SaveChangesAsync(ct);
 
