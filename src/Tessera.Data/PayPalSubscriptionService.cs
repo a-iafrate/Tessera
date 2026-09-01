@@ -207,7 +207,6 @@ public sealed class PayPalSubscriptionService(TesseraDbContext db, IPaymentProvi
                 // Fires after a plan revision when PayPal required the payer's approval —
                 // ReviseSubscriptionAsync already updated subscription.PlanId locally before
                 // redirecting for approval, so this just confirms it and re-syncs Space.PlanId.
-                // Empirically unverified against a real sandbox revise (docs/03-integrazioni.md).
                 subscription.Status = "ACTIVE";
                 subscription.CurrentPeriodEnd = await paymentProvider.GetNextBillingTimeAsync(payPalSubscriptionId, ct);
                 await SetSpacePlanAsync(subscription.SpaceId, subscription.PlanId, ct);

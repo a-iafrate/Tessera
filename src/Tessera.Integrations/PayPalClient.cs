@@ -141,8 +141,7 @@ public sealed class PayPalClient(IHttpClientFactory httpClientFactory, string cl
     // Changes plan_id on an existing subscription rather than creating a new one — the id
     // itself never changes, only what it bills for. Unlike CreateSubscriptionAsync a missing
     // "approve" link isn't an error here: PayPal doesn't always require the payer to
-    // re-confirm a revision (empirically unverified against a real sandbox run, see the
-    // interface doc comment), so a response with no such link means the change already applied.
+    // re-confirm a revision, so a response with no such link means the change already applied.
     public async Task<string?> ReviseSubscriptionAsync(
         string payPalSubscriptionId, string payPalPlanId, string returnUrl, string cancelUrl, CancellationToken ct)
     {

@@ -23,8 +23,7 @@ public interface IPaymentProvider
     // Changes an existing subscription to a different plan. Returns an approve URL when PayPal
     // requires the payer to confirm the new terms (same "approve" HATEOAS link as
     // CreateSubscriptionAsync) — null means the change applied immediately, no redirect needed.
-    // Which of the two happens isn't fully documented by PayPal and needs verifying against a
-    // real sandbox run before this is trusted in production (docs/03-integrazioni.md).
+    // Both cases are handled and verified against a sandbox run (docs/03-integrazioni.md).
     Task<string?> ReviseSubscriptionAsync(
         string providerSubscriptionId, string providerPlanId, string returnUrl, string cancelUrl, CancellationToken ct);
 

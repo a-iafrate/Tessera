@@ -332,7 +332,7 @@ Eventi da gestire per aggiornare `SpaceSubscription`/`Space.PlanId`:
 
 `POST /v1/billing/subscriptions/{id}/revise` cambia il `plan_id` di un abbonamento `ACTIVE` già esistente, invece di crearne uno nuovo — stesso `PayPalSubscriptionId`, cambia solo cosa fattura. `PayPalSubscriptionService.ReviseSubscriptionAsync` aggiorna subito `SpaceSubscription.PlanId`; se la risposta contiene un link `rel: "approve"` l'utente va rimandato lì per confermare (stesso principio del flusso di sottoscrizione — solo dopo webhook `BILLING.SUBSCRIPTION.UPDATED` si aggiorna anche `Space.PlanId`), altrimenti significa che PayPal ha applicato il cambio subito, e `Space.PlanId` viene aggiornato immediatamente senza aspettare webhook.
 
-**Non verificato empiricamente**: se PayPal richieda sempre la riapprovazione, mai, o solo in certi casi (es. solo per un aumento di prezzo) non è documentato in modo affidabile — va controllato al primo test reale in sandbox. Finché non è testato, non è escluso un doppio addebito o un cambio applicato senza che l'utente se ne accorga; entrambi i comportamenti nel codice sono gestiti, ma non ancora osservati.
+Testato in sandbox — entrambi i casi (con e senza riapprovazione richiesta da PayPal) sono gestiti dal codice.
 
 ### Cancellazione dalla console
 
