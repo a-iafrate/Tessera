@@ -626,6 +626,54 @@ Note: I only read messages that start with / or mention me.</value>
   <data name="Dashboard.ViewAllExpenses" xml:space="preserve">
     <value>View all expenses →</value>
   </data>
+  <data name="Dashboard.GettingStartedHeading" xml:space="preserve">
+    <value>Getting started</value>
+  </data>
+  <data name="Dashboard.GettingStarted.LinkTelegram" xml:space="preserve">
+    <value>Link your Telegram account</value>
+  </data>
+  <data name="Dashboard.GettingStarted.AddFirstItem" xml:space="preserve">
+    <value>Add your first item</value>
+  </data>
+  <data name="Dashboard.GettingStarted.ShareSpace" xml:space="preserve">
+    <value>Share a space with someone</value>
+  </data>
+  <data name="Settings.Title" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Settings.ProfileCardTitle" xml:space="preserve">
+    <value>Profile</value>
+  </data>
+  <data name="Settings.ProfileCardBody" xml:space="preserve">
+    <value>Name, photo, language, and time zone.</value>
+  </data>
+  <data name="Settings.CalendarsCardTitle" xml:space="preserve">
+    <value>Calendars</value>
+  </data>
+  <data name="Settings.CalendarsCardBody" xml:space="preserve">
+    <value>Connect Google or Microsoft and choose what to share.</value>
+  </data>
+  <data name="Settings.TelegramCardTitle" xml:space="preserve">
+    <value>Link Telegram</value>
+  </data>
+  <data name="Settings.TelegramCardBody" xml:space="preserve">
+    <value>Use Tessera from Telegram, not just the web.</value>
+  </data>
+  <data name="Support.Title" xml:space="preserve">
+    <value>Support</value>
+  </data>
+  <data name="Support.Intro" xml:space="preserve">
+    <value>Questions, problems, or feedback — we're here to help.</value>
+  </data>
+  <data name="Support.ContactHeading" xml:space="preserve">
+    <value>Get in touch</value>
+  </data>
+  <data name="Support.ContactBody" xml:space="preserve">
+    <value>Send us an email and we'll get back to you.</value>
+  </data>
+  <data name="Support.ContactButton" xml:space="preserve">
+    <value>Email us</value>
+  </data>
   <data name="LinkTelegram.Title" xml:space="preserve">
     <value>Link Telegram</value>
   </data>
@@ -833,11 +881,11 @@ Note: I only read messages that start with / or mention me.</value>
   <data name="Nav.Account" xml:space="preserve">
     <value>Account</value>
   </data>
-  <data name="Nav.Calendars" xml:space="preserve">
-    <value>Calendars</value>
+  <data name="Nav.Settings" xml:space="preserve">
+    <value>Settings</value>
   </data>
-  <data name="Nav.LinkTelegram" xml:space="preserve">
-    <value>Link Telegram</value>
+  <data name="Nav.Support" xml:space="preserve">
+    <value>Support</value>
   </data>
   <data name="Nav.YourSpaces" xml:space="preserve">
     <value>Your spaces</value>
@@ -1565,10 +1613,16 @@ Try it now:</value>
     <value>Unlink your {0} account? Your spaces will stop seeing any of its calendars.</value>
   </data>
   <data name="Calendars.LinkedNote" xml:space="preserve">
-    <value>Enabling a calendar here makes it available to your spaces — go to a space's own Calendars page to actually show it there.</value>
+    <value>Choose which of your spaces can see each calendar below.</value>
   </data>
-  <data name="Calendars.GoToSpacesButton" xml:space="preserve">
-    <value>Go to your spaces to choose visibility →</value>
+  <data name="Calendars.ShareHeading" xml:space="preserve">
+    <value>Share with your spaces</value>
+  </data>
+  <data name="Calendars.ShareNoSpaces" xml:space="preserve">
+    <value>You don't have any spaces yet.</value>
+  </data>
+  <data name="Calendars.ShareCreateSpaceLink" xml:space="preserve">
+    <value>Create one →</value>
   </data>
   <data name="Calendars.Empty" xml:space="preserve">
     <value>No calendars found on this account.</value>

@@ -21,6 +21,7 @@
 @inject NoteService NoteService
 @inject IAccessPolicy AccessPolicy
 @inject UserProvisioningService UserProvisioningService
+@inject LinkService LinkService
 @inject IServiceProvider ServiceProvider
 @inject IStringLocalizer<Messages> Localizer
 
@@ -46,6 +47,28 @@
             }
             else
             {
+                @if (gettingStarted.Any(s => !s.Done))
+                {
+                    <div class="card" style="margin-bottom: var(--space-6);">
+                        <h2 style="margin-bottom: var(--space-3);">@Localizer["Dashboard.GettingStartedHeading"]</h2>
+                        <ul style="margin: 0; list-style: none; padding: 0; display: flex; flex-direction: column; gap: var(--space-2);">
+                            @foreach (var step in gettingStarted)
+                            {
+                                <li>
+                                    @if (step.Done)
+                                    {
+                                        <span class="text-soft">✓ @Localizer[step.LabelKey]</span>
+                                    }
+                                    else
+                                    {
+                                        <a href="@step.Href">○ @Localizer[step.LabelKey]</a>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
+
                 <div class="card" style="margin-bottom: var(--space-6);">
                     <h2 style="margin-bottom: var(--space-3);">@Localizer["Dashboard.TodayHeading"]</h2>
                     @if (todayItems.Count == 0)
@@ -191,29 +214,7 @@
                 <span></span><span></span><span></span>
             </div>
 
-            <h2>@Localizer["Landing.FaqHeading"]</h2>
-            <div style="max-width: 40rem; margin: var(--space-6) auto 0;">
-                <div style="margin-bottom: var(--space-6);">
-                    <h3 style="margin-bottom: var(--space-1); font-size: var(--text-base);">@Localizer["Landing.FaqFreeQuestion"]</h3>
-                    <p class="text-soft" style="margin: 0;">@Localizer["Landing.FaqFreeAnswer"]</p>
-                </div>
-                <div style="margin-bottom: var(--space-6);">
-                    <h3 style="margin-bottom: var(--space-1); font-size: var(--text-base);">@Localizer["Landing.FaqInstallQuestion"]</h3>
-                    <p class="text-soft" style="margin: 0;">@Localizer["Landing.FaqInstallAnswer"]</p>
-                </div>
-                <div style="margin-bottom: var(--space-6);">
-                    <h3 style="margin-bottom: var(--space-1); font-size: var(--text-base);">@Localizer["Landing.FaqShareQuestion"]</h3>
-                    <p class="text-soft" style="margin: 0;">@Localizer["Landing.FaqShareAnswer"]</p>
-                </div>
-                <div style="margin-bottom: var(--space-6);">
-                    <h3 style="margin-bottom: var(--space-1); font-size: var(--text-base);">@Localizer["Landing.FaqSafeQuestion"]</h3>
-                    <p class="text-soft" style="margin: 0;">@Localizer["Landing.FaqSafeAnswer"] <a href="/privacy">@Localizer["Landing.FaqSafeLink"]</a></p>
-                </div>
-                <div>
-                    <h3 style="margin-bottom: var(--space-1); font-size: var(--text-base);">@Localizer["Landing.FaqCancelQuestion"]</h3>
-                    <p class="text-soft" style="margin: 0;">@Localizer["Landing.FaqCancelAnswer"]</p>
-                </div>
-            </div>
+            <FaqSection />
 
             <div style="text-align: center; margin: var(--space-12) 0;">
                 <a class="btn btn-primary btn-lg" href="Account/Register">@Localizer["Landing.CtaFinal"]</a>
@@ -241,8 +242,11 @@
     // scanning 5 identical-looking boxes per space to find that isn't the point of a dashboard.
     private sealed record UrgentItem(string Icon, string Text, string SpaceName, DateTimeOffset At);
 
+    private sealed record GettingStartedStep(string LabelKey, string Href, bool Done);
+
     private IReadOnlyList<SpacePreview>? previews;
     private IReadOnlyList<UrgentItem> todayItems = [];
+    private IReadOnlyList<GettingStartedStep> gettingStarted = [];
     private TimeZoneInfo? timeZone;
 
     protected override async Task OnInitializedAsync()
@@ -285,6 +289,17 @@
 
         previews = result;
         todayItems = BuildTodayItems(result, timeZone!);
+
+        var telegramLinked = await LinkService.IsChannelLinkedAsync(userId, "telegram", CancellationToken.None);
+        var hasAnyContent = result.Any(p =>
+            p.Reminders?.Count > 0 || p.ShoppingItems?.Count > 0 || p.Expenses?.Count > 0 || p.Notes?.Count > 0 || p.Events?.Count > 0);
+        var hasSharedSpace = result.Any(p => !p.Space.IsPersonal);
+        gettingStarted =
+        [
+            new GettingStartedStep("Dashboard.GettingStarted.LinkTelegram", "/link/telegram", telegramLinked),
+            new GettingStartedStep("Dashboard.GettingStarted.AddFirstItem", "/chat", hasAnyContent),
+            new GettingStartedStep("Dashboard.GettingStarted.ShareSpace", "/spaces", hasSharedSpace),
+        ];
     }
 
     // Only reminders due today-or-earlier and events starting today qualify — both lists are

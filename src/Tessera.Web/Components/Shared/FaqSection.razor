@@ -1,0 +1,28 @@
+@using Microsoft.Extensions.Localization
+@using Tessera.Core.Resources
+
+@inject IStringLocalizer<Messages> Localizer
+
+<h2>@Localizer["Landing.FaqHeading"]</h2>
+<div style="max-width: 40rem; margin: var(--space-6) auto 0;">
+    <div style="margin-bottom: var(--space-6);">
+        <h3 style="margin-bottom: var(--space-1); font-size: var(--text-base);">@Localizer["Landing.FaqFreeQuestion"]</h3>
+        <p class="text-soft" style="margin: 0;">@Localizer["Landing.FaqFreeAnswer"]</p>
+    </div>
+    <div style="margin-bottom: var(--space-6);">
+        <h3 style="margin-bottom: var(--space-1); font-size: var(--text-base);">@Localizer["Landing.FaqInstallQuestion"]</h3>
+        <p class="text-soft" style="margin: 0;">@Localizer["Landing.FaqInstallAnswer"]</p>
+    </div>
+    <div style="margin-bottom: var(--space-6);">
+        <h3 style="margin-bottom: var(--space-1); font-size: var(--text-base);">@Localizer["Landing.FaqShareQuestion"]</h3>
+        <p class="text-soft" style="margin: 0;">@Localizer["Landing.FaqShareAnswer"]</p>
+    </div>
+    <div style="margin-bottom: var(--space-6);">
+        <h3 style="margin-bottom: var(--space-1); font-size: var(--text-base);">@Localizer["Landing.FaqSafeQuestion"]</h3>
+        <p class="text-soft" style="margin: 0;">@Localizer["Landing.FaqSafeAnswer"] <a href="/privacy">@Localizer["Landing.FaqSafeLink"]</a></p>
+    </div>
+    <div>
+        <h3 style="margin-bottom: var(--space-1); font-size: var(--text-base);">@Localizer["Landing.FaqCancelQuestion"]</h3>
+        <p class="text-soft" style="margin: 0;">@Localizer["Landing.FaqCancelAnswer"]</p>
+    </div>
+</div>

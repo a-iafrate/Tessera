@@ -16,12 +16,12 @@
     </button>
     <nav class="@(isMenuOpen ? "nav-open" : "")">
         <a href="/pricing">@Localizer["Nav.Pricing"]</a>
+        <a href="/support">@Localizer["Nav.Support"]</a>
         <AuthorizeView>
             <Authorized>
                 <a href="/spaces">@Localizer["Nav.YourSpaces"]</a>
                 <a href="/chat">@Localizer["Nav.Chat"]</a>
-                <a href="/link/telegram">@Localizer["Nav.LinkTelegram"]</a>
-                <a href="/calendars">@Localizer["Nav.Calendars"]</a>
+                <a href="/settings">@Localizer["Nav.Settings"]</a>
                 <a href="/account" class="nav-account">
                     <UserAvatar DisplayName="@displayName" PictureUrl="@pictureUrl" Size="1.75" />
                     @(displayName ?? Localizer["Nav.Account"].Value)
@@ -44,6 +44,7 @@
 
 <footer class="footer">
     <a href="/pricing">@Localizer["Nav.Pricing"]</a>
+    <a href="/support">@Localizer["Nav.Support"]</a>
     <a href="/privacy">@Localizer["Nav.Privacy"]</a>
     <a href="/terms">@Localizer["Nav.Terms"]</a>
 </footer>

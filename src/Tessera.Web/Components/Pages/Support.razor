@@ -1,0 +1,30 @@
+@page "/support"
+
+@using Microsoft.Extensions.Localization
+@using Tessera.Core.Resources
+
+@inject IConfiguration Configuration
+@inject IStringLocalizer<Messages> Localizer
+
+<PageTitle>@Localizer["Support.Title"]</PageTitle>
+
+<div class="container">
+    <h1>@Localizer["Support.Title"]</h1>
+    <p class="text-soft">@Localizer["Support.Intro"]</p>
+
+    <div class="card" style="max-width: 32rem; margin: var(--space-6) 0;">
+        <h2 style="margin-bottom: var(--space-2);">@Localizer["Support.ContactHeading"]</h2>
+        <p class="text-soft">@Localizer["Support.ContactBody"]</p>
+        <a class="btn btn-primary" href="mailto:@SupportEmail">@Localizer["Support.ContactButton"]</a>
+    </div>
+
+    <div class="seam" aria-hidden="true">
+        <span></span><span></span><span></span>
+    </div>
+
+    <FaqSection />
+</div>
+
+@code {
+    private string SupportEmail => Configuration["Support:Email"] ?? "support@tesserabot.com";
+}

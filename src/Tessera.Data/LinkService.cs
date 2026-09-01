@@ -35,6 +35,9 @@ public sealed class LinkService(TesseraDbContext db)
         return linkedMemberCount + (hasLinkedGroup ? 1 : 0);
     }
 
+    public Task<bool> IsChannelLinkedAsync(Guid userId, string channelName, CancellationToken ct) =>
+        db.ChannelIdentities.AnyAsync(x => x.UserId == userId && x.ChannelName == channelName, ct);
+
     // Only enforced at the one clean, unambiguous moment: linking a Telegram group to a space
     // (MessageProcessor). A member linking their own private Telegram isn't scoped to a single
     // space the same way — they may belong to several — so that path isn't gated here; see the

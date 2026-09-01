@@ -626,6 +626,54 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   <data name="Dashboard.ViewAllExpenses" xml:space="preserve">
     <value>Vedi tutte le spese →</value>
   </data>
+  <data name="Dashboard.GettingStartedHeading" xml:space="preserve">
+    <value>Per iniziare</value>
+  </data>
+  <data name="Dashboard.GettingStarted.LinkTelegram" xml:space="preserve">
+    <value>Collega il tuo account Telegram</value>
+  </data>
+  <data name="Dashboard.GettingStarted.AddFirstItem" xml:space="preserve">
+    <value>Aggiungi il tuo primo elemento</value>
+  </data>
+  <data name="Dashboard.GettingStarted.ShareSpace" xml:space="preserve">
+    <value>Condividi uno spazio con qualcuno</value>
+  </data>
+  <data name="Settings.Title" xml:space="preserve">
+    <value>Impostazioni</value>
+  </data>
+  <data name="Settings.ProfileCardTitle" xml:space="preserve">
+    <value>Profilo</value>
+  </data>
+  <data name="Settings.ProfileCardBody" xml:space="preserve">
+    <value>Nome, foto, lingua e fuso orario.</value>
+  </data>
+  <data name="Settings.CalendarsCardTitle" xml:space="preserve">
+    <value>Calendari</value>
+  </data>
+  <data name="Settings.CalendarsCardBody" xml:space="preserve">
+    <value>Collega Google o Microsoft e scegli cosa condividere.</value>
+  </data>
+  <data name="Settings.TelegramCardTitle" xml:space="preserve">
+    <value>Collega Telegram</value>
+  </data>
+  <data name="Settings.TelegramCardBody" xml:space="preserve">
+    <value>Usa Tessera da Telegram, non solo dal sito.</value>
+  </data>
+  <data name="Support.Title" xml:space="preserve">
+    <value>Assistenza</value>
+  </data>
+  <data name="Support.Intro" xml:space="preserve">
+    <value>Domande, problemi o feedback — siamo qui per aiutarti.</value>
+  </data>
+  <data name="Support.ContactHeading" xml:space="preserve">
+    <value>Contattaci</value>
+  </data>
+  <data name="Support.ContactBody" xml:space="preserve">
+    <value>Scrivici un'email e ti risponderemo.</value>
+  </data>
+  <data name="Support.ContactButton" xml:space="preserve">
+    <value>Scrivici</value>
+  </data>
   <data name="LinkTelegram.Title" xml:space="preserve">
     <value>Collega Telegram</value>
   </data>
@@ -833,11 +881,11 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   <data name="Nav.Account" xml:space="preserve">
     <value>Account</value>
   </data>
-  <data name="Nav.Calendars" xml:space="preserve">
-    <value>Calendari</value>
+  <data name="Nav.Settings" xml:space="preserve">
+    <value>Impostazioni</value>
   </data>
-  <data name="Nav.LinkTelegram" xml:space="preserve">
-    <value>Collega Telegram</value>
+  <data name="Nav.Support" xml:space="preserve">
+    <value>Assistenza</value>
   </data>
   <data name="Nav.YourSpaces" xml:space="preserve">
     <value>I tuoi spazi</value>
@@ -1565,10 +1613,16 @@ Provami subito:</value>
     <value>Scollegare il tuo account {0}? I tuoi spazi non vedranno più nessuno dei suoi calendari.</value>
   </data>
   <data name="Calendars.LinkedNote" xml:space="preserve">
-    <value>Abilitare un calendario qui lo rende disponibile ai tuoi spazi — vai poi nella pagina Calendari di uno spazio per mostrarlo davvero lì.</value>
+    <value>Scegli quali dei tuoi spazi possono vedere ciascun calendario qui sotto.</value>
   </data>
-  <data name="Calendars.GoToSpacesButton" xml:space="preserve">
-    <value>Vai ai tuoi spazi per scegliere la visibilità →</value>
+  <data name="Calendars.ShareHeading" xml:space="preserve">
+    <value>Condividi con i tuoi spazi</value>
+  </data>
+  <data name="Calendars.ShareNoSpaces" xml:space="preserve">
+    <value>Non hai ancora nessuno spazio.</value>
+  </data>
+  <data name="Calendars.ShareCreateSpaceLink" xml:space="preserve">
+    <value>Creane uno →</value>
   </data>
   <data name="Calendars.Empty" xml:space="preserve">
     <value>Nessun calendario trovato su questo account.</value>
