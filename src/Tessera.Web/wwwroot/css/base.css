@@ -316,12 +316,26 @@ a.card:hover { border-color: var(--clay); }
 }
 
 /* Dashboard preview sections — a boxed divider so 4-5 grid cells scan as
-   distinct sections instead of running together (docs/12-stile-sito.md). */
+   distinct sections instead of running together (docs/12-stile-sito.md).
+   Same background + shadow formula as .card, not var(--paper): that's the page's own
+   background, so a section sitting directly on the page (the common single-space case) had
+   zero fill contrast and read as borderless — the 1px var(--line) border alone is too faint
+   against var(--paper) to define an edge. The shadow keeps working even nested inside a .card
+   (the multi-space case), where the backgrounds now match. */
 .dashboard-section {
-  background: var(--paper);
+  background: var(--paper-raised);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   padding: var(--space-3);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* An empty category still needs to render — it's the only way to reach the "add" action for
+   it — but shouldn't carry the same visual weight as one with real content to look at, so it
+   recedes instead of disappearing (docs/12-stile-sito.md: structure carries information). */
+.dashboard-section-empty {
+  background: transparent;
+  border-style: dashed;
 }
 
 /* Permission badges — the AccessLevel color mapping (docs/12-stile-sito.md); color carries

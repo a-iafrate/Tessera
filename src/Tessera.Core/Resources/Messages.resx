@@ -521,32 +521,80 @@ Note: I only read messages that start with / or mention me.</value>
   <data name="Landing.CtaFinal" xml:space="preserve">
     <value>Get started</value>
   </data>
+  <data name="Landing.TrustNoInstallTitle" xml:space="preserve">
+    <value>No new app to install</value>
+  </data>
+  <data name="Landing.TrustNoInstallBody" xml:space="preserve">
+    <value>If you use Telegram, you already have it. Prefer the browser? Chat with the same assistant right from the console instead.</value>
+  </data>
+  <data name="Landing.TrustSharedTitle" xml:space="preserve">
+    <value>Built for sharing, not bolted on</value>
+  </data>
+  <data name="Landing.TrustSharedBody" xml:space="preserve">
+    <value>Every list, expense, and reminder lives in a space you share with whoever you choose — not a personal list you have to invite people into later.</value>
+  </data>
+  <data name="Landing.TrustPrivacyTitle" xml:space="preserve">
+    <value>Your data stays yours</value>
+  </data>
+  <data name="Landing.TrustPrivacyBody" xml:space="preserve">
+    <value>Everything is encrypted in transit and at rest, access is locked to your space's members, and nothing you write is ever used to train AI models.</value>
+  </data>
+  <data name="Landing.TrustPrivacyLink" xml:space="preserve">
+    <value>Read the privacy policy</value>
+  </data>
+  <data name="Landing.FaqHeading" xml:space="preserve">
+    <value>Frequently asked questions</value>
+  </data>
+  <data name="Landing.FaqFreeQuestion" xml:space="preserve">
+    <value>Is it free?</value>
+  </data>
+  <data name="Landing.FaqFreeAnswer" xml:space="preserve">
+    <value>Yes — the Free plan works with no credit card, with a daily limit on AI-assisted replies that's plenty for trying it out. Paid plans raise that limit and unlock more linked accounts.</value>
+  </data>
+  <data name="Landing.FaqInstallQuestion" xml:space="preserve">
+    <value>Do I need to install anything?</value>
+  </data>
+  <data name="Landing.FaqInstallAnswer" xml:space="preserve">
+    <value>No. If you have Telegram, just open a chat with the bot. Prefer the browser? Talk to the same assistant right from the console — nothing to install.</value>
+  </data>
+  <data name="Landing.FaqShareQuestion" xml:space="preserve">
+    <value>Can I share it with my family?</value>
+  </data>
+  <data name="Landing.FaqShareAnswer" xml:space="preserve">
+    <value>Yes — it's built for exactly that: create a space, invite whoever you want, and decide who can see what.</value>
+  </data>
+  <data name="Landing.FaqSafeQuestion" xml:space="preserve">
+    <value>Is my data safe?</value>
+  </data>
+  <data name="Landing.FaqSafeAnswer" xml:space="preserve">
+    <value>All traffic is encrypted, the database is encrypted at rest, and nothing you write is ever used to train AI models.</value>
+  </data>
+  <data name="Landing.FaqSafeLink" xml:space="preserve">
+    <value>See the full privacy policy.</value>
+  </data>
+  <data name="Landing.FaqCancelQuestion" xml:space="preserve">
+    <value>Can I cancel anytime?</value>
+  </data>
+  <data name="Landing.FaqCancelAnswer" xml:space="preserve">
+    <value>Yes, from the console, anytime — no lock-in.</value>
+  </data>
   <data name="Dashboard.Welcome" xml:space="preserve">
     <value>Welcome back, {0}</value>
   </data>
   <data name="Dashboard.Subtitle" xml:space="preserve">
     <value>Manage your spaces and connect Telegram from here.</value>
   </data>
-  <data name="Dashboard.SpacesTitle" xml:space="preserve">
-    <value>Your spaces</value>
-  </data>
-  <data name="Dashboard.SpacesDescription" xml:space="preserve">
-    <value>Create a space, invite members, and manage permissions.</value>
-  </data>
   <data name="Dashboard.TelegramTitle" xml:space="preserve">
     <value>Link Telegram</value>
   </data>
-  <data name="Dashboard.TelegramDescription" xml:space="preserve">
-    <value>Connect your Telegram account to start chatting with the bot.</value>
-  </data>
-  <data name="Dashboard.CalendarsTitle" xml:space="preserve">
-    <value>Calendars</value>
-  </data>
-  <data name="Dashboard.CalendarsDescription" xml:space="preserve">
-    <value>Link Google Calendar or Microsoft Calendar to see your appointments in the bot and the daily digest.</value>
-  </data>
   <data name="Dashboard.NoPreviews" xml:space="preserve">
     <value>Nothing due yet — reminders, shopping list items, and notes will show up here.</value>
+  </data>
+  <data name="Dashboard.TodayHeading" xml:space="preserve">
+    <value>Today</value>
+  </data>
+  <data name="Dashboard.TodayEmpty" xml:space="preserve">
+    <value>Nothing urgent today.</value>
   </data>
   <data name="Dashboard.RemindersHeading" xml:space="preserve">
     <value>Upcoming reminders</value>
@@ -829,6 +877,81 @@ Note: I only read messages that start with / or mention me.</value>
   </data>
   <data name="Nav.Register" xml:space="preserve">
     <value>Register</value>
+  </data>
+  <data name="Account.EmailLabel" xml:space="preserve">
+    <value>Email</value>
+  </data>
+  <data name="Account.EmailPlaceholder" xml:space="preserve">
+    <value>name@example.com</value>
+  </data>
+  <data name="Account.PasswordLabel" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="Account.PasswordPlaceholder" xml:space="preserve">
+    <value>password</value>
+  </data>
+  <data name="Account.Login.PageTitle" xml:space="preserve">
+    <value>Log in</value>
+  </data>
+  <data name="Account.Login.Heading" xml:space="preserve">
+    <value>Use your Tessera account to log in.</value>
+  </data>
+  <data name="Account.Login.RememberMeLabel" xml:space="preserve">
+    <value>Remember me</value>
+  </data>
+  <data name="Account.Login.RegisterLink" xml:space="preserve">
+    <value>Register as a new user</value>
+  </data>
+  <data name="Account.Login.ExternalHeading" xml:space="preserve">
+    <value>Or use another service to log in.</value>
+  </data>
+  <data name="Account.Login.InvalidAttemptError" xml:space="preserve">
+    <value>Error: invalid login attempt.</value>
+  </data>
+  <data name="Account.Register.Heading" xml:space="preserve">
+    <value>Create a new account.</value>
+  </data>
+  <data name="Account.Register.ConfirmPasswordLabel" xml:space="preserve">
+    <value>Confirm password</value>
+  </data>
+  <data name="Account.Register.ExternalHeading" xml:space="preserve">
+    <value>Or use another service to register.</value>
+  </data>
+  <data name="Account.AccessDenied.Title" xml:space="preserve">
+    <value>Access denied</value>
+  </data>
+  <data name="Account.AccessDenied.Body" xml:space="preserve">
+    <value>You do not have access to this resource.</value>
+  </data>
+  <data name="Account.Lockout.Title" xml:space="preserve">
+    <value>Locked out</value>
+  </data>
+  <data name="Account.Lockout.Body" xml:space="preserve">
+    <value>This account has been locked out — please try again later.</value>
+  </data>
+  <data name="Account.ExternalLogin.AssociateHeading" xml:space="preserve">
+    <value>Associate your {0} account.</value>
+  </data>
+  <data name="Account.ExternalLogin.InfoBody" xml:space="preserve">
+    <value>You've successfully authenticated with {0}. Enter an email address below and click Register to finish signing in.</value>
+  </data>
+  <data name="Account.ExternalLogin.EmailPlaceholder" xml:space="preserve">
+    <value>Enter your email address.</value>
+  </data>
+  <data name="Account.ExternalLogin.ProviderError" xml:space="preserve">
+    <value>Error from external provider: {0}</value>
+  </data>
+  <data name="Account.ExternalLogin.InfoLoadError" xml:space="preserve">
+    <value>Error loading external login information.</value>
+  </data>
+  <data name="Account.ExternalLogin.CreateAccountError" xml:space="preserve">
+    <value>Error: {0}</value>
+  </data>
+  <data name="Account.ExternalLoginPicker.NoneConfigured" xml:space="preserve">
+    <value>No social login is available yet.</value>
+  </data>
+  <data name="Account.ExternalLoginPicker.ButtonTitle" xml:space="preserve">
+    <value>Log in using your {0} account</value>
   </data>
   <data name="Nav.ToggleMenu" xml:space="preserve">
     <value>Menu</value>

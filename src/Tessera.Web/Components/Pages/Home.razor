@@ -46,153 +46,52 @@
             }
             else
             {
-                <div style="display: flex; flex-direction: column; gap: var(--space-4); margin-bottom: var(--space-6);">
-                    @foreach (var preview in previews)
+                <div class="card" style="margin-bottom: var(--space-6);">
+                    <h2 style="margin-bottom: var(--space-3);">@Localizer["Dashboard.TodayHeading"]</h2>
+                    @if (todayItems.Count == 0)
                     {
-                        <div class="card">
-                            <a href="@($"/spaces/{preview.Space.Id}")" style="color: var(--ink);">
-                                <h3 style="margin-bottom: @(preview.OwnerDisplayName is null ? "var(--space-3)" : "0")">@preview.Space.Name</h3>
-                            </a>
-                            @if (preview.OwnerDisplayName is not null)
+                        <p class="text-soft" style="margin: 0;">@Localizer["Dashboard.TodayEmpty"]</p>
+                    }
+                    else
+                    {
+                        <ul style="margin: 0;">
+                            @foreach (var item in todayItems)
                             {
-                                <p class="text-soft" style="margin: 0 0 var(--space-3); font-size: var(--text-sm);">@Localizer["Spaces.SharedByLabel", preview.OwnerDisplayName]</p>
+                                <li>
+                                    @item.Icon @MessageProcessor.FormatDueAt(item.At, timeZone!, CultureInfo.CurrentUICulture) — @item.Text
+                                    @if (previews.Count > 1)
+                                    {
+                                        <span class="text-soft">(@item.SpaceName)</span>
+                                    }
+                                </li>
                             }
-
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: var(--space-3);">
-                                @if (preview.Reminders is not null)
-                                {
-                                    <div class="dashboard-section">
-                                        <div style="margin-bottom: var(--space-1);">
-                                            <strong>@Localizer["Dashboard.RemindersHeading"]</strong>
-                                            <a href="@($"/spaces/{preview.Space.Id}/reminders")" style="font-size: var(--text-sm); margin-left: var(--space-2);">@Localizer["Dashboard.ViewAllReminders"]</a>
-                                        </div>
-                                        @if (preview.Reminders.Count > 0)
-                                        {
-                                            <ul style="margin: var(--space-1) 0 0;">
-                                                @foreach (var reminder in preview.Reminders)
-                                                {
-                                                    <li>@MessageProcessor.FormatDueAt(reminder.DueAt, timeZone!, CultureInfo.CurrentUICulture) — @Truncate(reminder.Text)</li>
-                                                }
-                                            </ul>
-                                        }
-                                        else
-                                        {
-                                            <p class="text-soft" style="margin: var(--space-1) 0 0;">@Localizer["Reminders.ListEmpty"]</p>
-                                        }
-                                    </div>
-                                }
-
-                                @if (preview.Events is not null)
-                                {
-                                    <div class="dashboard-section">
-                                        <div style="margin-bottom: var(--space-1);">
-                                            <strong>@Localizer["Dashboard.CalendarHeading"]</strong>
-                                            <a href="@($"/spaces/{preview.Space.Id}/calendars")" style="font-size: var(--text-sm); margin-left: var(--space-2);">@Localizer["Dashboard.ManageCalendarsLink"]</a>
-                                        </div>
-                                        @if (preview.Events.Count > 0)
-                                        {
-                                            <ul style="margin: var(--space-1) 0 0;">
-                                                @foreach (var calendarEvent in preview.Events)
-                                                {
-                                                    <li>@MessageProcessor.FormatDueAt(calendarEvent.Start, timeZone!, CultureInfo.CurrentUICulture) — @Truncate(calendarEvent.Title)</li>
-                                                }
-                                            </ul>
-                                        }
-                                        else
-                                        {
-                                            <p class="text-soft" style="margin: var(--space-1) 0 0;">@Localizer["Calendars.EventsEmpty"]</p>
-                                        }
-                                    </div>
-                                }
-
-                                @if (preview.ShoppingItems is not null)
-                                {
-                                    <div class="dashboard-section">
-                                        <div style="margin-bottom: var(--space-1);">
-                                            <strong>@Localizer["Dashboard.ShoppingHeading"]</strong>
-                                            <a href="@($"/spaces/{preview.Space.Id}/shopping-list")" style="font-size: var(--text-sm); margin-left: var(--space-2);">@Localizer["Dashboard.ViewAllShoppingList"]</a>
-                                        </div>
-                                        @if (preview.ShoppingItems.Count > 0)
-                                        {
-                                            <ul style="margin: var(--space-1) 0 0;">
-                                                @foreach (var item in preview.ShoppingItems)
-                                                {
-                                                    <li>@Truncate(item.RawText)</li>
-                                                }
-                                            </ul>
-                                        }
-                                        else
-                                        {
-                                            <p class="text-soft" style="margin: var(--space-1) 0 0;">@Localizer["ShoppingList.Empty"]</p>
-                                        }
-                                    </div>
-                                }
-
-                                @if (preview.Expenses is not null)
-                                {
-                                    <div class="dashboard-section">
-                                        <div style="margin-bottom: var(--space-1);">
-                                            <strong>@Localizer["Dashboard.ExpensesHeading"]</strong>
-                                            <a href="@($"/spaces/{preview.Space.Id}/expenses")" style="font-size: var(--text-sm); margin-left: var(--space-2);">@Localizer["Dashboard.ViewAllExpenses"]</a>
-                                        </div>
-                                        @if (preview.Expenses.Count > 0)
-                                        {
-                                            <ul style="margin: var(--space-1) 0 0;">
-                                                @foreach (var expense in preview.Expenses)
-                                                {
-                                                    <li>@MoneyFormatter.Format(expense.Amount, expense.Currency, CultureInfo.CurrentUICulture.Name) — @(expense.Merchant ?? Localizer["Expenses.NoCategory"].Value)</li>
-                                                }
-                                            </ul>
-                                        }
-                                        else
-                                        {
-                                            <p class="text-soft" style="margin: var(--space-1) 0 0;">@Localizer["Expenses.Empty"]</p>
-                                        }
-                                    </div>
-                                }
-
-                                @if (preview.Notes is not null)
-                                {
-                                    <div class="dashboard-section">
-                                        <div style="margin-bottom: var(--space-1);">
-                                            <strong>@Localizer["Dashboard.NotesHeading"]</strong>
-                                            <a href="@($"/spaces/{preview.Space.Id}/notes")" style="font-size: var(--text-sm); margin-left: var(--space-2);">@Localizer["Dashboard.ViewAllNotes"]</a>
-                                        </div>
-                                        @if (preview.Notes.Count > 0)
-                                        {
-                                            <ul style="margin: var(--space-1) 0 0;">
-                                                @foreach (var note in preview.Notes)
-                                                {
-                                                    <li>@(string.IsNullOrEmpty(note.Title) ? Truncate(note.Body) : note.Title)</li>
-                                                }
-                                            </ul>
-                                        }
-                                        else
-                                        {
-                                            <p class="text-soft" style="margin: var(--space-1) 0 0;">@Localizer["Notes.Empty"]</p>
-                                        }
-                                    </div>
-                                }
-                            </div>
-                        </div>
+                        </ul>
                     }
                 </div>
-            }
 
-            <div style="display: flex; gap: var(--space-4); flex-wrap: wrap;">
-                <a class="card" href="/spaces" style="flex: 1; min-width: 14rem; color: var(--ink);">
-                    <h3 style="margin-bottom: var(--space-2);">@Localizer["Dashboard.SpacesTitle"]</h3>
-                    <p class="text-soft" style="margin: 0;">@Localizer["Dashboard.SpacesDescription"]</p>
-                </a>
-                <a class="card" href="/link/telegram" style="flex: 1; min-width: 14rem; color: var(--ink);">
-                    <h3 style="margin-bottom: var(--space-2);">@Localizer["Dashboard.TelegramTitle"]</h3>
-                    <p class="text-soft" style="margin: 0;">@Localizer["Dashboard.TelegramDescription"]</p>
-                </a>
-                <a class="card" href="/calendars" style="flex: 1; min-width: 14rem; color: var(--ink);">
-                    <h3 style="margin-bottom: var(--space-2);">@Localizer["Dashboard.CalendarsTitle"]</h3>
-                    <p class="text-soft" style="margin: 0;">@Localizer["Dashboard.CalendarsDescription"]</p>
-                </a>
-            </div>
+                @if (previews.Count == 1)
+                {
+                    @SectionsGrid(previews[0])
+                }
+                else
+                {
+                    <div style="display: flex; flex-direction: column; gap: var(--space-4);">
+                        @foreach (var preview in previews)
+                        {
+                            <div class="card">
+                                <a href="@($"/spaces/{preview.Space.Id}")" style="color: var(--ink);">
+                                    <h3 style="margin-bottom: @(preview.OwnerDisplayName is null ? "var(--space-3)" : "0")">@preview.Space.Name</h3>
+                                </a>
+                                @if (preview.OwnerDisplayName is not null)
+                                {
+                                    <p class="text-soft" style="margin: 0 0 var(--space-3); font-size: var(--text-sm);">@Localizer["Spaces.SharedByLabel", preview.OwnerDisplayName]</p>
+                                }
+                                @SectionsGrid(preview)
+                            </div>
+                        }
+                    </div>
+                }
+            }
         </div>
     </Authorized>
     <NotAuthorized>
@@ -216,6 +115,25 @@
         </div>
 
         <div class="container">
+            <div style="display: flex; gap: var(--space-4); flex-wrap: wrap; margin: var(--space-8) 0;">
+                <div style="flex: 1; min-width: 14rem;">
+                    <h3 style="margin-bottom: var(--space-2);">@Localizer["Landing.TrustNoInstallTitle"]</h3>
+                    <p class="text-soft" style="margin: 0;">@Localizer["Landing.TrustNoInstallBody"]</p>
+                </div>
+                <div style="flex: 1; min-width: 14rem;">
+                    <h3 style="margin-bottom: var(--space-2);">@Localizer["Landing.TrustSharedTitle"]</h3>
+                    <p class="text-soft" style="margin: 0;">@Localizer["Landing.TrustSharedBody"]</p>
+                </div>
+                <div style="flex: 1; min-width: 14rem;">
+                    <h3 style="margin-bottom: var(--space-2);">@Localizer["Landing.TrustPrivacyTitle"]</h3>
+                    <p class="text-soft" style="margin: 0;">@Localizer["Landing.TrustPrivacyBody"] <a href="/privacy">@Localizer["Landing.TrustPrivacyLink"]</a></p>
+                </div>
+            </div>
+
+            <div class="seam" aria-hidden="true">
+                <span></span><span></span><span></span>
+            </div>
+
             <h2>@Localizer["Landing.FeaturesHeading"]</h2>
             <div style="display: flex; gap: var(--space-4); flex-wrap: wrap; margin-top: var(--space-6);">
                 <div class="card" style="flex: 1; min-width: 14rem;">
@@ -269,6 +187,34 @@
                 <a href="/pricing">@Localizer["Landing.PricingTeaserLink"]</a>
             </div>
 
+            <div class="seam" aria-hidden="true">
+                <span></span><span></span><span></span>
+            </div>
+
+            <h2>@Localizer["Landing.FaqHeading"]</h2>
+            <div style="max-width: 40rem; margin: var(--space-6) auto 0;">
+                <div style="margin-bottom: var(--space-6);">
+                    <h3 style="margin-bottom: var(--space-1); font-size: var(--text-base);">@Localizer["Landing.FaqFreeQuestion"]</h3>
+                    <p class="text-soft" style="margin: 0;">@Localizer["Landing.FaqFreeAnswer"]</p>
+                </div>
+                <div style="margin-bottom: var(--space-6);">
+                    <h3 style="margin-bottom: var(--space-1); font-size: var(--text-base);">@Localizer["Landing.FaqInstallQuestion"]</h3>
+                    <p class="text-soft" style="margin: 0;">@Localizer["Landing.FaqInstallAnswer"]</p>
+                </div>
+                <div style="margin-bottom: var(--space-6);">
+                    <h3 style="margin-bottom: var(--space-1); font-size: var(--text-base);">@Localizer["Landing.FaqShareQuestion"]</h3>
+                    <p class="text-soft" style="margin: 0;">@Localizer["Landing.FaqShareAnswer"]</p>
+                </div>
+                <div style="margin-bottom: var(--space-6);">
+                    <h3 style="margin-bottom: var(--space-1); font-size: var(--text-base);">@Localizer["Landing.FaqSafeQuestion"]</h3>
+                    <p class="text-soft" style="margin: 0;">@Localizer["Landing.FaqSafeAnswer"] <a href="/privacy">@Localizer["Landing.FaqSafeLink"]</a></p>
+                </div>
+                <div>
+                    <h3 style="margin-bottom: var(--space-1); font-size: var(--text-base);">@Localizer["Landing.FaqCancelQuestion"]</h3>
+                    <p class="text-soft" style="margin: 0;">@Localizer["Landing.FaqCancelAnswer"]</p>
+                </div>
+            </div>
+
             <div style="text-align: center; margin: var(--space-12) 0;">
                 <a class="btn btn-primary btn-lg" href="Account/Register">@Localizer["Landing.CtaFinal"]</a>
             </div>
@@ -290,7 +236,13 @@
         Space Space, string? OwnerDisplayName, IReadOnlyList<Reminder>? Reminders, IReadOnlyList<ShoppingItem>? ShoppingItems,
         IReadOnlyList<Expense>? Expenses, IReadOnlyList<Note>? Notes, IReadOnlyList<CalendarEventInfo>? Events);
 
+    // Aggregated across every space, not just previewed within one — a reminder overdue or an
+    // event today is the same "act on this" signal regardless of which space it's in, and
+    // scanning 5 identical-looking boxes per space to find that isn't the point of a dashboard.
+    private sealed record UrgentItem(string Icon, string Text, string SpaceName, DateTimeOffset At);
+
     private IReadOnlyList<SpacePreview>? previews;
+    private IReadOnlyList<UrgentItem> todayItems = [];
     private TimeZoneInfo? timeZone;
 
     protected override async Task OnInitializedAsync()
@@ -332,7 +284,178 @@
         }
 
         previews = result;
+        todayItems = BuildTodayItems(result, timeZone!);
+    }
+
+    // Only reminders due today-or-earlier and events starting today qualify — both lists are
+    // already capped to a handful per space (the preview fetch above), so this reads what's
+    // already loaded rather than issuing its own query, at the cost of possibly missing an
+    // urgent item buried past the per-space preview cap. Acceptable for a glance, not a report.
+    private static List<UrgentItem> BuildTodayItems(IReadOnlyList<SpacePreview> previews, TimeZoneInfo timeZone)
+    {
+        var todayLocalDate = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, timeZone).Date;
+        var items = new List<UrgentItem>();
+
+        foreach (var preview in previews)
+        {
+            if (preview.Reminders is not null)
+            {
+                items.AddRange(preview.Reminders
+                    .Where(r => TimeZoneInfo.ConvertTime(r.DueAt, timeZone).Date <= todayLocalDate)
+                    .Select(r => new UrgentItem("🔔", Truncate(r.Text), preview.Space.Name, r.DueAt)));
+            }
+
+            if (preview.Events is not null)
+            {
+                items.AddRange(preview.Events
+                    .Where(e => TimeZoneInfo.ConvertTime(e.Start, timeZone).Date == todayLocalDate)
+                    .Select(e => new UrgentItem("📅", Truncate(e.Title), preview.Space.Name, e.Start)));
+            }
+        }
+
+        return items.OrderBy(x => x.At).Take(6).ToList();
     }
 
     private static string Truncate(string text) => text.Length <= 60 ? text : text[..60] + "…";
+
+    // Non-empty categories sort first, so the eye lands on what actually needs attention
+    // before the receded, dashed-border empty ones — same "add" access still one click away
+    // through the header's link, just visually last instead of interrupting the scan.
+    // OrderBy is stable, so ties (several empty, or several non-empty) keep the original
+    // Reminders/Calendar/Shopping/Expenses/Notes order. Returns just the keys, not the markup
+    // itself — building each section as its own RenderFragment value and reordering those
+    // hits a Razor parser limitation with multiple @<tag> template literals sharing one method
+    // body, so the grid below instead loops over these keys and picks which inline block to
+    // render, keeping everything as one single top-level template.
+    private static List<string> SectionOrder(SpacePreview preview)
+    {
+        var entries = new List<(string Key, bool IsEmpty)>();
+        if (preview.Reminders is not null) { entries.Add(("reminders", preview.Reminders.Count == 0)); }
+        if (preview.Events is not null) { entries.Add(("events", preview.Events.Count == 0)); }
+        if (preview.ShoppingItems is not null) { entries.Add(("shopping", preview.ShoppingItems.Count == 0)); }
+        if (preview.Expenses is not null) { entries.Add(("expenses", preview.Expenses.Count == 0)); }
+        if (preview.Notes is not null) { entries.Add(("notes", preview.Notes.Count == 0)); }
+        return entries.OrderBy(e => e.IsEmpty).Select(e => e.Key).ToList();
+    }
+
+    private RenderFragment SectionsGrid(SpacePreview preview) => @<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: var(--space-3);">
+        @foreach (var key in SectionOrder(preview))
+        {
+            @if (key == "reminders")
+            {
+                var reminders = preview.Reminders!;
+                <div class="dashboard-section @(reminders.Count == 0 ? "dashboard-section-empty" : "")">
+                    <div style="margin-bottom: var(--space-1);">
+                        <strong>🔔 @Localizer["Dashboard.RemindersHeading"]</strong>
+                        <a href="@($"/spaces/{preview.Space.Id}/reminders")" style="font-size: var(--text-sm); margin-left: var(--space-2);">@Localizer["Dashboard.ViewAllReminders"]</a>
+                    </div>
+                    @if (reminders.Count > 0)
+                    {
+                        <ul style="margin: var(--space-1) 0 0;">
+                            @foreach (var reminder in reminders)
+                            {
+                                <li>@MessageProcessor.FormatDueAt(reminder.DueAt, timeZone!, CultureInfo.CurrentUICulture) — @Truncate(reminder.Text)</li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p class="text-soft" style="margin: var(--space-1) 0 0;">@Localizer["Reminders.ListEmpty"]</p>
+                    }
+                </div>
+            }
+            else if (key == "events")
+            {
+                var events = preview.Events!;
+                <div class="dashboard-section @(events.Count == 0 ? "dashboard-section-empty" : "")">
+                    <div style="margin-bottom: var(--space-1);">
+                        <strong>📅 @Localizer["Dashboard.CalendarHeading"]</strong>
+                        <a href="@($"/spaces/{preview.Space.Id}/calendars")" style="font-size: var(--text-sm); margin-left: var(--space-2);">@Localizer["Dashboard.ManageCalendarsLink"]</a>
+                    </div>
+                    @if (events.Count > 0)
+                    {
+                        <ul style="margin: var(--space-1) 0 0;">
+                            @foreach (var calendarEvent in events)
+                            {
+                                <li>@MessageProcessor.FormatDueAt(calendarEvent.Start, timeZone!, CultureInfo.CurrentUICulture) — @Truncate(calendarEvent.Title)</li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p class="text-soft" style="margin: var(--space-1) 0 0;">@Localizer["Calendars.EventsEmpty"]</p>
+                    }
+                </div>
+            }
+            else if (key == "shopping")
+            {
+                var shoppingItems = preview.ShoppingItems!;
+                <div class="dashboard-section @(shoppingItems.Count == 0 ? "dashboard-section-empty" : "")">
+                    <div style="margin-bottom: var(--space-1);">
+                        <strong>🛒 @Localizer["Dashboard.ShoppingHeading"]</strong>
+                        <a href="@($"/spaces/{preview.Space.Id}/shopping-list")" style="font-size: var(--text-sm); margin-left: var(--space-2);">@Localizer["Dashboard.ViewAllShoppingList"]</a>
+                    </div>
+                    @if (shoppingItems.Count > 0)
+                    {
+                        <ul style="margin: var(--space-1) 0 0;">
+                            @foreach (var item in shoppingItems)
+                            {
+                                <li>@Truncate(item.RawText)</li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p class="text-soft" style="margin: var(--space-1) 0 0;">@Localizer["ShoppingList.Empty"]</p>
+                    }
+                </div>
+            }
+            else if (key == "expenses")
+            {
+                var expenses = preview.Expenses!;
+                <div class="dashboard-section @(expenses.Count == 0 ? "dashboard-section-empty" : "")">
+                    <div style="margin-bottom: var(--space-1);">
+                        <strong>💶 @Localizer["Dashboard.ExpensesHeading"]</strong>
+                        <a href="@($"/spaces/{preview.Space.Id}/expenses")" style="font-size: var(--text-sm); margin-left: var(--space-2);">@Localizer["Dashboard.ViewAllExpenses"]</a>
+                    </div>
+                    @if (expenses.Count > 0)
+                    {
+                        <ul style="margin: var(--space-1) 0 0;">
+                            @foreach (var expense in expenses)
+                            {
+                                <li>@MoneyFormatter.Format(expense.Amount, expense.Currency, CultureInfo.CurrentUICulture.Name) — @(expense.Merchant ?? Localizer["Expenses.NoCategory"].Value)</li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p class="text-soft" style="margin: var(--space-1) 0 0;">@Localizer["Expenses.Empty"]</p>
+                    }
+                </div>
+            }
+            else if (key == "notes")
+            {
+                var notes = preview.Notes!;
+                <div class="dashboard-section @(notes.Count == 0 ? "dashboard-section-empty" : "")">
+                    <div style="margin-bottom: var(--space-1);">
+                        <strong>🗒️ @Localizer["Dashboard.NotesHeading"]</strong>
+                        <a href="@($"/spaces/{preview.Space.Id}/notes")" style="font-size: var(--text-sm); margin-left: var(--space-2);">@Localizer["Dashboard.ViewAllNotes"]</a>
+                    </div>
+                    @if (notes.Count > 0)
+                    {
+                        <ul style="margin: var(--space-1) 0 0;">
+                            @foreach (var note in notes)
+                            {
+                                <li>@(string.IsNullOrEmpty(note.Title) ? Truncate(note.Body) : note.Title)</li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p class="text-soft" style="margin: var(--space-1) 0 0;">@Localizer["Notes.Empty"]</p>
+                    }
+                </div>
+            }
+        }
+    </div>;
 }

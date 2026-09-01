@@ -521,32 +521,80 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   <data name="Landing.CtaFinal" xml:space="preserve">
     <value>Inizia</value>
   </data>
+  <data name="Landing.TrustNoInstallTitle" xml:space="preserve">
+    <value>Niente da installare</value>
+  </data>
+  <data name="Landing.TrustNoInstallBody" xml:space="preserve">
+    <value>Se usi Telegram, lo hai già. Preferisci il browser? Parla con la stessa assistente direttamente dalla console.</value>
+  </data>
+  <data name="Landing.TrustSharedTitle" xml:space="preserve">
+    <value>Pensato per essere condiviso, non aggiunto dopo</value>
+  </data>
+  <data name="Landing.TrustSharedBody" xml:space="preserve">
+    <value>Ogni lista, spesa e promemoria vive in uno spazio che condividi con chi vuoi tu — non una lista personale in cui invitare altri più avanti.</value>
+  </data>
+  <data name="Landing.TrustPrivacyTitle" xml:space="preserve">
+    <value>I tuoi dati restano tuoi</value>
+  </data>
+  <data name="Landing.TrustPrivacyBody" xml:space="preserve">
+    <value>Tutto è cifrato in transito e a riposo, l'accesso è riservato ai membri del tuo spazio, e nulla di ciò che scrivi viene mai usato per addestrare modelli di intelligenza artificiale.</value>
+  </data>
+  <data name="Landing.TrustPrivacyLink" xml:space="preserve">
+    <value>Leggi la privacy policy</value>
+  </data>
+  <data name="Landing.FaqHeading" xml:space="preserve">
+    <value>Domande frequenti</value>
+  </data>
+  <data name="Landing.FaqFreeQuestion" xml:space="preserve">
+    <value>È gratis?</value>
+  </data>
+  <data name="Landing.FaqFreeAnswer" xml:space="preserve">
+    <value>Sì — il piano Free funziona senza carta di credito, con un limite giornaliero di risposte assistite dall'IA più che sufficiente per provarlo. I piani a pagamento alzano quel limite e sbloccano più account collegati.</value>
+  </data>
+  <data name="Landing.FaqInstallQuestion" xml:space="preserve">
+    <value>Devo installare qualcosa?</value>
+  </data>
+  <data name="Landing.FaqInstallAnswer" xml:space="preserve">
+    <value>No. Se hai Telegram, apri una chat col bot. Preferisci il browser? Parla con la stessa assistente direttamente dalla console — niente da installare.</value>
+  </data>
+  <data name="Landing.FaqShareQuestion" xml:space="preserve">
+    <value>Posso condividerlo con la mia famiglia?</value>
+  </data>
+  <data name="Landing.FaqShareAnswer" xml:space="preserve">
+    <value>Sì — è pensato apposta per questo: crei uno spazio, inviti chi vuoi, e decidi tu chi vede cosa.</value>
+  </data>
+  <data name="Landing.FaqSafeQuestion" xml:space="preserve">
+    <value>I miei dati sono al sicuro?</value>
+  </data>
+  <data name="Landing.FaqSafeAnswer" xml:space="preserve">
+    <value>Tutto il traffico è cifrato, il database è cifrato a riposo, e nulla di ciò che scrivi viene mai usato per addestrare modelli di intelligenza artificiale.</value>
+  </data>
+  <data name="Landing.FaqSafeLink" xml:space="preserve">
+    <value>Leggi la privacy policy completa.</value>
+  </data>
+  <data name="Landing.FaqCancelQuestion" xml:space="preserve">
+    <value>Posso disdire quando voglio?</value>
+  </data>
+  <data name="Landing.FaqCancelAnswer" xml:space="preserve">
+    <value>Sì, dalla console, in qualsiasi momento — nessun vincolo.</value>
+  </data>
   <data name="Dashboard.Welcome" xml:space="preserve">
     <value>Bentornato, {0}</value>
   </data>
   <data name="Dashboard.Subtitle" xml:space="preserve">
     <value>Gestisci i tuoi spazi e collega Telegram da qui.</value>
   </data>
-  <data name="Dashboard.SpacesTitle" xml:space="preserve">
-    <value>I tuoi spazi</value>
-  </data>
-  <data name="Dashboard.SpacesDescription" xml:space="preserve">
-    <value>Crea uno spazio, invita membri e gestisci i permessi.</value>
-  </data>
   <data name="Dashboard.TelegramTitle" xml:space="preserve">
     <value>Collega Telegram</value>
   </data>
-  <data name="Dashboard.TelegramDescription" xml:space="preserve">
-    <value>Collega il tuo account Telegram per iniziare a chattare con il bot.</value>
-  </data>
-  <data name="Dashboard.CalendarsTitle" xml:space="preserve">
-    <value>Calendari</value>
-  </data>
-  <data name="Dashboard.CalendarsDescription" xml:space="preserve">
-    <value>Collega Google Calendar o Microsoft Calendar per vedere i tuoi appuntamenti nel bot e nel digest quotidiano.</value>
-  </data>
   <data name="Dashboard.NoPreviews" xml:space="preserve">
     <value>Ancora nulla in vista — qui compariranno promemoria, voci della lista della spesa e note.</value>
+  </data>
+  <data name="Dashboard.TodayHeading" xml:space="preserve">
+    <value>Oggi</value>
+  </data>
+  <data name="Dashboard.TodayEmpty" xml:space="preserve">
+    <value>Niente di urgente oggi.</value>
   </data>
   <data name="Dashboard.RemindersHeading" xml:space="preserve">
     <value>Promemoria in arrivo</value>
@@ -829,6 +877,81 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   </data>
   <data name="Nav.Register" xml:space="preserve">
     <value>Registrati</value>
+  </data>
+  <data name="Account.EmailLabel" xml:space="preserve">
+    <value>Email</value>
+  </data>
+  <data name="Account.EmailPlaceholder" xml:space="preserve">
+    <value>nome@esempio.com</value>
+  </data>
+  <data name="Account.PasswordLabel" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="Account.PasswordPlaceholder" xml:space="preserve">
+    <value>password</value>
+  </data>
+  <data name="Account.Login.PageTitle" xml:space="preserve">
+    <value>Accedi</value>
+  </data>
+  <data name="Account.Login.Heading" xml:space="preserve">
+    <value>Usa il tuo account Tessera per accedere.</value>
+  </data>
+  <data name="Account.Login.RememberMeLabel" xml:space="preserve">
+    <value>Ricordami</value>
+  </data>
+  <data name="Account.Login.RegisterLink" xml:space="preserve">
+    <value>Registrati come nuovo utente</value>
+  </data>
+  <data name="Account.Login.ExternalHeading" xml:space="preserve">
+    <value>Oppure usa un altro servizio per accedere.</value>
+  </data>
+  <data name="Account.Login.InvalidAttemptError" xml:space="preserve">
+    <value>Errore: tentativo di accesso non valido.</value>
+  </data>
+  <data name="Account.Register.Heading" xml:space="preserve">
+    <value>Crea un nuovo account.</value>
+  </data>
+  <data name="Account.Register.ConfirmPasswordLabel" xml:space="preserve">
+    <value>Conferma password</value>
+  </data>
+  <data name="Account.Register.ExternalHeading" xml:space="preserve">
+    <value>Oppure usa un altro servizio per registrarti.</value>
+  </data>
+  <data name="Account.AccessDenied.Title" xml:space="preserve">
+    <value>Accesso negato</value>
+  </data>
+  <data name="Account.AccessDenied.Body" xml:space="preserve">
+    <value>Non hai accesso a questa risorsa.</value>
+  </data>
+  <data name="Account.Lockout.Title" xml:space="preserve">
+    <value>Account bloccato</value>
+  </data>
+  <data name="Account.Lockout.Body" xml:space="preserve">
+    <value>Questo account è stato bloccato — riprova più tardi.</value>
+  </data>
+  <data name="Account.ExternalLogin.AssociateHeading" xml:space="preserve">
+    <value>Associa il tuo account {0}.</value>
+  </data>
+  <data name="Account.ExternalLogin.InfoBody" xml:space="preserve">
+    <value>Ti sei autenticato con successo con {0}. Inserisci un indirizzo email qui sotto e clicca su Registrati per completare l'accesso.</value>
+  </data>
+  <data name="Account.ExternalLogin.EmailPlaceholder" xml:space="preserve">
+    <value>Inserisci il tuo indirizzo email.</value>
+  </data>
+  <data name="Account.ExternalLogin.ProviderError" xml:space="preserve">
+    <value>Errore dal provider esterno: {0}</value>
+  </data>
+  <data name="Account.ExternalLogin.InfoLoadError" xml:space="preserve">
+    <value>Errore nel caricamento delle informazioni di accesso esterno.</value>
+  </data>
+  <data name="Account.ExternalLogin.CreateAccountError" xml:space="preserve">
+    <value>Errore: {0}</value>
+  </data>
+  <data name="Account.ExternalLoginPicker.NoneConfigured" xml:space="preserve">
+    <value>Nessun accesso social disponibile per ora.</value>
+  </data>
+  <data name="Account.ExternalLoginPicker.ButtonTitle" xml:space="preserve">
+    <value>Accedi con il tuo account {0}</value>
   </data>
   <data name="Nav.ToggleMenu" xml:space="preserve">
     <value>Menu</value>
