@@ -342,6 +342,30 @@ Testato in sandbox — entrambi i casi (con e senza riapprovazione richiesta da 
 
 App separata su [developer.paypal.com](https://developer.paypal.com) con le proprie credenziali (`api-m.sandbox.paypal.com` invece di `api-m.paypal.com`) e conti sandbox buyer/merchant finti — permette di testare l'intero ciclo (sottoscrizione, rinnovo, cancellazione, webhook) senza soldi reali. Da configurare come coppia di variabili separate (`PayPal:Environment` = `sandbox`/`live`), stesso principio del profilo `http`/`https` già in `launchSettings.json`.
 
+## Azure Communication Services — email di reset password
+
+Prima integrazione email dell'app: fino ad ora non esisteva alcuna infrastruttura di invio (`Program.cs` lo documentava esplicitamente come rimandato). Scope volutamente stretto — **solo il recupero password** (`/Account/ForgotPassword`, `/Account/ResetPassword`); `RequireConfirmedAccount` resta `false`, nessun'altra email transazionale (inviti, digest restano solo Telegram).
+
+### Perché ACS e non SendGrid/SMTP
+
+Resta nello stack Azure già in uso (App Service, Key Vault, Azure SQL) invece di aggiungere un account terzo. Autenticazione via la stessa Managed Identity già concessa per Key Vault (`DefaultAzureCredential`, scope `https://communication.azure.com/.default`) — nessun nuovo segreto da custodire, a differenza di una API key SendGrid che andrebbe comunque in Key Vault/user-secrets.
+
+### Client scritto a mano, non l'SDK ufficiale
+
+`AzureEmailClient` (`Tessera.Integrations`) chiama direttamente `POST {endpoint}/emails:send` invece di referenziare `Azure.Communication.Email` — stesso principio già seguito per PayPal e per i calendari: un client sottile scritto in casa invece di un pacchetto SDK per una singola chiamata REST. A differenza del flusso `client_credentials` di PayPal, qui non serve nemmeno una cache manuale del token: `TokenCredential` di Azure.Identity la gestisce già internamente.
+
+### Contenuto dell'email nella lingua del destinatario
+
+Prima di comporre oggetto e corpo, `ForgotPassword.razor` imposta `CultureInfo.CurrentCulture`/`CurrentUICulture` dalla `PreferredCulture` salvata sull'utente — stesso identico idioma già usato da `NotificationService` per le notifiche di spazio condiviso (hard rule 8/9-localizzazione.md), non la cultura ambientale della richiesta HTTP di chi ha compilato il form (che potrebbe non essere nemmeno loggato).
+
+### Anti-enumerazione
+
+`ForgotPassword` e `ResetPassword` mostrano sempre lo stesso esito (pagina di conferma generica) sia che l'email corrisponda a un account sia che non esista — altrimenti il form diventerebbe un modo per scoprire quali indirizzi sono registrati.
+
+### Configurazione
+
+`Email:Endpoint` + `Email:SenderAddress` — se assenti, il servizio semplicemente non viene registrato (stesso pattern di ogni altra integrazione opzionale in `Program.cs`): la pagina `/Account/ForgotPassword` resta visibile ma non invia nulla. Passi di provisioning manuale (risorsa ACS, dominio, ruolo sulla Managed Identity) in `docs/08-setup-sviluppo.md`.
+
 ## Alexa — non praticabile, decisione presa
 
 L'obiettivo iniziale era il **sync bidirezionale** fra la lista della spesa del bot e la lista nativa di Alexa. Non è realizzabile.

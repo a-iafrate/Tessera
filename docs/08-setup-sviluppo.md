@@ -102,11 +102,15 @@ dotnet user-secrets set "PayPal:ClientId"     "..."
 dotnet user-secrets set "PayPal:ClientSecret" "..."
 dotnet user-secrets set "PayPal:WebhookId"    "..."
 dotnet user-secrets set "PayPal:Environment"  "sandbox"
+dotnet user-secrets set "Email:Endpoint"       "https://<risorsa>.communication.azure.com"
+dotnet user-secrets set "Email:SenderAddress"  "noreply@<tuo-dominio>"
 ```
 
 `BlobStorage:ConnectionString` è opzionale: se assente, la registrazione di `IBlobStorage`/`AttachmentService` viene saltata e gli allegati restano disabilitati (nessun errore, solo un warning di avvio). Il container `attachments` deve esistere già sullo Storage Account — l'app non lo crea.
 
 `PayPal:*` è opzionale allo stesso modo (docs/03-integrazioni.md, docs/04-costi.md) — senza le tre chiavi, i piani a pagamento restano semplicemente non acquistabili. `PayPal:Environment` vale `sandbox` (default se omesso) o `live`; il `WebhookId` si ottiene creando un webhook sulla app sandbox/live in [developer.paypal.com](https://developer.paypal.com), puntato su `/hooks/paypal`. Da testare in locale con lo stesso ngrok usato per Telegram sotto — l'URL ngrok cambia a ogni riavvio, quindi va aggiornato anche lato configurazione webhook PayPal, non solo `setWebhook`.
+
+`Email:*` è opzionale allo stesso modo (docs/03-integrazioni.md) — senza, `/Account/ForgotPassword` resta visibile ma non invia nulla. Nessuna API key: l'autenticazione verso Azure Communication Services passa per `DefaultAzureCredential`, quindi in locale serve un `az login` con un account che abbia un ruolo di invio email sulla risorsa ACS (stesso meccanismo già usato per Key Vault, vedi sotto). Senza quel ruolo il form funziona comunque (token generato, pagina di conferma raggiunta) ma la `POST /emails:send` fallisce silenziosamente lato server (loggata come warning, non un errore bloccante) — per verificare un invio reale in locale serve completare l'assegnazione del ruolo.
 
 In produzione le stesse chiavi arrivano da Key Vault via Managed Identity. Configurazione in `Program.cs`:
 

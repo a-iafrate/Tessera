@@ -67,6 +67,9 @@ public sealed class SpaceService(TesseraDbContext db)
         return result;
     }
 
+    public Task<int> GetMemberCountAsync(Guid spaceId, CancellationToken ct) =>
+        db.Memberships.CountAsync(x => x.SpaceId == spaceId, ct);
+
     public async Task<Space?> GetByIdAsync(Guid spaceId, Guid userId, CancellationToken ct)
     {
         var isMember = await db.Memberships.AnyAsync(m => m.SpaceId == spaceId && m.UserId == userId, ct);

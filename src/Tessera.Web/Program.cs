@@ -297,6 +297,20 @@ if (payPalEnabled)
     builder.Services.AddScoped<PayPalSubscriptionService>();
 }
 
+// Password reset email (docs/03-integrazioni.md) — Azure Communication Services, authenticated
+// via the same Managed Identity already granted for Key Vault rather than a connection string,
+// so there's no new secret to store. Optional like every other integration here: without it,
+// ForgotPassword.razor still renders, it just can't actually send anything.
+var emailEndpoint = builder.Configuration["Email:Endpoint"];
+var emailSenderAddress = builder.Configuration["Email:SenderAddress"];
+var emailEnabled = !string.IsNullOrWhiteSpace(emailEndpoint) && !string.IsNullOrWhiteSpace(emailSenderAddress);
+if (emailEnabled)
+{
+    builder.Services.AddHttpClient();
+    builder.Services.AddSingleton<IEmailSender>(sp => new AzureEmailClient(
+        emailEndpoint!, emailSenderAddress!, new DefaultAzureCredential(), sp.GetRequiredService<IHttpClientFactory>()));
+}
+
 // The web chat channel (docs/06-roadmap.md) needs no external configuration — it's the
 // console's own /chat page — so the message pipeline itself is always wired up, unlike the
 // Telegram-specific pieces below which stay opt-in. IChannelRegistry is what lets
@@ -410,6 +424,11 @@ else
     {
         app.Logger.LogWarning(ex, "PayPal billing plan provisioning failed at startup — paid plans may not be purchasable until this is retried.");
     }
+}
+
+if (!emailEnabled)
+{
+    app.Logger.LogWarning("Email:Endpoint/SenderAddress are not configured — password reset is disabled.");
 }
 
 if (!telegramEnabled)

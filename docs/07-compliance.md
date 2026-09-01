@@ -181,6 +181,7 @@ Un evento di calendario contiene nomi ed email di persone che non sono utenti de
 | Segreti | Key Vault + Managed Identity. Zero segreti nel repository, `dotnet user-secrets` in locale |
 | Webhook | Validazione firma con confronto a tempo costante (`FixedTimeEquals`) |
 | `LinkToken` | 32 byte da `RandomNumberGenerator`, TTL 10 min, monouso |
+| Token di reset password | Generato da `UserManager` (ASP.NET Core Identity, `DataProtector`), mai persistito né loggato — stessa regola dei refresh token, anche se qui non è nemmeno un secret di lunga durata |
 | Codice WhatsApp a 6 cifre | Max 5 tentativi, rate limit per numero, TTL 10 min |
 | Autorizzazione | Filtro sistematico per spazi accessibili in **ogni** query, non solo controllo a valle |
 | Trasporto | HTTPS obbligatorio, HSTS attivo |

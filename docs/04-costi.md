@@ -22,6 +22,7 @@ Il salto della Fase 3 non è infrastruttura: sono i template WhatsApp. È lì ch
 | Application Insights | Primi 5 GB/mese gratuiti | 0 |
 | Blob Storage | Scontrini, fase 4 | 0 |
 | Azure OpenAI | gpt-4o-mini, vedi sotto | 3-10 |
+| Azure Communication Services | Email, solo reset password | <1 |
 | Dominio | ~15/anno | ~1 |
 | **Totale** | | **~25-40** |
 
@@ -31,6 +32,7 @@ Note:
 - **Azure SQL serverless con auto-pause** è la scelta economica giusta, con l'avvertenza che il risveglio dalla pausa costa alcuni secondi di latenza. Se il bot "sembra lento al mattino", è quello. L'alternativa è il tier Basic a costo fisso (~€5) senza auto-pause, adeguato per l'MVP.
 - **Key Vault** si paga a operazione: mettere in cache i token in memoria con TTL, non rileggerli a ogni messaggio.
 - **Service Bus: non incluso.** Nell'MVP la coda è in memoria. Aggiungerlo costa ~€10/mese (Basic) quando servirà.
+- **Azure Communication Services** fattura per email inviata (pochi centesimi di dollaro per mille email alla tariffazione attuale, da verificare in fase di setup) — al volume atteso (reset password occasionali, non digest o notifiche di massa) resta una voce trascurabile.
 
 ### Credito MVP
 

@@ -47,6 +47,9 @@
                 <hr />
                 <div>
                     <p>
+                        <a href="Account/ForgotPassword">@Localizer["Account.Login.ForgotPasswordLink"]</a>
+                    </p>
+                    <p>
                         <a href="@(NavigationManager.GetUriWithQueryParameters("Account/Register", new Dictionary<string, object?> { ["ReturnUrl"] = ReturnUrl }))">@Localizer["Account.Login.RegisterLink"]</a>
                     </p>
                 </div>

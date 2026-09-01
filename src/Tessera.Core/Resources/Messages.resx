@@ -956,6 +956,63 @@ Note: I only read messages that start with / or mention me.</value>
   <data name="Account.Login.InvalidAttemptError" xml:space="preserve">
     <value>Error: invalid login attempt.</value>
   </data>
+  <data name="Account.Login.ForgotPasswordLink" xml:space="preserve">
+    <value>Forgot your password?</value>
+  </data>
+  <data name="Account.ForgotPassword.PageTitle" xml:space="preserve">
+    <value>Forgot your password?</value>
+  </data>
+  <data name="Account.ForgotPassword.Heading" xml:space="preserve">
+    <value>Enter your email and we'll send you a link to reset your password.</value>
+  </data>
+  <data name="Account.ForgotPassword.SubmitButton" xml:space="preserve">
+    <value>Send reset link</value>
+  </data>
+  <data name="Account.ForgotPasswordConfirmation.PageTitle" xml:space="preserve">
+    <value>Check your email</value>
+  </data>
+  <data name="Account.ForgotPasswordConfirmation.Heading" xml:space="preserve">
+    <value>Check your email</value>
+  </data>
+  <data name="Account.ForgotPasswordConfirmation.Body" xml:space="preserve">
+    <value>If an account exists for that address, we've sent a link to reset your password.</value>
+  </data>
+  <data name="Account.ResetPassword.PageTitle" xml:space="preserve">
+    <value>Reset password</value>
+  </data>
+  <data name="Account.ResetPassword.Heading" xml:space="preserve">
+    <value>Choose a new password.</value>
+  </data>
+  <data name="Account.ResetPassword.SubmitButton" xml:space="preserve">
+    <value>Reset password</value>
+  </data>
+  <data name="Account.ResetPassword.GenericError" xml:space="preserve">
+    <value>This link is invalid or has expired. Ask for a new one from the login page.</value>
+  </data>
+  <data name="Account.ResetPasswordConfirmation.PageTitle" xml:space="preserve">
+    <value>Password reset</value>
+  </data>
+  <data name="Account.ResetPasswordConfirmation.Heading" xml:space="preserve">
+    <value>Password reset</value>
+  </data>
+  <data name="Account.ResetPasswordConfirmation.Body" xml:space="preserve">
+    <value>Your password has been reset.</value>
+  </data>
+  <data name="Account.ResetPasswordConfirmation.LoginLink" xml:space="preserve">
+    <value>Log in</value>
+  </data>
+  <data name="Email.ResetPassword.Subject" xml:space="preserve">
+    <value>Reset your Tessera password</value>
+  </data>
+  <data name="Email.ResetPassword.Heading" xml:space="preserve">
+    <value>Reset your password</value>
+  </data>
+  <data name="Email.ResetPassword.Body" xml:space="preserve">
+    <value>We received a request to reset the password for your Tessera account. Click the button below to choose a new one. If you didn't ask for this, you can safely ignore this email.</value>
+  </data>
+  <data name="Email.ResetPassword.ButtonText" xml:space="preserve">
+    <value>Reset password</value>
+  </data>
   <data name="Account.Register.Heading" xml:space="preserve">
     <value>Create a new account.</value>
   </data>

@@ -264,8 +264,17 @@
         var spaces = await SpaceService.GetForUserWithOwnerNameAsync(userId, CancellationToken.None);
         var calendars = ServiceProvider.GetService<CalendarQueryService>();
         var result = new List<SpacePreview>();
+        var hasSharedSpace = false;
         foreach (var (space, ownerName) in spaces)
         {
+            // Space.IsPersonal is fixed at creation time and never flips when someone is
+            // invited in later — it can't tell "shared" from "not shared" on its own, so this
+            // checks actual membership count instead (docs/02-modello-dati.md).
+            if (!hasSharedSpace && await SpaceService.GetMemberCountAsync(space.Id, CancellationToken.None) > 1)
+            {
+                hasSharedSpace = true;
+            }
+
             IReadOnlyList<Reminder>? reminders = await AccessPolicy.CanAsync(userId, space.Id, ResourceKind.Reminders, AccessLevel.Read, CancellationToken.None)
                 ? (await ReminderService.GetPendingAsync(space.Id, userId, CancellationToken.None)).Take(3).ToList()
                 : null;
@@ -293,7 +302,6 @@
         var telegramLinked = await LinkService.IsChannelLinkedAsync(userId, "telegram", CancellationToken.None);
         var hasAnyContent = result.Any(p =>
             p.Reminders?.Count > 0 || p.ShoppingItems?.Count > 0 || p.Expenses?.Count > 0 || p.Notes?.Count > 0 || p.Events?.Count > 0);
-        var hasSharedSpace = result.Any(p => !p.Space.IsPersonal);
         gettingStarted =
         [
             new GettingStartedStep("Dashboard.GettingStarted.LinkTelegram", "/link/telegram", telegramLinked),

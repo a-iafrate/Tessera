@@ -956,6 +956,63 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   <data name="Account.Login.InvalidAttemptError" xml:space="preserve">
     <value>Errore: tentativo di accesso non valido.</value>
   </data>
+  <data name="Account.Login.ForgotPasswordLink" xml:space="preserve">
+    <value>Password dimenticata?</value>
+  </data>
+  <data name="Account.ForgotPassword.PageTitle" xml:space="preserve">
+    <value>Password dimenticata?</value>
+  </data>
+  <data name="Account.ForgotPassword.Heading" xml:space="preserve">
+    <value>Inserisci la tua email e ti invieremo un link per reimpostare la password.</value>
+  </data>
+  <data name="Account.ForgotPassword.SubmitButton" xml:space="preserve">
+    <value>Invia link di reset</value>
+  </data>
+  <data name="Account.ForgotPasswordConfirmation.PageTitle" xml:space="preserve">
+    <value>Controlla la tua email</value>
+  </data>
+  <data name="Account.ForgotPasswordConfirmation.Heading" xml:space="preserve">
+    <value>Controlla la tua email</value>
+  </data>
+  <data name="Account.ForgotPasswordConfirmation.Body" xml:space="preserve">
+    <value>Se esiste un account per quell'indirizzo, ti abbiamo inviato un link per reimpostare la password.</value>
+  </data>
+  <data name="Account.ResetPassword.PageTitle" xml:space="preserve">
+    <value>Reimposta password</value>
+  </data>
+  <data name="Account.ResetPassword.Heading" xml:space="preserve">
+    <value>Scegli una nuova password.</value>
+  </data>
+  <data name="Account.ResetPassword.SubmitButton" xml:space="preserve">
+    <value>Reimposta password</value>
+  </data>
+  <data name="Account.ResetPassword.GenericError" xml:space="preserve">
+    <value>Questo link non è valido o è scaduto. Richiedine uno nuovo dalla pagina di accesso.</value>
+  </data>
+  <data name="Account.ResetPasswordConfirmation.PageTitle" xml:space="preserve">
+    <value>Password reimpostata</value>
+  </data>
+  <data name="Account.ResetPasswordConfirmation.Heading" xml:space="preserve">
+    <value>Password reimpostata</value>
+  </data>
+  <data name="Account.ResetPasswordConfirmation.Body" xml:space="preserve">
+    <value>La tua password è stata reimpostata.</value>
+  </data>
+  <data name="Account.ResetPasswordConfirmation.LoginLink" xml:space="preserve">
+    <value>Accedi</value>
+  </data>
+  <data name="Email.ResetPassword.Subject" xml:space="preserve">
+    <value>Reimposta la tua password Tessera</value>
+  </data>
+  <data name="Email.ResetPassword.Heading" xml:space="preserve">
+    <value>Reimposta la tua password</value>
+  </data>
+  <data name="Email.ResetPassword.Body" xml:space="preserve">
+    <value>Abbiamo ricevuto una richiesta di reimpostazione della password per il tuo account Tessera. Clicca il pulsante qui sotto per sceglierne una nuova. Se non hai richiesto tu questa operazione, puoi ignorare questa email in tutta sicurezza.</value>
+  </data>
+  <data name="Email.ResetPassword.ButtonText" xml:space="preserve">
+    <value>Reimposta password</value>
+  </data>
   <data name="Account.Register.Heading" xml:space="preserve">
     <value>Crea un nuovo account.</value>
   </data>
