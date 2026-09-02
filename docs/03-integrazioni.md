@@ -348,11 +348,15 @@ Prima integrazione email dell'app: fino ad ora non esisteva alcuna infrastruttur
 
 ### Perché ACS e non SendGrid/SMTP
 
-Resta nello stack Azure già in uso (App Service, Key Vault, Azure SQL) invece di aggiungere un account terzo. Autenticazione via la stessa Managed Identity già concessa per Key Vault (`DefaultAzureCredential`, scope `https://communication.azure.com/.default`) — nessun nuovo segreto da custodire, a differenza di una API key SendGrid che andrebbe comunque in Key Vault/user-secrets.
+Resta nello stack Azure già in uso (App Service, Key Vault, Azure SQL) invece di aggiungere un account terzo.
 
-### Client scritto a mano, non l'SDK ufficiale
+### Autenticazione: connection string, non Managed Identity
 
-`AzureEmailClient` (`Tessera.Integrations`) chiama direttamente `POST {endpoint}/emails:send` invece di referenziare `Azure.Communication.Email` — stesso principio già seguito per PayPal e per i calendari: un client sottile scritto in casa invece di un pacchetto SDK per una singola chiamata REST. A differenza del flusso `client_credentials` di PayPal, qui non serve nemmeno una cache manuale del token: `TokenCredential` di Azure.Identity la gestisce già internamente.
+Il piano iniziale era autenticarsi con la stessa Managed Identity già usata per Key Vault (nessun nuovo segreto da custodire), ma il ruolo IAM per l'invio email via Entra ID non risultava assegnabile sulla subscription in uso — probabilmente perché l'autenticazione Entra ID per ACS Email è una funzionalità più recente e non ancora disponibile ovunque. Si è quindi tornati alla connection string della risorsa ACS, esattamente come `BlobStorage:ConnectionString` (vedi sotto): stesso trattamento, stesso posto (`IConfiguration`, App Service application settings o `dotnet user-secrets` in locale — **non** Key Vault, riservato ai soli refresh token OAuth per-utente, hard rule 4/`07-compliance.md`).
+
+### SDK ufficiale, non un client scritto a mano
+
+`AzureEmailClient` (`Tessera.Integrations`) usa `Azure.Communication.Email.EmailClient` invece di un `HttpClient` fatto in casa — a differenza di PayPal e dei calendari (dove il client fatto in casa evita di dipendere da un token cache gestito dall'SDK, mai un problema qui: la connection string non è un refresh token), la firma HMAC per-richiesta che la connection string richiede non vale la pena reimplementarla — stesso principio già seguito per `BlobStorage:ConnectionString` → `BlobServiceClient` (Program.cs), unico altro caso di autenticazione a connection string nell'app.
 
 ### Contenuto dell'email nella lingua del destinatario
 
@@ -364,7 +368,7 @@ Prima di comporre oggetto e corpo, `ForgotPassword.razor` imposta `CultureInfo.C
 
 ### Configurazione
 
-`Email:Endpoint` + `Email:SenderAddress` — se assenti, il servizio semplicemente non viene registrato (stesso pattern di ogni altra integrazione opzionale in `Program.cs`): la pagina `/Account/ForgotPassword` resta visibile ma non invia nulla. Passi di provisioning manuale (risorsa ACS, dominio, ruolo sulla Managed Identity) in `docs/08-setup-sviluppo.md`.
+`Email:ConnectionString` + `Email:SenderAddress` — se assenti, il servizio semplicemente non viene registrato (stesso pattern di ogni altra integrazione opzionale in `Program.cs`): la pagina `/Account/ForgotPassword` resta visibile ma non invia nulla. Passi di provisioning manuale (risorsa ACS, dominio, connection string) in `docs/08-setup-sviluppo.md`.
 
 ## Alexa — non praticabile, decisione presa
 

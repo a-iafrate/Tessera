@@ -297,18 +297,16 @@ if (payPalEnabled)
     builder.Services.AddScoped<PayPalSubscriptionService>();
 }
 
-// Password reset email (docs/03-integrazioni.md) — Azure Communication Services, authenticated
-// via the same Managed Identity already granted for Key Vault rather than a connection string,
-// so there's no new secret to store. Optional like every other integration here: without it,
-// ForgotPassword.razor still renders, it just can't actually send anything.
-var emailEndpoint = builder.Configuration["Email:Endpoint"];
+// Password reset email (docs/03-integrazioni.md) — Azure Communication Services, connection
+// string like BlobStorage below rather than Managed Identity: the Email-send role isn't
+// available to assign on this subscription. Optional like every other integration here:
+// without it, ForgotPassword.razor still renders, it just can't actually send anything.
+var emailConnectionString = builder.Configuration["Email:ConnectionString"];
 var emailSenderAddress = builder.Configuration["Email:SenderAddress"];
-var emailEnabled = !string.IsNullOrWhiteSpace(emailEndpoint) && !string.IsNullOrWhiteSpace(emailSenderAddress);
+var emailEnabled = !string.IsNullOrWhiteSpace(emailConnectionString) && !string.IsNullOrWhiteSpace(emailSenderAddress);
 if (emailEnabled)
 {
-    builder.Services.AddHttpClient();
-    builder.Services.AddSingleton<IEmailSender>(sp => new AzureEmailClient(
-        emailEndpoint!, emailSenderAddress!, new DefaultAzureCredential(), sp.GetRequiredService<IHttpClientFactory>()));
+    builder.Services.AddSingleton<IEmailSender>(new AzureEmailClient(emailConnectionString!, emailSenderAddress!));
 }
 
 // The web chat channel (docs/06-roadmap.md) needs no external configuration — it's the
@@ -428,7 +426,7 @@ else
 
 if (!emailEnabled)
 {
-    app.Logger.LogWarning("Email:Endpoint/SenderAddress are not configured — password reset is disabled.");
+    app.Logger.LogWarning("Email:ConnectionString/SenderAddress are not configured — password reset is disabled.");
 }
 
 if (!telegramEnabled)

@@ -1,37 +1,28 @@
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
-using Azure.Core;
+using Azure;
+using Azure.Communication.Email;
 using Tessera.Core.Abstractions;
 
 namespace Tessera.Integrations;
 
-// Azure Communication Services Email REST API, called by hand rather than the
-// Azure.Communication.Email SDK — same reasoning as PayPalClient/GoogleCalendarClient: no
-// SDK-owned client to carry as a dependency for what's a single POST. Authenticates via the
-// same Managed Identity already used for Key Vault (Program.cs), not a connection string, so
-// there's no new secret to store anywhere (docs/03-integrazioni.md). TokenCredential caches
-// and refreshes its own tokens internally — unlike PayPal's client_credentials flow, this
-// client doesn't need to hand-roll that itself.
-public sealed class AzureEmailClient(string endpoint, string senderAddress, TokenCredential credential, IHttpClientFactory httpClientFactory)
-    : IEmailSender
+// Azure Communication Services Email — connection string, same pattern as BlobStorage's
+// AzureBlobStorage (Program.cs): the official SDK wraps a nontrivial per-request HMAC
+// signature that isn't worth hand-rolling (unlike PayPal's plain bearer-token REST calls), and
+// the connection string itself lives in App Service configuration / user-secrets like every
+// other non-refresh-token secret in this app — no Key Vault involved (that's reserved for
+// per-user OAuth refresh tokens, hard rule 4, docs/07-compliance.md).
+public sealed class AzureEmailClient(string connectionString, string senderAddress) : IEmailSender
 {
-    private static readonly string[] Scopes = ["https://communication.azure.com/.default"];
+    private readonly EmailClient client = new(connectionString);
 
     public async Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken ct)
     {
-        var token = await credential.GetTokenAsync(new TokenRequestContext(Scopes), ct);
-        var client = httpClientFactory.CreateClient();
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, $"{endpoint.TrimEnd('/')}/emails:send?api-version=2023-03-31");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Token);
-        request.Content = JsonContent.Create(new
-        {
+        var message = new EmailMessage(
             senderAddress,
-            content = new { subject, html = htmlBody },
-            recipients = new { to = new[] { new { address = toEmail } } },
-        });
+            new EmailRecipients([new EmailAddress(toEmail)]),
+            new EmailContent(subject) { Html = htmlBody });
 
-        using var response = await client.SendAsync(request, ct);
-        response.EnsureSuccessStatusCode();
+        // Started, not Completed — confirms the send was accepted, doesn't block on final
+        // delivery status (same "fire and confirm" spirit as every other outbound call here).
+        await client.SendAsync(WaitUntil.Started, message, ct);
     }
 }
