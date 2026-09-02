@@ -1115,6 +1115,48 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   <data name="Profile.DeleteAccountLink" xml:space="preserve">
     <value>Elimina il mio account</value>
   </data>
+  <data name="ChangePassword.PageTitle" xml:space="preserve">
+    <value>Cambia password</value>
+  </data>
+  <data name="ChangePassword.Heading" xml:space="preserve">
+    <value>Cambia la tua password.</value>
+  </data>
+  <data name="ChangePassword.NoPasswordIntro" xml:space="preserve">
+    <value>Hai effettuato l'accesso con un account esterno e non hai ancora una password. Impostane una qui sotto per poter accedere anche con la tua email.</value>
+  </data>
+  <data name="ChangePassword.CurrentPasswordLabel" xml:space="preserve">
+    <value>Password attuale</value>
+  </data>
+  <data name="ChangePassword.NewPasswordLabel" xml:space="preserve">
+    <value>Nuova password</value>
+  </data>
+  <data name="ChangePassword.ConfirmNewPasswordLabel" xml:space="preserve">
+    <value>Conferma nuova password</value>
+  </data>
+  <data name="ChangePassword.SubmitButton" xml:space="preserve">
+    <value>Cambia password</value>
+  </data>
+  <data name="ChangePassword.SetSubmitButton" xml:space="preserve">
+    <value>Imposta password</value>
+  </data>
+  <data name="ChangePassword.Success" xml:space="preserve">
+    <value>Password cambiata.</value>
+  </data>
+  <data name="ChangePassword.MismatchError" xml:space="preserve">
+    <value>Errore: le nuove password non coincidono.</value>
+  </data>
+  <data name="ChangePassword.CurrentPasswordError" xml:space="preserve">
+    <value>Errore: la password attuale non è corretta.</value>
+  </data>
+  <data name="ChangePassword.GenericError" xml:space="preserve">
+    <value>Errore: impossibile cambiare la password. Provane una più lunga o meno comune.</value>
+  </data>
+  <data name="Settings.ChangePasswordCardTitle" xml:space="preserve">
+    <value>Cambia password</value>
+  </data>
+  <data name="Settings.ChangePasswordCardBody" xml:space="preserve">
+    <value>Aggiorna la password, o impostane una se ti sei registrato con Google.</value>
+  </data>
   <data name="AccountDelete.Title" xml:space="preserve">
     <value>Elimina account</value>
   </data>

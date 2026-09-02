@@ -36,9 +36,16 @@ internal sealed class IdentityRedirectManager(NavigationManager navigationManage
 
     public void RedirectToWithStatus(string uri, string message, HttpContext context)
     {
-        context.Response.Cookies.Append(StatusCookieName, message, StatusCookieBuilder.Build(context));
+        SetStatusCookie(context, message);
         RedirectTo(uri);
     }
+
+    // Used from plain minimal-API endpoints (IdentityComponentsEndpointRouteBuilderExtensions)
+    // rather than a Blazor component's own NavigationManager — those endpoints build their own
+    // redirect response directly (TypedResults.LocalRedirect) but still want the same status
+    // cookie StatusMessage.razor already knows how to read.
+    public static void SetStatusCookie(HttpContext context, string message) =>
+        context.Response.Cookies.Append(StatusCookieName, message, StatusCookieBuilder.Build(context));
 
     private string CurrentPath => navigationManager.ToAbsoluteUri(navigationManager.Uri).GetLeftPart(UriPartial.Path);
 

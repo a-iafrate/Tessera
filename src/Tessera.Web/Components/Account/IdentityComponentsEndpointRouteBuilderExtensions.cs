@@ -2,8 +2,11 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Primitives;
+using Tessera.Core.Resources;
 using Tessera.Data;
+using Tessera.Web.Components.Account;
 using Tessera.Web.Components.Account.Pages;
 
 namespace Microsoft.AspNetCore.Routing;
@@ -68,6 +71,58 @@ internal static class IdentityComponentsEndpointRouteBuilderExtensions
 
             await signInManager.SignOutAsync();
             return TypedResults.LocalRedirect("~/");
+        });
+
+        // Plain form POST rather than a Blazor component method, same reason as /DeleteAccount
+        // above: RefreshSignInAsync needs to write a fresh auth cookie (new security stamp),
+        // which an interactive-server circuit can't produce mid-connection.
+        accountGroup.MapPost("/ChangePassword", async (
+            ClaimsPrincipal user,
+            HttpContext context,
+            [FromServices] SignInManager<ApplicationUser> signInManager,
+            [FromServices] UserManager<ApplicationUser> userManager,
+            [FromServices] IStringLocalizer<Messages> localizer,
+            [FromForm] string? currentPassword,
+            [FromForm] string newPassword,
+            [FromForm] string confirmPassword,
+            CancellationToken ct) =>
+        {
+            var userId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var identityUser = await userManager.FindByIdAsync(userId.ToString());
+            if (identityUser is null)
+            {
+                return TypedResults.LocalRedirect("~/account/change-password");
+            }
+
+            if (newPassword != confirmPassword)
+            {
+                IdentityRedirectManager.SetStatusCookie(context, localizer["ChangePassword.MismatchError"]);
+                return TypedResults.LocalRedirect("~/account/change-password");
+            }
+
+            // Accounts created via external login only (Google) may never have set a password
+            // — AddPasswordAsync, not ChangePasswordAsync, and no current-password check makes
+            // sense there since there's nothing to verify it against.
+            var hasPassword = await userManager.HasPasswordAsync(identityUser);
+            var result = hasPassword
+                ? await userManager.ChangePasswordAsync(identityUser, currentPassword ?? "", newPassword)
+                : await userManager.AddPasswordAsync(identityUser, newPassword);
+
+            if (!result.Succeeded)
+            {
+                var message = result.Errors.Any(e => e.Code == "PasswordMismatch")
+                    ? localizer["ChangePassword.CurrentPasswordError"]
+                    : localizer["ChangePassword.GenericError"];
+                IdentityRedirectManager.SetStatusCookie(context, message);
+                return TypedResults.LocalRedirect("~/account/change-password");
+            }
+
+            // Changing the password rotates the security stamp — without this the existing
+            // auth cookie would fail stamp validation on the very next request, signing the
+            // user out of the session they just used to make the change.
+            await signInManager.RefreshSignInAsync(identityUser);
+            IdentityRedirectManager.SetStatusCookie(context, localizer["ChangePassword.Success"]);
+            return TypedResults.LocalRedirect("~/account/change-password");
         });
 
         return accountGroup;

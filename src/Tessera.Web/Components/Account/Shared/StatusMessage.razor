@@ -14,18 +14,23 @@
     [Parameter]
     public string? Message { get; set; }
 
+    // Nullable rather than the usual `= default!`: only supplied on a real per-request render
+    // (static SSR, or an interactive page's very first render before a circuit takes over) — a
+    // page that renders again later purely over its SignalR circuit (no fresh HttpContext to
+    // cascade) would otherwise NullReferenceException here instead of just not showing a
+    // cookie-based message.
     [CascadingParameter]
-    private HttpContext HttpContext { get; set; } = default!;
+    private HttpContext? HttpContext { get; set; }
 
     private string? DisplayMessage => Message ?? messageFromCookie;
 
     protected override void OnInitialized()
     {
-        messageFromCookie = HttpContext.Request.Cookies[IdentityRedirectManager.StatusCookieName];
+        messageFromCookie = HttpContext?.Request.Cookies[IdentityRedirectManager.StatusCookieName];
 
         if (messageFromCookie is not null)
         {
-            HttpContext.Response.Cookies.Delete(IdentityRedirectManager.StatusCookieName);
+            HttpContext!.Response.Cookies.Delete(IdentityRedirectManager.StatusCookieName);
         }
     }
 }
