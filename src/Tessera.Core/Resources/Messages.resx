@@ -322,23 +322,17 @@
   <data name="Digest.RemindersHeader" xml:space="preserve">
     <value>Today's reminders</value>
   </data>
-  <data name="Digest.RemindersEmpty" xml:space="preserve">
-    <value>No reminders today</value>
-  </data>
   <data name="Digest.CalendarHeader" xml:space="preserve">
     <value>Today's appointments</value>
-  </data>
-  <data name="Digest.CalendarEmpty" xml:space="preserve">
-    <value>No appointments today</value>
   </data>
   <data name="Digest.ShoppingHeader" xml:space="preserve">
     <value>Shopping list</value>
   </data>
-  <data name="Digest.ShoppingEmpty" xml:space="preserve">
-    <value>Nothing missing from the list</value>
-  </data>
   <data name="Digest.BudgetHeader" xml:space="preserve">
     <value>Budget</value>
+  </data>
+  <data name="Digest.AllEmpty" xml:space="preserve">
+    <value>Nothing to report today — no reminders, appointments, missing items, or budget alerts.</value>
   </data>
   <data name="Digest.BudgetLineOverall" xml:space="preserve">
     <value>Overall: {0} of {1}</value>
@@ -1789,8 +1783,8 @@ Try it now:</value>
   <data name="Calendars.FreeBusyAllFree" xml:space="preserve">
     <value>Nobody's busy in that range.</value>
   </data>
-  <data name="Calendars.BusyLine" xml:space="preserve">
-    <value>Busy {0} – {1}</value>
+  <data name="Calendars.BusyDayLine" xml:space="preserve">
+    <value>{0}: busy {1}</value>
   </data>
   <data name="Calendars.PersonNotFound" xml:space="preserve">
     <value>I don't see anyone matching "{0}" in this space.</value>

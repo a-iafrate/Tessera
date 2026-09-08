@@ -915,8 +915,26 @@ public sealed class MessageProcessor(
             return localizer["Calendars.FreeBusyAllFree"];
         }
 
-        return string.Join('\n', busy.Select(b =>
-            localizer["Calendars.BusyLine", FormatDueAt(b.Start, timeZone, culture), FormatDueAt(b.End, timeZone, culture)].Value));
+        // Grouped by day rather than one line per interval — the flat version repeated the
+        // date on both ends of every single-day interval ("4 settembre, 09:00 – 4 settembre,
+        // 13:00") and gave two same-day slots no visual relationship to each other. A day
+        // that's asked about but has nothing booked never appears here — this lists busy time,
+        // not a full week's scaffold, so there's nothing to say about a free day.
+        var byDay = busy
+            .Select(b => (
+                Start: TimeZoneInfo.ConvertTime(b.Start, timeZone),
+                End: TimeZoneInfo.ConvertTime(b.End, timeZone)))
+            .GroupBy(b => b.Start.Date)
+            .OrderBy(g => g.Key);
+
+        var lines = byDay.Select(day =>
+        {
+            var dayLabel = day.Key.ToString("dddd d MMMM", culture);
+            var ranges = string.Join(", ", day.Select(b => $"{b.Start.ToString("HH:mm", culture)} – {b.End.ToString("HH:mm", culture)}"));
+            return localizer["Calendars.BusyDayLine", dayLabel, ranges].Value;
+        });
+
+        return string.Join("\n\n", lines);
     }
 
     // No existing "typed name -> space member" resolver anywhere else in the codebase — this is

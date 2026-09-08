@@ -14,23 +14,34 @@ public static class DigestFormatter
         DailyDigest daily, IReadOnlyList<Category> categories, string currency,
         TimeZoneInfo timeZone, CultureInfo culture, IStringLocalizer<Messages> localizer)
     {
-        var remindersSection = daily.RemindersToday.Count == 0
-            ? localizer["Digest.RemindersEmpty"].Value
-            : string.Join('\n', daily.RemindersToday.Select(r =>
+        // Empty sections are dropped entirely, header included — unlike the web dashboard
+        // (docs/12-stile-sito.md), a proactive daily push has no "add" affordance to preserve
+        // by keeping the section visible, so an empty one is pure noise, not a nudge to act.
+        var sections = new List<(string Header, string Body)>();
+
+        if (daily.RemindersToday.Count > 0)
+        {
+            var body = string.Join('\n', daily.RemindersToday.Select(r =>
                 localizer["Reminders.ListItemLine", MessageProcessor.FormatDueAt(r.DueAt, timeZone, culture), r.Text].Value));
+            sections.Add((localizer["Digest.RemindersHeader"].Value, body));
+        }
 
-        var calendarSection = daily.EventsToday.Count == 0
-            ? localizer["Digest.CalendarEmpty"].Value
-            : string.Join('\n', daily.EventsToday.Select(e =>
+        if (daily.EventsToday.Count > 0)
+        {
+            var body = string.Join('\n', daily.EventsToday.Select(e =>
                 localizer["Calendars.EventLine", MessageProcessor.FormatDueAt(e.Start, timeZone, culture), e.Title].Value));
+            sections.Add((localizer["Digest.CalendarHeader"].Value, body));
+        }
 
-        var shoppingSection = daily.MissingItems.Count == 0
-            ? localizer["Digest.ShoppingEmpty"].Value
-            : string.Join('\n', daily.MissingItems.Select(i => localizer["Shopping.ListItemLine", i.RawText].Value));
+        if (daily.MissingItems.Count > 0)
+        {
+            var body = string.Join('\n', daily.MissingItems.Select(i => localizer["Shopping.ListItemLine", i.RawText].Value));
+            sections.Add((localizer["Digest.ShoppingHeader"].Value, body));
+        }
 
-        var budgetSection = daily.BudgetStatuses.Count == 0
-            ? localizer["Budget.ListEmpty"].Value
-            : string.Join('\n', daily.BudgetStatuses.Select(status =>
+        if (daily.BudgetStatuses.Count > 0)
+        {
+            var body = string.Join('\n', daily.BudgetStatuses.Select(status =>
             {
                 var spentFormatted = MoneyFormatter.Format(status.Spent, currency, culture.Name);
                 var limitFormatted = MoneyFormatter.Format(status.Limit, currency, culture.Name);
@@ -43,15 +54,14 @@ public static class DigestFormatter
                 var categoryName = category is null ? "" : MessageProcessor.GetCategoryDisplayName(category, localizer);
                 return localizer["Digest.BudgetLineCategory", categoryName, spentFormatted, limitFormatted].Value;
             }));
+            sections.Add((localizer["Digest.BudgetHeader"].Value, body));
+        }
 
-        return string.Join('\n', [
-            localizer["Digest.RemindersHeader"], remindersSection,
-            "",
-            localizer["Digest.CalendarHeader"], calendarSection,
-            "",
-            localizer["Digest.ShoppingHeader"], shoppingSection,
-            "",
-            localizer["Digest.BudgetHeader"], budgetSection,
-        ]);
+        if (sections.Count == 0)
+        {
+            return localizer["Digest.AllEmpty"];
+        }
+
+        return string.Join("\n\n", sections.Select(s => $"{s.Header}\n{s.Body}"));
     }
 }
