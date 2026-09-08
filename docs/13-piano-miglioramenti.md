@@ -628,9 +628,9 @@ dichiarati (divisione delle spese, meal planning, turni di casa, sync Alexa) res
   compromesso rischio/beneficio diverso da una modifica di plumbing, e una decisione di prodotto
   che merita un via libera esplicito separato, non un'estensione implicita di "amplia il corpus".
 
-### F2 — Test dei permessi
+### F2 — Test dei permessi ✅
 
-- [ ] **Dove**: `tests/Tessera.Core.Tests/Spaces/AccessPolicyTests.cs`,
+- [x] **Dove**: `tests/Tessera.Core.Tests/Spaces/AccessPolicyTests.cs`,
   `Calendars/EffectiveCalendarLevelTests.cs`
 - **Perché**: 68 righe per il modello a permessi granulari e 29 per il minimo a tre fattori.
   `CLAUDE.md`: "un errore lì fa fuoriuscire dati fra i membri di uno spazio".
@@ -638,6 +638,21 @@ dichiarati (divisione delle spese, meal planning, turni di casa, sync Alexa) res
   limite del minimo `min(ProviderRole, ShareLevel, MembershipPermission)` (regola 15) e l'ex
   membro.
 - **Fatto quando**: ogni combinazione di `AccessLevel` e `ResourceKind` è coperta.
+- **Fatto**: `AccessPolicyTests.cs` (4→13 test) — matrice 5×5 di `AccessLevel` (concesso ×
+  richiesto) generata via `MemberData`, non trascritta a mano, per non correre il rischio di
+  copiare lo stesso errore nel test e nel codice; test esplicito che una permission su una
+  risorsa non fuoriesce su nessun'altra (le 6 rimanenti, con `Admin` sulla prima — il caso più
+  aggressivo possibile); test che più permission sulla stessa membership restano indipendenti;
+  owner esaustivo su tutti i 7 `ResourceKind` × 5 `AccessLevel`. **L'ex membro non ha un test
+  dedicato**: da questa classe è indistinguibile da "nessuna membership" — un membro uscito non
+  ha più una riga `Membership` (viene archiviato in `MembershipArchive`, docs/02-modello-dati.md),
+  quindi ricade nel path già coperto da `CanAsync_ReturnsFalse_WhenUserHasNoMembership`; ho
+  aggiunto solo un test che lo rende esplicito invece di inventare un secondo test ridondante.
+  `EffectiveCalendarLevelTests.cs` (7→16 test): oltre agli scenari combinati già presenti, tre
+  nuove theory isolano ciascuno dei tre vincoli (bloccando gli altri due al valore "nessun
+  vincolo") con il valore atteso dichiarato dal commento di dominio di `ProviderAccessRole`, non
+  ri-derivato dallo switch di produzione — altrimenti un'inversione nel codice si sarebbe
+  propagata identica nel test. Due test difensivi su valori enum non definiti (`(ProviderAccessRole)0`).
 
 ### F3 — Scomporre `MessageProcessor`
 
@@ -721,7 +736,7 @@ eseguirli.
 | 3 | **A3** + **F1** ✅ | Lo storico conversazionale è la retention; il corpus del router lo protegge dalle regressioni |
 | 4 | **B1, B2, B3, B4, B6, B7** | Sei interventi visibili e circoscritti. B3 è il più importante: è la pagina a uso quotidiano |
 | 5 | **B5, B8, B9, B10, B11, B14** | Accessibilità, riscontro, tono. B8 è solo riscrittura di risorse |
-| 6 | **F2** | I permessi, prima di aggiungere superficie che li usa |
+| 6 | **F2** ✅ | I permessi, prima di aggiungere superficie che li usa — fatto fuori ordine, su richiesta esplicita, prima dei passi 4-5 (lotto B) |
 | 7 | **C3, C1** | Aggregazione e poi email: il canale che sostituisce WhatsApp |
 | 8 | **D3**, poi decisioni aperte 2 e 3, poi **D1, D4, D2, D5** | La telemetria prima del riassetto: si decide su dati, non a memoria |
 | 9 | **E3, E2, E4, E1** | Export e garanzie sono quasi gratis; la voce merita di stare dopo perché tocca la pipeline |
