@@ -269,6 +269,15 @@ distinti, uno stesso intervento.
   (`docs/02-modello-dati.md`), quindi la checkbox delle voci già prese è renderizzata
   `checked disabled`, non interattiva; corrisponde esattamente alla capacità esistente, non ne
   aggiunge una nuova.
+- **Bug trovato e corretto tramite verifica visiva reale** (screenshot con Playwright contro
+  l'app avviata, non solo build/test): le due `@foreach` su `UncheckedItems`/`CheckedItems`
+  senza `@key` facevano sì che, quando una voce passava da una lista all'altra, il diffing di
+  Blazor per posizione lasciasse lo stato nativo `checked` della checkbox sulla riga sbagliata
+  (es. si spunta "Latte", e nello screenshot successivo è "Pane" — la riga successiva nella
+  stessa posizione — a comparire visivamente spuntata, pur restando in "da comprare" e senza
+  barratura). Aggiunto `@key="item.Id"` sul `<li>` in `RenderRow`. Nessun build o test lo
+  avrebbe intercettato: è esattamente la classe di bug per cui questa sessione ha chiesto una
+  verifica visiva prima di considerare il lotto concluso.
 
 ### B4 — Variabile CSS inesistente ✅
 

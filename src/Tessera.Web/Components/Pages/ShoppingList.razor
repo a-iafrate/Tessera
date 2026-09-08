@@ -270,7 +270,14 @@
         }
     }
 
-    private RenderFragment RenderRow(ShoppingItem item) => @<li class="shopping-row">
+    // @key is essential here, not decorative: the two @foreach loops below re-render whenever
+    // an item moves between UncheckedItems and CheckedItems (recomputed on every access), and
+    // without a stable per-item key Blazor's default position-based diff can leave a
+    // checkbox's native checked DOM property behind on the wrong row after a reorder — the
+    // text/strikethrough update correctly (they're plain attribute diffs), but the checkbox
+    // itself visually shows the previous occupant's state. Caught via manual verification
+    // (docs/13-piano-miglioramenti.md, B3), not by any build or test.
+    private RenderFragment RenderRow(ShoppingItem item) => @<li class="shopping-row" @key="item.Id">
         <label class="shopping-row-label">
             <input type="checkbox" class="shopping-row-checkbox"
                    checked="@item.IsChecked" disabled="@(!canWrite || item.IsChecked || busyItemIds.Contains(item.Id))"
