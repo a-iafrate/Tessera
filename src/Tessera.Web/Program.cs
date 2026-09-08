@@ -27,6 +27,7 @@ using Tessera.Integrations;
 using Tessera.Web.Components;
 using Tessera.Web.Components.Account;
 using Tessera.Web.Endpoints;
+using Tessera.Web.HealthChecks;
 using Tessera.Web.Jobs;
 using Tessera.Web.Services;
 
@@ -171,6 +172,13 @@ builder.Services.AddSingleton(PartitionedRateLimiter.Create<string, string>(key 
 // this app ever ran on more than one instance (docs/05: "a quel punto serve anche Service Bus,
 // ed è un altro momento del progetto") — not yet.
 builder.Services.AddMemoryCache();
+
+// /health: DB reachability plus "is anything stuck in the queue" (docs/01-architettura.md) —
+// App Service can then tell "alive" apart from "responding but the queue is jammed", which an
+// unhandled process crash alone wouldn't surface.
+builder.Services.AddHealthChecks()
+    .AddCheck<DatabaseHealthCheck>("database")
+    .AddCheck<MessageProcessingHealthCheck>("message-processing");
 
 builder.Services.AddScoped<UserProvisioningService>();
 builder.Services.AddScoped<IChannelIdentityRepository, ChannelIdentityRepository>();
@@ -353,6 +361,10 @@ if (telegramEnabled)
     builder.Services.AddSingleton<IScheduledJob, RemindersDueJob>();
     builder.Services.AddSingleton<IScheduledJob, DailyDigestJob>();
     builder.Services.AddSingleton<IScheduledJob, RecurringExpenseJob>();
+
+    // Replays messages TelegramUpdateIngestor deduplicated but MessageProcessor never
+    // finished — the queue's one known gap across a restart (docs/01-architettura.md).
+    builder.Services.AddSingleton<IScheduledJob, PendingMessageRecoveryJob>();
 }
 
 // Calendar list refresh needs LinkedAccountService, which only exists when some calendar
@@ -373,6 +385,13 @@ if (calendarIntegrationEnabled)
 
 if (telegramEnabled || calendarIntegrationEnabled)
 {
+    // Bounds ProcessedMessages' growth (no natural cap otherwise) — registered here rather
+    // than unconditionally at top level because it, like every IScheduledJob, only ever runs
+    // if SchedulerWorker is actually hosted. The PayPal webhook writes to the same table
+    // regardless of whether Telegram itself is configured, so this stays outside the
+    // telegramEnabled block above.
+    builder.Services.AddSingleton<IScheduledJob, ProcessedMessagePurgeJob>();
+
     builder.Services.AddHostedService<SchedulerWorker>();
 }
 
@@ -508,6 +527,8 @@ app.MapRazorComponents<App>()
 
 // Additional endpoints required by the Identity /Account Razor components.
 app.MapAdditionalIdentityEndpoints();
+
+app.MapHealthChecks("/health").AllowAnonymous();
 
 if (telegramEnabled)
 {

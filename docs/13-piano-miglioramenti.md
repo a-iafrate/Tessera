@@ -109,9 +109,9 @@ Non sono idee nuove: sono decisioni già scritte in `docs/` che il codice non im
 - **Fatto quando**: la sequenza "quanto ho speso a gennaio" → "e a febbraio" risponde su febbraio,
   e un test sul corpus del router copre il caso.
 
-### A4 — Messaggio perso al riavvio
+### A4 — Messaggio perso al riavvio ✅
 
-- [ ] **Dove**: `Tessera.Web/Endpoints/TelegramUpdateIngestor.cs:37-51`,
+- [x] **Dove**: `Tessera.Web/Endpoints/TelegramUpdateIngestor.cs:37-51`,
   `Tessera.Web/Services/MessageProcessor.cs`, `ProcessedMessage`
 - **Perché**: la riga di deduplica viene committata **prima** dell'enqueue nella coda in memoria.
   Al recycle dell'App Service — cioè a ogni deploy — un messaggio in coda è perso, **e** il retry
@@ -125,15 +125,35 @@ Non sono idee nuove: sono decisioni già scritte in `docs/` che il codice non im
   Nessun Service Bus: resta un rinvio corretto
   ([05](05-ottimizzazioni.md#cosa-non-ottimizzare-ancora)).
 - **Fatto quando**: un riavvio con messaggi in coda li rielabora all'avvio senza duplicarli.
+- **Fatto**: `ProcessedMessage` porta `CompletedAt` (nullable) e `PayloadJson` — l'ingestor
+  serializza l'`InboundMessage` intero alla scrittura della riga di dedup, `MessageProcessor`
+  valorizza `CompletedAt` in un `finally` attorno a `ProcessAsync` (sia in caso di successo sia
+  di eccezione: un messaggio che è già fallito una volta con una risposta di scuse all'utente
+  non deve essere rigiocato a ogni sweep successivo). Nuovo `IScheduledJob`,
+  `PendingMessageRecoveryJob`, rimette in coda le righe con `CompletedAt IS NULL` più vecchie di
+  un minuto (registrato solo quando Telegram è configurato). **Scoperta non anticipata dal
+  testo del lotto**: la deduplica in `TelegramUpdateIngestor.IngestAsync` **non** è stata
+  cambiata a "scarta solo le righe completate" come scritto sopra — resta "qualunque riga
+  esistente blocca un nuovo enqueue", perché altrimenti un vero retry di Telegram durante
+  un'elaborazione ancora legittimamente in corso (non morta, solo lenta) avrebbe causato una
+  doppia elaborazione. La soglia di un minuto nel job di recupero è ciò che distingue
+  "orfano da riavvio" da "ancora in corso", non la deduplica in ingresso.
 
-### A5 — Health check e pulizia
+### A5 — Health check e pulizia ✅
 
-- [ ] **Dove**: `Program.cs`, nuovo `IScheduledJob`
+- [x] **Dove**: `Program.cs`, nuovo `IScheduledJob`
 - **Perché**: non esiste un endpoint di salute (App Service non ha modo di distinguere "vivo" da
   "risponde ma la coda è bloccata"), e `ProcessedMessages` cresce senza limite.
 - **Cosa**: `MapHealthChecks("/health")` con un check su DB e uno sull'ultima elaborazione
   riuscita; `ProcessedMessagePurgeJob` che elimina le righe completate oltre i 7 giorni.
 - **Fatto quando**: `/health` risponde e il job compare nei log dello scheduler.
+- **Fatto**: `HealthChecks/{DatabaseHealthCheck,MessageProcessingHealthCheck}.cs` — il secondo
+  segnala `Degraded` solo se una riga è ferma da più di 5 minuti (non "nessun traffico di
+  recente", che per un bot personale è normale, non un problema). `ProcessedMessagePurgeJob`
+  elimina sia le righe Telegram completate da più di 7 giorni sia le righe PayPal (che non hanno
+  mai `CompletedAt`, essendo sincrone) più vecchie di 7 giorni da `ProcessedAt`. Migrazione EF
+  generata (`AddProcessedMessageCompletion`) ma **non applicata** al database condiviso — resta
+  da eseguire come passo CI/CD, come da `CLAUDE.md`.
 
 ### A6 — Metriche mancanti ✅
 
@@ -657,7 +677,7 @@ eseguirli.
 | Passo | Contenuto | Perché in questa posizione |
 |---|---|---|
 | 1 | **A1, A2, A6** ✅ | Token, latenza, misurabilità. Tutto già progettato in `docs/`, nessuna decisione da prendere |
-| 2 | **A4, A5** | Correttezza e operabilità: il messaggio perso è un difetto silenzioso, e si sistema in poche ore |
+| 2 | **A4, A5** ✅ | Correttezza e operabilità: il messaggio perso è un difetto silenzioso, e si sistema in poche ore |
 | 3 | **A3** + **F1** | Lo storico conversazionale è la retention; il corpus del router lo protegge dalle regressioni |
 | 4 | **B1, B2, B3, B4, B6, B7** | Sei interventi visibili e circoscritti. B3 è il più importante: è la pagina a uso quotidiano |
 | 5 | **B5, B8, B9, B10, B11, B14** | Accessibilità, riscontro, tono. B8 è solo riscrittura di risorse |

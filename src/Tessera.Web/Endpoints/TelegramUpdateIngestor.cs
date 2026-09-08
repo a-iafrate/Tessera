@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Telegram.Bot;
 using Telegram.Bot.Types;
@@ -46,6 +47,10 @@ public sealed class TelegramUpdateIngestor(TesseraDbContext db, MessageQueue que
             ChannelName = inbound.ChannelName,
             ProviderMessageId = inbound.ProviderMessageId,
             ProcessedAt = DateTimeOffset.UtcNow,
+            // Lets PendingMessageRecoveryJob rebuild and replay this exact message if the
+            // in-memory queue loses it to a restart before MessageProcessor marks it
+            // CompletedAt (docs/01-architettura.md).
+            PayloadJson = JsonSerializer.Serialize(inbound),
         });
         await db.SaveChangesAsync(ct);
 

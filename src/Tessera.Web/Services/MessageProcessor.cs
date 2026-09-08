@@ -101,6 +101,35 @@ public sealed class MessageProcessor(
                     }
                 }
             }
+            finally
+            {
+                // Marked "done" whether ProcessAsync succeeded or threw — a message that
+                // failed already got the apology above, and leaving it incomplete would only
+                // make PendingMessageRecoveryJob replay the same failure on every future sweep
+                // (docs/01-architettura.md). A restart mid-flight, before this runs, is exactly
+                // the gap that job exists to close.
+                await TryMarkCompletedAsync(message);
+            }
+        }
+    }
+
+    // CancellationToken.None on purpose: this best-effort cleanup should still be attempted
+    // during a graceful shutdown (stoppingToken already cancelled) rather than throwing
+    // immediately — its own failure is caught and logged here, never allowed to surface as a
+    // "message processing failed" error for what was actually a successful run.
+    private async Task TryMarkCompletedAsync(InboundMessage message)
+    {
+        try
+        {
+            await using var scope = scopeFactory.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<TesseraDbContext>();
+            await db.ProcessedMessages
+                .Where(x => x.ChannelName == message.ChannelName && x.ProviderMessageId == message.ProviderMessageId)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.CompletedAt, DateTimeOffset.UtcNow), CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to mark {ChannelName}/{ProviderMessageId} as completed", message.ChannelName, message.ProviderMessageId);
         }
     }
 
