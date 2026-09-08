@@ -54,6 +54,10 @@
                         {
                             <span class="badge badge-admin">@Localizer["AccessLevel.Admin"]</span>
                         }
+                        else if (MatchedPreset(membership) is { } presetName)
+                        {
+                            <span class="badge badge-none">@Localizer[$"InviteMember.Preset.{presetName}"]</span>
+                        }
                         else
                         {
                             @foreach (var permission in membership.Permissions)
@@ -286,6 +290,21 @@
             MembershipEndReason.AccountDeleted => Localizer["SpaceDetail.FormerMemberAccountDeleted", when],
             _ => Localizer["SpaceDetail.FormerMemberLeft", when],
         };
+    }
+
+    // Shows a single "Partner"/"Family"/"Friend" badge instead of five per-resource ones when
+    // a member's grants happen to match one of InviteMember.razor's presets exactly — the
+    // common case, since that's how most members were actually invited. A grant that was ever
+    // hand-tuned (via the "Custom" option, or edited after the fact) falls through to the full
+    // grid; permissions don't remember which preset created them, only their current levels.
+    private string? MatchedPreset(Membership membership)
+    {
+        AccessLevel Level(ResourceKind resource) =>
+            membership.Permissions.FirstOrDefault(p => p.Resource == resource)?.Level ?? AccessLevel.None;
+
+        return InvitePresets.Match(
+            Level(ResourceKind.ShoppingList), Level(ResourceKind.Expenses), Level(ResourceKind.Reminders),
+            Level(ResourceKind.Calendar), Level(ResourceKind.Notes));
     }
 
     private string BadgeClass(AccessLevel level) => level switch

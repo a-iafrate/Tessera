@@ -1008,10 +1008,19 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
     <value>Reimposta la tua password</value>
   </data>
   <data name="Email.ResetPassword.Body" xml:space="preserve">
-    <value>Abbiamo ricevuto una richiesta di reimpostazione della password per il tuo account Tessera. Clicca il pulsante qui sotto per sceglierne una nuova. Se non hai richiesto tu questa operazione, puoi ignorare questa email in tutta sicurezza.</value>
+    <value>Abbiamo ricevuto una richiesta di reimpostazione della password per il tuo account Tessera. Clicca il pulsante qui sotto per sceglierne una nuova.</value>
   </data>
   <data name="Email.ResetPassword.ButtonText" xml:space="preserve">
     <value>Reimposta password</value>
+  </data>
+  <data name="Email.ResetPassword.ExpiryNote" xml:space="preserve">
+    <value>Questo link scade a breve e può essere usato una sola volta.</value>
+  </data>
+  <data name="Email.ResetPassword.IgnoreNote" xml:space="preserve">
+    <value>Non hai richiesto tu questa operazione? Puoi ignorare questa email in tutta sicurezza — la tua password non cambierà.</value>
+  </data>
+  <data name="Email.ResetPassword.FallbackNote" xml:space="preserve">
+    <value>Il pulsante non funziona? Copia e incolla questo link nel tuo browser:</value>
   </data>
   <data name="Account.Register.Heading" xml:space="preserve">
     <value>Crea un nuovo account.</value>
@@ -1228,6 +1237,12 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   </data>
   <data name="InviteMember.LinkGenerated" xml:space="preserve">
     <value>Link generato — condividilo con la persona che vuoi invitare (valido 7 giorni):</value>
+  </data>
+  <data name="InviteMember.CopyButton" xml:space="preserve">
+    <value>Copia</value>
+  </data>
+  <data name="InviteMember.CopiedButton" xml:space="preserve">
+    <value>Copiato!</value>
   </data>
   <data name="InviteMember.PresetHeading" xml:space="preserve">
     <value>Scegli un preset</value>

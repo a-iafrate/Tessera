@@ -1008,10 +1008,19 @@ Note: I only read messages that start with / or mention me.</value>
     <value>Reset your password</value>
   </data>
   <data name="Email.ResetPassword.Body" xml:space="preserve">
-    <value>We received a request to reset the password for your Tessera account. Click the button below to choose a new one. If you didn't ask for this, you can safely ignore this email.</value>
+    <value>We received a request to reset the password for your Tessera account. Click the button below to choose a new one.</value>
   </data>
   <data name="Email.ResetPassword.ButtonText" xml:space="preserve">
     <value>Reset password</value>
+  </data>
+  <data name="Email.ResetPassword.ExpiryNote" xml:space="preserve">
+    <value>This link expires soon and can only be used once.</value>
+  </data>
+  <data name="Email.ResetPassword.IgnoreNote" xml:space="preserve">
+    <value>Didn't request this? You can safely ignore this email — your password won't change.</value>
+  </data>
+  <data name="Email.ResetPassword.FallbackNote" xml:space="preserve">
+    <value>Button not working? Copy and paste this link into your browser:</value>
   </data>
   <data name="Account.Register.Heading" xml:space="preserve">
     <value>Create a new account.</value>
@@ -1228,6 +1237,12 @@ Note: I only read messages that start with / or mention me.</value>
   </data>
   <data name="InviteMember.LinkGenerated" xml:space="preserve">
     <value>Link generated — share it with the person you want to invite (valid 7 days):</value>
+  </data>
+  <data name="InviteMember.CopyButton" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="InviteMember.CopiedButton" xml:space="preserve">
+    <value>Copied!</value>
   </data>
   <data name="InviteMember.PresetHeading" xml:space="preserve">
     <value>Choose a preset</value>

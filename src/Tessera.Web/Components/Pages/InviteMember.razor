@@ -12,6 +12,7 @@
 @inject SpaceService SpaceService
 @inject InviteService InviteService
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JsRuntime
 @inject IStringLocalizer<Messages> Localizer
 
 <PageTitle>@Localizer["InviteMember.Title"]</PageTitle>
@@ -23,7 +24,12 @@
     {
         <div class="card">
             <p>@Localizer["InviteMember.LinkGenerated"]</p>
-            <input readonly value="@inviteLink" style="width: 100%; padding: var(--space-2); font-family: var(--font-mono); border: 1px solid var(--line); border-radius: var(--radius-sm);" onclick="this.select()" />
+            <div style="display: flex; gap: var(--space-2);">
+                <input readonly value="@inviteLink" style="flex: 1; padding: var(--space-2); font-family: var(--font-mono); border: 1px solid var(--line); border-radius: var(--radius-sm);" onclick="this.select()" />
+                <button type="button" class="btn btn-secondary" @onclick="CopyLinkAsync">
+                    @(justCopied ? Localizer["InviteMember.CopiedButton"] : Localizer["InviteMember.CopyButton"])
+                </button>
+            </div>
         </div>
     }
     else
@@ -72,6 +78,7 @@
     private string preset = "Partner";
     private string? inviteLink;
     private bool isBusy;
+    private bool justCopied;
 
     private AccessLevel shoppingListLevel = AccessLevel.Write;
     private AccessLevel expensesLevel = AccessLevel.Write;
@@ -103,13 +110,9 @@
         isBusy = true;
         try
         {
-            var (shopping, expenses, reminders, calendar, notes) = preset switch
-            {
-                "Partner" => (AccessLevel.Write, AccessLevel.Write, AccessLevel.Write, AccessLevel.Read, AccessLevel.Write),
-                "Family" => (AccessLevel.Write, AccessLevel.None, AccessLevel.Write, AccessLevel.Availability, AccessLevel.Write),
-                "Friend" => (AccessLevel.None, AccessLevel.None, AccessLevel.None, AccessLevel.Availability, AccessLevel.None),
-                _ => (shoppingListLevel, expensesLevel, remindersLevel, AccessLevel.None, notesLevel),
-            };
+            var (shopping, expenses, reminders, calendar, notes) = preset == "Custom"
+                ? (shoppingListLevel, expensesLevel, remindersLevel, AccessLevel.None, notesLevel)
+                : InvitePresets.Levels(preset);
 
             var invite = await InviteService.CreateAsync(SpaceId, userId, shopping, expenses, reminders, calendar, notes, CancellationToken.None);
             inviteLink = $"{NavigationManager.BaseUri}invite/accept?token={invite.Token}";
@@ -118,5 +121,19 @@
         {
             isBusy = false;
         }
+    }
+
+    private async Task CopyLinkAsync()
+    {
+        if (inviteLink is null)
+        {
+            return;
+        }
+
+        await JsRuntime.InvokeVoidAsync("navigator.clipboard.writeText", inviteLink);
+        justCopied = true;
+        StateHasChanged();
+        await Task.Delay(2000);
+        justCopied = false;
     }
 }
