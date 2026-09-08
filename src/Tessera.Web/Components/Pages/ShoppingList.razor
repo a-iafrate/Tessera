@@ -32,7 +32,7 @@
 
         @if (errorMessage is not null)
         {
-            <div class="alert alert-danger">@errorMessage</div>
+            <div class="alert alert-danger" role="alert">@errorMessage</div>
         }
 
         @if (canWrite)
@@ -42,8 +42,8 @@
                     <div style="display: flex; gap: var(--space-2);">
                         <input @bind="newItemText" placeholder="@Localizer["ShoppingList.AddPlaceholder"]"
                                style="flex: 1; padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);" />
-                        <button type="submit" class="btn btn-primary" disabled="@(isBusy || string.IsNullOrWhiteSpace(newItemText))">
-                            @if (isBusy) { <span class="spinner" aria-hidden="true"></span> }
+                        <button type="submit" class="btn btn-primary" disabled="@(isAdding || string.IsNullOrWhiteSpace(newItemText))">
+                            @if (isAdding) { <span class="spinner" aria-hidden="true"></span> }
                             @Localizer["ShoppingList.AddButton"]
                         </button>
                     </div>
@@ -61,30 +61,38 @@
         }
         else
         {
-            <div style="display: flex; flex-direction: column; gap: var(--space-2);">
-                @foreach (var item in items)
+            @if (UncheckedItems.Count > 0)
+            {
+                <p class="text-soft shopping-count">@Localizer["ShoppingList.Count", UncheckedItems.Count]</p>
+            }
+
+            <ul class="shopping-rows">
+                @foreach (var item in UncheckedItems)
                 {
-                    <div class="card list-row">
-                        <span class="list-row-main" style="@(item.IsChecked ? "text-decoration: line-through; color: var(--text-soft);" : "")">
-                            @item.RawText
-                        </span>
-                        @if (canWrite)
-                        {
-                            <div class="list-row-actions">
-                                @if (!item.IsChecked)
-                                {
-                                    <button class="btn btn-secondary" disabled="@isBusy" @onclick="() => CheckAsync(item.Id)">@Localizer["ShoppingList.CheckButton"]</button>
-                                }
-                                <button class="btn btn-danger" disabled="@isBusy" @onclick="() => RemoveAsync(item.Id)">@Localizer["ShoppingList.RemoveButton"]</button>
-                            </div>
-                        }
-                    </div>
+                    @RenderRow(item)
                 }
-            </div>
+            </ul>
+
+            @if (CheckedItems.Count > 0)
+            {
+                <h2 class="shopping-checked-heading">@Localizer["ShoppingList.AlreadyGot", CheckedItems.Count]</h2>
+                <ul class="shopping-rows">
+                    @foreach (var item in CheckedItems)
+                    {
+                        @RenderRow(item)
+                    }
+                </ul>
+            }
 
             @if (canWrite)
             {
-                <button class="btn btn-danger" style="margin-top: var(--space-4);" disabled="@isBusy" @onclick="ClearAsync">@Localizer["ShoppingList.ClearButton"]</button>
+                <div class="seam" aria-hidden="true">
+                    <span></span><span></span><span></span>
+                </div>
+                <button class="btn btn-danger" disabled="@isClearing" @onclick="ClearAsync">
+                    @if (isClearing) { <span class="spinner" aria-hidden="true"></span> }
+                    @Localizer["ShoppingList.ClearButton"]
+                </button>
             }
         }
     }
@@ -100,10 +108,28 @@
     private Space? space;
     private Guid userId;
     private bool canWrite;
-    private bool isBusy;
-    private IReadOnlyList<ShoppingItem> items = [];
+    private bool isAdding;
+    private bool isClearing;
     private string newItemText = "";
     private string? errorMessage;
+
+    // A mutable list, not the read-only snapshot GetItemsAsync returns directly — toggling or
+    // removing one row updates this in place (optimistic, with rollback on failure) instead of
+    // re-fetching and re-rendering every other row's busy state along with it
+    // (docs/13-piano-miglioramenti.md, B3: a global isBusy flag froze the whole list while any
+    // single row's request was in flight).
+    private List<ShoppingItem> items = [];
+
+    // Only the row currently in flight is disabled — every other row stays fully interactive,
+    // the exact behavior B3 asks for ("spuntare tre voci di seguito su telefono non blocca la
+    // lista").
+    private readonly HashSet<Guid> busyItemIds = [];
+
+    // Recomputed on every access rather than cached — list sizes here are a handful of items,
+    // and caching would need its own invalidation on every optimistic mutation below, which is
+    // more bookkeeping than the recomputation itself costs.
+    private List<ShoppingItem> UncheckedItems => items.Where(i => !i.IsChecked).ToList();
+    private List<ShoppingItem> CheckedItems => items.Where(i => i.IsChecked).ToList();
 
     protected override async Task OnInitializedAsync()
     {
@@ -123,17 +149,17 @@
 
     private async Task ReloadAsync()
     {
-        items = await ShoppingListService.GetItemsAsync(SpaceId, userId, listName: null, CancellationToken.None);
+        items = (await ShoppingListService.GetItemsAsync(SpaceId, userId, listName: null, CancellationToken.None)).ToList();
     }
 
     private async Task AddAsync()
     {
-        if (isBusy || string.IsNullOrWhiteSpace(newItemText))
+        if (isAdding || string.IsNullOrWhiteSpace(newItemText))
         {
             return;
         }
 
-        isBusy = true;
+        isAdding = true;
         errorMessage = null;
         try
         {
@@ -147,66 +173,86 @@
         }
         finally
         {
-            isBusy = false;
+            isAdding = false;
         }
     }
 
-    private async Task CheckAsync(Guid itemId)
+    // Check is one-way (docs/02-modello-dati.md: there's no "uncheck" — CheckItemByIdAsync
+    // refuses an already-checked item), so the optimistic flip is only ever false -> true;
+    // rollback puts it back to false on failure.
+    private async Task CheckAsync(ShoppingItem item)
     {
-        if (isBusy)
+        if (!busyItemIds.Add(item.Id))
         {
             return;
         }
 
-        isBusy = true;
         errorMessage = null;
+        item.IsChecked = true;
+        StateHasChanged();
+
         try
         {
-            await ShoppingListService.CheckItemByIdAsync(SpaceId, userId, itemId, CancellationToken.None);
-            await ReloadAsync();
+            var updated = await ShoppingListService.CheckItemByIdAsync(SpaceId, userId, item.Id, CancellationToken.None);
+            if (updated is null)
+            {
+                // Already checked or removed by someone else in the meantime — reload to pick
+                // up whatever the true state actually is rather than trust the optimistic guess.
+                await ReloadAsync();
+            }
         }
         catch (UnauthorizedAccessException)
         {
+            item.IsChecked = false;
             errorMessage = Localizer["ShoppingList.GenericError"];
         }
         finally
         {
-            isBusy = false;
+            busyItemIds.Remove(item.Id);
         }
     }
 
-    private async Task RemoveAsync(Guid itemId)
+    private async Task RemoveAsync(ShoppingItem item)
     {
-        if (isBusy)
+        if (!busyItemIds.Add(item.Id))
         {
             return;
         }
 
-        isBusy = true;
         errorMessage = null;
+        var index = items.IndexOf(item);
+        items.Remove(item);
+        StateHasChanged();
+
         try
         {
-            await ShoppingListService.RemoveItemByIdAsync(SpaceId, userId, itemId, CancellationToken.None);
-            await ReloadAsync();
+            var removed = await ShoppingListService.RemoveItemByIdAsync(SpaceId, userId, item.Id, CancellationToken.None);
+            if (removed is null)
+            {
+                // Already removed by someone else — reconcile with the server rather than
+                // leave a row missing that might not actually be gone.
+                await ReloadAsync();
+            }
         }
         catch (UnauthorizedAccessException)
         {
+            items.Insert(Math.Min(index, items.Count), item);
             errorMessage = Localizer["ShoppingList.GenericError"];
         }
         finally
         {
-            isBusy = false;
+            busyItemIds.Remove(item.Id);
         }
     }
 
     private async Task ClearAsync()
     {
-        if (isBusy || !await JsRuntime.InvokeAsync<bool>("confirm", Localizer["ShoppingList.ClearConfirm"].Value))
+        if (isClearing || !await JsRuntime.InvokeAsync<bool>("confirm", Localizer["ShoppingList.ClearConfirm"].Value))
         {
             return;
         }
 
-        isBusy = true;
+        isClearing = true;
         StateHasChanged();
         errorMessage = null;
         try
@@ -220,7 +266,23 @@
         }
         finally
         {
-            isBusy = false;
+            isClearing = false;
         }
     }
+
+    private RenderFragment RenderRow(ShoppingItem item) => @<li class="shopping-row">
+        <label class="shopping-row-label">
+            <input type="checkbox" class="shopping-row-checkbox"
+                   checked="@item.IsChecked" disabled="@(!canWrite || item.IsChecked || busyItemIds.Contains(item.Id))"
+                   @onchange="() => CheckAsync(item)" />
+            <span class="@(item.IsChecked ? "shopping-row-text shopping-row-text-checked" : "shopping-row-text")">@item.RawText</span>
+        </label>
+        @if (canWrite)
+        {
+            <button type="button" class="shopping-row-remove" disabled="@busyItemIds.Contains(item.Id)"
+                    aria-label="@Localizer["ShoppingList.RemoveButton"]" @onclick="() => RemoveAsync(item)">
+                ✕
+            </button>
+        }
+    </li>;
 }

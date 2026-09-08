@@ -6,6 +6,7 @@
 @using Tessera.Core.Resources
 
 @inject IStringLocalizer<Messages> Localizer
+@inject IJSRuntime JsRuntime
 
 <PageTitle>@Localizer["Settings.Title"]</PageTitle>
 
@@ -31,9 +32,45 @@
         </a>
     </div>
 
+    <div class="card" style="max-width: 32rem; margin-bottom: var(--space-8);">
+        <h3 style="margin-bottom: var(--space-2);">@Localizer["Settings.ThemeTitle"]</h3>
+        <p class="text-soft" style="margin: 0 0 var(--space-3);">@Localizer["Settings.ThemeBody"]</p>
+        <div style="display: flex; gap: var(--space-2);">
+            <button type="button" class="@ThemeButtonClass("auto")" @onclick='() => SetThemeAsync("auto")'>@Localizer["Settings.ThemeAuto"]</button>
+            <button type="button" class="@ThemeButtonClass("light")" @onclick='() => SetThemeAsync("light")'>@Localizer["Settings.ThemeLight"]</button>
+            <button type="button" class="@ThemeButtonClass("dark")" @onclick='() => SetThemeAsync("dark")'>@Localizer["Settings.ThemeDark"]</button>
+        </div>
+    </div>
+
     <div class="seam" aria-hidden="true">
         <span></span><span></span><span></span>
     </div>
 
     <a class="btn btn-danger" href="/account/delete" style="margin-top: var(--space-4);">@Localizer["Profile.DeleteAccountLink"]</a>
 </div>
+
+@code {
+    // Read via JS interop, not from a cookie/claim — the theme choice lives only in the
+    // browser's localStorage (theme.js), same as it's applied before first paint in
+    // App.razor's inline script (docs/13-piano-miglioramenti.md, B2). Defaults to "auto"
+    // until OnAfterRenderAsync's first pass can actually reach the JS runtime.
+    private string currentTheme = "auto";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            currentTheme = await JsRuntime.InvokeAsync<string>("tesseraTheme.get");
+            StateHasChanged();
+        }
+    }
+
+    private async Task SetThemeAsync(string theme)
+    {
+        await JsRuntime.InvokeVoidAsync("tesseraTheme.set", theme);
+        currentTheme = theme;
+    }
+
+    private string ThemeButtonClass(string theme) =>
+        theme == currentTheme ? "btn btn-primary" : "btn btn-secondary";
+}

@@ -653,6 +653,21 @@ Note: I only read messages that start with / or mention me.</value>
   <data name="Settings.TelegramCardBody" xml:space="preserve">
     <value>Use Tessera from Telegram, not just the web.</value>
   </data>
+  <data name="Settings.ThemeTitle" xml:space="preserve">
+    <value>Appearance</value>
+  </data>
+  <data name="Settings.ThemeBody" xml:space="preserve">
+    <value>Choose how Tessera looks, or follow your system.</value>
+  </data>
+  <data name="Settings.ThemeAuto" xml:space="preserve">
+    <value>Auto</value>
+  </data>
+  <data name="Settings.ThemeLight" xml:space="preserve">
+    <value>Light</value>
+  </data>
+  <data name="Settings.ThemeDark" xml:space="preserve">
+    <value>Dark</value>
+  </data>
   <data name="Support.Title" xml:space="preserve">
     <value>Support</value>
   </data>
@@ -1635,6 +1650,12 @@ Try it now:</value>
   </data>
   <data name="ShoppingList.RemoveButton" xml:space="preserve">
     <value>Remove</value>
+  </data>
+  <data name="ShoppingList.Count" xml:space="preserve">
+    <value>{0} to buy</value>
+  </data>
+  <data name="ShoppingList.AlreadyGot" xml:space="preserve">
+    <value>Already got ({0})</value>
   </data>
   <data name="ShoppingList.ClearButton" xml:space="preserve">
     <value>Clear list</value>

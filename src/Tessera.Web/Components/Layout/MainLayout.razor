@@ -1,4 +1,5 @@
 @inherits LayoutComponentBase
+@implements IDisposable
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.EntityFrameworkCore
@@ -8,8 +9,10 @@
 
 @inject IStringLocalizer<Messages> Localizer
 @inject IDbContextFactory<TesseraDbContext> DbContextFactory
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JsRuntime
 
-<div class="navbar">
+<div class="navbar" id="navbar-root" @onkeydown="HandleKeyDown">
     <a class="wordmark" href="/">Tessera</a>
     <button class="nav-toggle" type="button" @onclick="ToggleMenu" aria-label="@Localizer["Nav.ToggleMenu"]" aria-expanded="@(isMenuOpen ? "true" : "false")">
         <span></span><span></span><span></span>
@@ -62,11 +65,37 @@
     private bool isMenuOpen;
     private string? displayName;
     private string? pictureUrl;
+    private DotNetObjectReference<MainLayout>? dotNetRef;
 
     private void ToggleMenu() => isMenuOpen = !isMenuOpen;
 
+    // Escape closes the menu whenever focus is anywhere inside the navbar — the toggle button
+    // right after opening it, or a link inside the open <nav> itself (docs/13-piano-miglioramenti.md,
+    // B6). Click-outside is handled separately, in JS (nav.js), since there's no pure-Blazor
+    // way to detect a click landing outside this subtree.
+    private void HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape" && isMenuOpen)
+        {
+            isMenuOpen = false;
+        }
+    }
+
+    // Invoked from nav.js when a click lands outside #navbar-root while the menu is open.
+    [JSInvokable]
+    public void CloseMenuFromOutsideClick()
+    {
+        isMenuOpen = false;
+        StateHasChanged();
+    }
+
     protected override async Task OnInitializedAsync()
     {
+        // Fires on every in-app navigation, including a tap on a link inside this same open
+        // menu — without this the menu stayed open over whatever page came next
+        // (docs/13-piano-miglioramenti.md, B6).
+        NavigationManager.LocationChanged += OnLocationChanged;
+
         if (AuthenticationStateTask is null)
         {
             return;
@@ -87,5 +116,34 @@
         var user = await db.DomainUsers.AsNoTracking().FirstOrDefaultAsync(x => x.Id == userId);
         displayName = user?.DisplayName;
         pictureUrl = user?.PictureUrl;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            dotNetRef = DotNetObjectReference.Create(this);
+            await JsRuntime.InvokeVoidAsync("tesseraNav.init", dotNetRef, "navbar-root");
+        }
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        if (!isMenuOpen)
+        {
+            return;
+        }
+
+        isMenuOpen = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
+        dotNetRef?.Dispose();
+        // Fire-and-forget: the circuit may already be tearing down by the time this runs, and
+        // the JS-side listener is scoped to a DOM node that's about to disappear regardless.
+        _ = JsRuntime.InvokeVoidAsync("tesseraNav.dispose", "navbar-root");
     }
 }

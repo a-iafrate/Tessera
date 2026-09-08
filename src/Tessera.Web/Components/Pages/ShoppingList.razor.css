@@ -1,0 +1,95 @@
+/* Deliberately not the shared .list-row family from base.css (used by Reminders/Expenses too)
+   — this needed a genuinely different layout (checkbox-first, dense, no danger-colored button
+   per row), not a variation that would also change those other pages
+   (docs/13-piano-miglioramenti.md, B3). */
+
+.shopping-count {
+    margin: 0 0 var(--space-3);
+}
+
+.shopping-checked-heading {
+    margin: var(--space-6) 0 var(--space-2);
+    font-size: var(--text-base);
+    color: var(--ink-soft);
+}
+
+.shopping-rows {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.shopping-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: 44px;
+    padding: var(--space-1) 0;
+}
+
+.shopping-row + .shopping-row {
+    border-top: 1px solid var(--line);
+}
+
+.shopping-row-label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex: 1;
+    min-height: 44px;
+    cursor: pointer;
+    /* The whole label is the tap target, not just the checkbox square, matching the ≥44px
+       target used everywhere else in the console (docs/12-stile-sito.md#accessibilità). */
+    padding: var(--space-1) 0;
+}
+
+.shopping-row-checkbox {
+    width: 1.25rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+    accent-color: var(--teal);
+}
+
+.shopping-row-text {
+    flex: 1;
+}
+
+/* Fixes the token that never existed (docs/13-piano-miglioramenti.md, B4): the old inline
+   style referenced var(--text-soft), which isn't defined anywhere in tokens.css — only the
+   .text-soft *class* is. The correct token is --ink-soft. */
+.shopping-row-text-checked {
+    text-decoration: line-through;
+    color: var(--ink-soft);
+}
+
+/* A discreet icon, not a full-width --danger button (docs/13-piano-miglioramenti.md, B3: the
+   old per-row Remove button was the same size and color as "Done", inverting which action
+   should draw the eye). Still sized to the accessibility touch-target minimum even though the
+   glyph itself is small — the padding, not the glyph, defines the hit area. */
+.shopping-row-remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--ink-soft);
+    font-size: var(--text-base);
+    cursor: pointer;
+    transition: color var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease);
+}
+
+.shopping-row-remove:hover:not(:disabled) {
+    color: var(--danger);
+    background: var(--paper);
+}
+
+.shopping-row-remove:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

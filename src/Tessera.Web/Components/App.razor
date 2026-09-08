@@ -5,6 +5,23 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
+    <script>
+        // Applies a manually-chosen theme before the stylesheets below are even requested, so
+        // a system in dark mode with "light" explicitly picked in /settings never flashes light
+        // first (docs/13-piano-miglioramenti.md, B2). "auto" (the default) sets no attribute at
+        // all here — tokens.css's prefers-color-scheme media query is what decides for it.
+        (function () {
+            try {
+                var stored = localStorage.getItem('tessera-theme');
+                if (stored === 'light' || stored === 'dark') {
+                    document.documentElement.setAttribute('data-theme', stored);
+                }
+            } catch (e) {
+                // localStorage unavailable (private browsing, disabled storage) — falls back
+                // to prefers-color-scheme, same as never having chosen a theme.
+            }
+        })();
+    </script>
     <link rel="icon" href="images/favicon.ico" />
     <link rel="manifest" href="manifest.webmanifest" />
     <meta name="theme-color" content="#B5502E" />
@@ -24,6 +41,8 @@
     <Routes @rendermode="PageRenderMode" />
     <ReconnectModal />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
+    <script src="js/theme.js"></script>
+    <script src="js/nav.js"></script>
     <script>
         // Login/Register/AccountDelete post via a real HTML form (static SSR, no Blazor
         // circuit yet) — a plain onsubmit="" attribute gets misparsed as a component event

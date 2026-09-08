@@ -11,6 +11,7 @@
 @using Tessera.Core.Resources
 @using Tessera.Core.Shopping
 @using Tessera.Core.Spaces
+@using Tessera.Core.Users
 @using Tessera.Data
 @using Tessera.Web.Services
 
@@ -30,7 +31,7 @@
 <AuthorizeView>
     <Authorized>
         <div class="container">
-            <h1>@Localizer["Dashboard.Welcome", context.User.Identity?.Name ?? ""]</h1>
+            <h1>@Localizer["Dashboard.Welcome", greetingName ?? ""]</h1>
             <p class="text-soft">@Localizer["Dashboard.Subtitle"]</p>
 
             <div class="seam" aria-hidden="true">
@@ -248,6 +249,24 @@
     private IReadOnlyList<UrgentItem> todayItems = [];
     private IReadOnlyList<GettingStartedStep> gettingStarted = [];
     private TimeZoneInfo? timeZone;
+    private string? greetingName;
+
+    // ASP.NET Core Identity's own Name claim is the login username — the email address — never
+    // fit to greet someone by (docs/13-piano-miglioramenti.md, B1). DisplayName is already
+    // populated from Google's claims at signup and editable from /account
+    // (docs/06-roadmap.md#login-social-e-profilo-utente); falling back to the email's local
+    // part rather than the full address keeps the greeting personal without ever printing an
+    // address on screen.
+    private static string GreetingName(User user)
+    {
+        if (!string.IsNullOrWhiteSpace(user.DisplayName))
+        {
+            return user.DisplayName;
+        }
+
+        var atIndex = user.Email.IndexOf('@');
+        return atIndex > 0 ? user.Email[..atIndex] : user.Email;
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -260,6 +279,7 @@
         var userId = Guid.Parse(authState.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         var user = await UserProvisioningService.GetAsync(userId, CancellationToken.None);
         timeZone = TimeZoneInfo.FindSystemTimeZoneById(user.TimeZoneId ?? "UTC");
+        greetingName = GreetingName(user);
 
         var spaces = await SpaceService.GetForUserWithOwnerNameAsync(userId, CancellationToken.None);
         var calendars = ServiceProvider.GetService<CalendarQueryService>();

@@ -195,19 +195,22 @@ Non sono idee nuove: sono decisioni già scritte in `docs/` che il codice non im
 Rilievi da lettura del codice e dagli screenshot in `tmp-shots/`. Diversi sono violazioni di
 regole già scritte in [12-stile-sito.md](12-stile-sito.md), non opinioni estetiche.
 
-### B1 — Il saluto mostra l'indirizzo email
+### B1 — Il saluto mostra l'indirizzo email ✅
 
-- [ ] **Dove**: `Components/Pages/Home.razor:33`
+- [x] **Dove**: `Components/Pages/Home.razor:33`
 - **Perché**: `context.User.Identity?.Name` per ASP.NET Core Identity è lo username, cioè l'email.
   La dashboard accoglie l'utente con "Welcome back, mario.rossi@example.com". `User.DisplayName`
   esiste, è già popolato dalle claim Google, ed è già letto da `MainLayout.razor` per la navbar —
   [06-roadmap.md](06-roadmap.md#login-social-e-profilo-utente) lo dà per fatto in console.
 - **Cosa**: usare `DisplayName` con fallback alla parte locale dell'email, non all'indirizzo intero.
 - **Fatto quando**: un account senza `DisplayName` vede "Welcome back, mario", non l'email.
+- **Fatto**: `GreetingName(User)` in `Home.razor` — `DisplayName` se presente, altrimenti la parte
+  di `Email` prima di `@`. Riusa `user` già caricato da `UserProvisioningService.GetAsync` in
+  `OnInitializedAsync`, nessuna query aggiuntiva.
 
-### B2 — La dark mode è definita ma irraggiungibile
+### B2 — La dark mode è definita ma irraggiungibile ✅
 
-- [ ] **Dove**: `wwwroot/css/tokens.css:51`, `MainLayout.razor`
+- [x] **Dove**: `wwwroot/css/tokens.css:51`, `MainLayout.razor`
 - **Perché**: `[data-theme="dark"]` è definito con l'intera palette scura, ma nessuna regola
   `@media (prefers-color-scheme: dark)` la attiva e nessun toggle imposta l'attributo. Metà del
   lavoro di palette è scritto e inerte. [12-stile-sito.md](12-stile-sito.md#accessibilità): "dark
@@ -218,13 +221,21 @@ regole già scritte in [12-stile-sito.md](12-stile-sito.md), non opinioni esteti
   evitare il lampo di tema chiaro.
 - **Fatto quando**: un sistema in dark mode apre la console già scura, e il toggle la sovrascrive
   attraverso una navigazione e un reload.
+- **Fatto**: valori esadecimali della palette scura estratti in variabili `--dark-*` a `:root`,
+  consumate sia da `[data-theme="dark"]` (il toggle manuale) sia da un nuovo blocco
+  `@media (prefers-color-scheme: dark) { :root:not([data-theme]) { ... } }` — nessun hex
+  duplicato fra i due. Script inline sincrono in `App.razor`, prima dei fogli di stile, legge
+  `localStorage` e imposta `data-theme` sull'`<html>` prima che il CSS venga anche solo
+  richiesto (niente flash del tema sbagliato). Toggle a tre stati (Auto/Chiaro/Scuro) in
+  `/settings`, `wwwroot/js/theme.js` (`window.tesseraTheme.set/get`), letto via `IJSRuntime` in
+  `OnAfterRenderAsync` (l'interop non è disponibile prima).
 
-### B3 — La riga della lista della spesa
+### B3 — La riga della lista della spesa ✅
 
 È la pagina a uso più frequente della console e la peggiore delle interazioni. Quattro problemi
 distinti, uno stesso intervento.
 
-- [ ] **Dove**: `Components/Pages/ShoppingList.razor` (righe 60-88), `wwwroot/css/base.css:518-553`
+- [x] **Dove**: `Components/Pages/ShoppingList.razor` (righe 60-88), `wwwroot/css/base.css:518-553`
 - **Perché**:
   1. **`isBusy` blocca l'intera lista.** Ogni bottone di ogni riga è `disabled="@isBusy"`: spuntare
      una voce congela tutte le altre per la durata del round trip. Chi fa la spesa spunta 15
@@ -245,16 +256,31 @@ distinti, uno stesso intervento.
   `ShoppingList.razor:204`), ma spostato fuori dal flusso della lista.
 - **Fatto quando**: spuntare tre voci di seguito su telefono non blocca la lista, e nessun bottone
   `--danger` compare nelle righe.
+- **Fatto**: nuovo `ShoppingList.razor.css` (CSS isolation, non condiviso con `.list-row` di
+  Reminders/Expenses — un layout genuinamente diverso, non una variante). Checkbox nativa come
+  azione primaria (`accent-color: var(--teal)`), etichetta intera cliccabile ≥44px; rimuovi come
+  icona `✕` trasparente, colore `--danger` solo all'hover, mai un bottone a piena larghezza;
+  `busyItemIds: HashSet<Guid>` per lo stato "in corso" per riga, con aggiornamento ottimistico
+  (`item.IsChecked = true`/rimozione dalla lista locale prima della risposta del server) e
+  rollback su `UnauthorizedAccessException`; sezione "Già preso (n)" separata in fondo;
+  conteggio "{n} da comprare" in cima. `ClearAsync` invariato (resta `--danger`, conferma
+  esistente), ma ora sotto un ulteriore `seam` di separazione.
+- **Nota**: `CheckItemByIdAsync` non ha un equivalente "scheck" — spuntare è a senso unico
+  (`docs/02-modello-dati.md`), quindi la checkbox delle voci già prese è renderizzata
+  `checked disabled`, non interattiva; corrisponde esattamente alla capacità esistente, non ne
+  aggiunge una nuova.
 
-### B4 — Variabile CSS inesistente
+### B4 — Variabile CSS inesistente ✅
 
-- [ ] **Dove**: `Components/Pages/ShoppingList.razor:68`
+- [x] **Dove**: `Components/Pages/ShoppingList.razor:68`
 - **Perché**: usa `var(--text-soft)`, che non esiste in `tokens.css` — `.text-soft` è una *classe*
   (`base.css:377`), il token si chiama `--ink-soft`. Le voci spuntate ottengono la barratura ma non
   l'attenuazione. È l'unico riferimento a un token inesistente in tutto il progetto (verificato
   incrociando definizioni e usi).
 - **Cosa**: `var(--ink-soft)`, e la regola va nel CSS di componente, non in uno `style` inline.
 - **Fatto quando**: una voce spuntata è visibilmente attenuata oltre che barrata.
+- **Fatto**: assorbito nella riscrittura di B3 — `.shopping-row-text-checked` in
+  `ShoppingList.razor.css` usa `var(--ink-soft)`.
 
 ### B5 — Landmark e navigazione da tastiera
 
@@ -267,22 +293,34 @@ distinti, uno stesso intervento.
   primo elemento focalizzabile, visibile solo al focus.
 - **Fatto quando**: Tab dal caricamento della pagina offre "salta al contenuto" come prima tappa.
 
-### B6 — Il menu mobile non si chiude navigando
+### B6 — Il menu mobile non si chiude navigando ✅
 
-- [ ] **Dove**: `Components/Layout/MainLayout.razor:14-17,62-66`
+- [x] **Dove**: `Components/Layout/MainLayout.razor:14-17,62-66`
 - **Perché**: `isMenuOpen` vive nel layout, che non viene re-inizializzato fra le pagine: aperto il
   menu e toccato un link, il menu resta aperto sopra la pagina di destinazione.
 - **Cosa**: sottoscrivere `NavigationManager.LocationChanged` e chiudere il menu; chiudere anche
   con `Esc` e al click fuori.
 - **Fatto quando**: toccare una voce di menu su telefono porta alla pagina con il menu chiuso.
+- **Fatto**: `NavigationManager.LocationChanged` chiude il menu su ogni navigazione (con
+  `IDisposable` per la sottoscrizione). Escape gestito in puro Blazor (`@onkeydown` sul
+  contenitore `.navbar`, nessun JS). Click fuori via nuovo `wwwroot/js/nav.js`
+  (`window.tesseraNav.init`, un solo listener `document` registrato una volta in
+  `OnAfterRenderAsync`, che legge lo stato dal DOM — classe `nav-open` — invece di essere
+  aperto/chiuso a ogni toggle, evitando qualunque problema di sincronizzazione con i re-render
+  di Blazor) con callback `[JSInvokable] CloseMenuFromOutsideClick`.
 
-### B7 — Il titolo sfora il viewport su mobile
+### B7 — Il titolo sfora il viewport su mobile ✅
 
-- [ ] **Dove**: `wwwroot/css/base.css` (regole `h1`-`h3`)
+- [x] **Dove**: `wwwroot/css/base.css` (regole `h1`-`h3`)
 - **Perché**: visibile in `fix-dashboard-mobile.png` — un'email lunga nell'`<h1>` esce dallo
   schermo a destra. Vale per qualunque stringa lunga senza spazi: nome di spazio, merchant, voce di
   lista.
 - **Cosa**: `overflow-wrap: anywhere` sui titoli e sui contenitori che rendono contenuto utente.
+- **Fatto quando**: un nome di spazio di 40 caratteri senza spazi non provoca scroll orizzontale
+  a 360 px.
+- **Fatto**: `overflow-wrap: anywhere` su `html, body` invece che titolo per titolo — si applica a
+  ogni card/paragrafo/span che renderizza contenuto utente senza dover toccare ogni componente
+  singolarmente, e nessuna nuova pagina può reintrodurre il bug per omissione.
 - **Fatto quando**: un nome di spazio di 40 caratteri senza spazi non provoca scroll orizzontale
   a 360 px.
 
@@ -734,7 +772,7 @@ eseguirli.
 | 1 | **A1, A2, A6** ✅ | Token, latenza, misurabilità. Tutto già progettato in `docs/`, nessuna decisione da prendere |
 | 2 | **A4, A5** ✅ | Correttezza e operabilità: il messaggio perso è un difetto silenzioso, e si sistema in poche ore |
 | 3 | **A3** + **F1** ✅ | Lo storico conversazionale è la retention; il corpus del router lo protegge dalle regressioni |
-| 4 | **B1, B2, B3, B4, B6, B7** | Sei interventi visibili e circoscritti. B3 è il più importante: è la pagina a uso quotidiano |
+| 4 | **B1, B2, B3, B4, B6, B7** ✅ | Sei interventi visibili e circoscritti. B3 è il più importante: è la pagina a uso quotidiano |
 | 5 | **B5, B8, B9, B10, B11, B14** | Accessibilità, riscontro, tono. B8 è solo riscrittura di risorse |
 | 6 | **F2** ✅ | I permessi, prima di aggiungere superficie che li usa — fatto fuori ordine, su richiesta esplicita, prima dei passi 4-5 (lotto B) |
 | 7 | **C3, C1** | Aggregazione e poi email: il canale che sostituisce WhatsApp |

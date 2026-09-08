@@ -10,6 +10,12 @@ html, body {
   font-family: var(--font-body);
   font-size: var(--text-base);
   line-height: 1.5;
+  /* Space names, merchants, shopping-list items and note titles are user content rendered
+     directly into titles/paragraphs/cards with no wrapping of their own — a long string with
+     no spaces (an email in a heading, a URL, a run-together word) would otherwise push the
+     viewport wider than the screen on mobile instead of breaking (docs/13-piano-miglioramenti.md,
+     B7). Applied at this level, not per-component, so nothing new can reintroduce the bug. */
+  overflow-wrap: anywhere;
 }
 
 h1, h2, h3 {

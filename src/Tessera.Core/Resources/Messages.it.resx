@@ -653,6 +653,21 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   <data name="Settings.TelegramCardBody" xml:space="preserve">
     <value>Usa Tessera da Telegram, non solo dal sito.</value>
   </data>
+  <data name="Settings.ThemeTitle" xml:space="preserve">
+    <value>Aspetto</value>
+  </data>
+  <data name="Settings.ThemeBody" xml:space="preserve">
+    <value>Scegli come appare Tessera, o segui il tuo sistema.</value>
+  </data>
+  <data name="Settings.ThemeAuto" xml:space="preserve">
+    <value>Automatico</value>
+  </data>
+  <data name="Settings.ThemeLight" xml:space="preserve">
+    <value>Chiaro</value>
+  </data>
+  <data name="Settings.ThemeDark" xml:space="preserve">
+    <value>Scuro</value>
+  </data>
   <data name="Support.Title" xml:space="preserve">
     <value>Assistenza</value>
   </data>
@@ -1635,6 +1650,12 @@ Provami subito:</value>
   </data>
   <data name="ShoppingList.RemoveButton" xml:space="preserve">
     <value>Rimuovi</value>
+  </data>
+  <data name="ShoppingList.Count" xml:space="preserve">
+    <value>{0} da comprare</value>
+  </data>
+  <data name="ShoppingList.AlreadyGot" xml:space="preserve">
+    <value>Già preso ({0})</value>
   </data>
   <data name="ShoppingList.ClearButton" xml:space="preserve">
     <value>Svuota lista</value>

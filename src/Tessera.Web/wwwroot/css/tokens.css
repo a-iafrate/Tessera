@@ -46,21 +46,60 @@
   --duration-fast: 120ms;
   --duration-base: 180ms;
   --ease: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Raw dark-palette values, defined once and consumed by both [data-theme="dark"] (the
+     manual override, docs/13-piano-miglioramenti.md B2) and the prefers-color-scheme block
+     below — so the hex values themselves are never duplicated, only the property names that
+     assign them. */
+  --dark-ink:          #EDEAE2;
+  --dark-ink-soft:     #A8A29A;
+  --dark-paper:        #1B1B1C;
+  --dark-paper-raised: #242322;
+  --dark-line:         #3A3733;
+  --dark-clay:         #D9704A;
+  --dark-ochre:        #E0A94C;
+  --dark-teal:         #4C8A85;
+  --dark-plum:         #86608A;
+  --dark-danger:       #C25B5B;
+  --dark-link:         #E08A63;
 }
 
+/* Explicit choice, from the toggle in /settings (theme.js writes the data-theme attribute
+   before this stylesheet is even parsed, docs/13-piano-miglioramenti.md B2) — takes priority
+   over prefers-color-scheme below by appearing after it is meaningless in itself; what makes
+   it win is prefers-color-scheme-media queries only ever target :root:not([data-theme]). */
 [data-theme="dark"] {
-  --ink:       #EDEAE2;
-  --ink-soft:  #A8A29A;
-  --paper:     #1B1B1C;
-  --paper-raised: #242322;
-  --line:      #3A3733;
+  --ink: var(--dark-ink);
+  --ink-soft: var(--dark-ink-soft);
+  --paper: var(--dark-paper);
+  --paper-raised: var(--dark-paper-raised);
+  --line: var(--dark-line);
+  --clay: var(--dark-clay);
+  --ochre: var(--dark-ochre);
+  --teal: var(--dark-teal);
+  --plum: var(--dark-plum);
+  --danger: var(--dark-danger);
+  --link: var(--dark-link);
+}
 
-  --clay:  #D9704A;
-  --ochre: #E0A94C;
-  --teal:  #4C8A85;
-  --plum:  #86608A;
-  --danger: #C25B5B;
-  --link:  #E08A63;
+/* "auto" (no data-theme attribute at all — the default, and what picking "Auto" in /settings
+   resets to) follows the OS/browser preference. :not([data-theme]) is what lets an explicit
+   [data-theme="light"] or [data-theme="dark"] choice above override this even when the system
+   itself prefers dark. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --ink: var(--dark-ink);
+    --ink-soft: var(--dark-ink-soft);
+    --paper: var(--dark-paper);
+    --paper-raised: var(--dark-paper-raised);
+    --line: var(--dark-line);
+    --clay: var(--dark-clay);
+    --ochre: var(--dark-ochre);
+    --teal: var(--dark-teal);
+    --plum: var(--dark-plum);
+    --danger: var(--dark-danger);
+    --link: var(--dark-link);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
