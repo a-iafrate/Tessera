@@ -61,7 +61,8 @@ public sealed class LlmFallbackClient(ChatClient chatClient, ILogger<LlmFallback
             ];
 
             var options = new ChatCompletionOptions();
-            foreach (var tool in LlmTools.Build(includeShoppingCorrection: context.RecentAction is not null))
+            foreach (var tool in LlmTools.Build(
+                context.AccessByResource, context.HasLinkedCalendar, includeShoppingCorrection: context.RecentAction is not null))
             {
                 options.Tools.Add(tool);
             }
@@ -93,7 +94,11 @@ public sealed class LlmFallbackClient(ChatClient chatClient, ILogger<LlmFallback
 
     // Token cost and latency per turn (docs/05-ottimizzazioni.md: "Token consumati per turno,
     // p50 e p95" / "Latenza end-to-end per livello di router") — TrackMetric records each raw
-    // value, Application Insights computes the percentiles afterward.
+    // value, Application Insights computes the percentiles afterward. The input/output split
+    // and, above all, L3TokensCached exist to make prompt caching's effect visible: without
+    // the cached count there's no way to tell whether the static system prompt + tool schema
+    // prefix is actually being served from Azure OpenAI's cache turn to turn, or silently
+    // paying full price every time (docs/05, "Prompt caching").
     private void TrackTurn(LlmContext context, TimeSpan elapsed, ChatTokenUsage? usage)
     {
         telemetry?.TrackMetric(new MetricTelemetry("L3LatencyMs", elapsed.TotalMilliseconds) { Properties = { ["Culture"] = context.Culture } });
@@ -101,6 +106,9 @@ public sealed class LlmFallbackClient(ChatClient chatClient, ILogger<LlmFallback
         if (usage is not null)
         {
             telemetry?.TrackMetric(new MetricTelemetry("L3TokensTotal", usage.TotalTokenCount) { Properties = { ["Culture"] = context.Culture } });
+            telemetry?.TrackMetric(new MetricTelemetry("L3TokensInput", usage.InputTokenCount) { Properties = { ["Culture"] = context.Culture } });
+            telemetry?.TrackMetric(new MetricTelemetry("L3TokensOutput", usage.OutputTokenCount) { Properties = { ["Culture"] = context.Culture } });
+            telemetry?.TrackMetric(new MetricTelemetry("L3TokensCached", usage.InputTokenDetails.CachedTokenCount) { Properties = { ["Culture"] = context.Culture } });
         }
     }
 

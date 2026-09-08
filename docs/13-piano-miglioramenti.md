@@ -31,9 +31,9 @@ Non sono idee nuove: sono decisioni già scritte in `docs/` che il codice non im
 `CLAUDE.md` chiede di segnalare le divergenze anziché seguirne silenziosamente una delle due.
 **È il lotto con il miglior rapporto impatto/sforzo dell'intero piano.**
 
-### A1 — Filtrare lo schema dei tool per spazio
+### A1 — Filtrare lo schema dei tool per spazio ✅
 
-- [ ] **Dove**: `Tessera.Ai/Llm/LlmTools.cs`, chiamato da `LlmFallbackClient.cs:64`
+- [x] **Dove**: `Tessera.Ai/Llm/LlmTools.cs`, chiamato da `LlmFallbackClient.cs:64`
 - **Perché**: [05-ottimizzazioni.md](05-ottimizzazioni.md#schema-dei-tool-per-contesto) prescrive
   `toolRegistry.ForSpace(space, membership.Permissions)` e quantifica il guadagno: "da ~4k a ~800
   token per turno, fattore 5 sul costo del percorso L3". Oggi `LlmTools.Build` restituisce sempre
@@ -46,10 +46,22 @@ Non sono idee nuove: sono decisioni già scritte in `docs/` che il codice non im
   (costo trascurabile rispetto ai token risparmiati: non è un motivo per rinviare A1).
 - **Fatto quando**: uno spazio di sola lista della spesa produce una richiesta con i soli tool di
   shopping, verificato su `L3TokensTotal` in Application Insights prima/dopo su una frase campione.
+- **Fatto**: ogni tool porta ora `(ResourceKind, AccessLevel)` in `LlmTools.AllTools`;
+  `LlmTools.Build` filtra per il livello effettivo del membro chiamante (calcolato in
+  `MessageProcessor.BuildAccessByResource`, `Admin` per l'owner) e per la presenza di almeno una
+  `CalendarSpaceMapping` nello spazio. Filtra anche per **livello**, non solo per risorsa
+  accessibile — `record_expense` non compare più a chi ha solo `Read` su Expenses, un caso più
+  stretto di quanto il testo originale del lotto descrivesse. **Deviazione dal testo del lotto**:
+  nessuna cache separata per lo schema filtrato (l'`CacheTtl.ToolSchema` previsto in A2 non è
+  stato creato) — i permessi sono per **membro**, non per spazio, quindi una cache chiave-per-
+  spazio avrebbe rischiato di offrire per una finestra di TTL i tool di scrittura a un membro con
+  solo `Read` che condivide lo stesso spazio con uno che ha `Write`. Costruire l'elenco filtrato è
+  comunque a costo trascurabile (solo confronti su una lista fissa, nessuna query, nessuna
+  serializzazione), quindi la cache non era necessaria per il guadagno che A1 cercava.
 
-### A2 — Cache in memoria
+### A2 — Cache in memoria ✅
 
-- [ ] **Dove**: nuovo servizio in `Tessera.Data`, consumato da `ChannelIdentityRepository`,
+- [x] **Dove**: nuovo servizio in `Tessera.Data`, consumato da `ChannelIdentityRepository`,
   `AccessPolicy`/`MembershipRepository`, `KeyVaultTokenVault`, `ExpenseService.GetCategoriesAsync`
 - **Perché**: la tabella "Cache: cosa e per quanto" di
   [05-ottimizzazioni.md](05-ottimizzazioni.md#cache-cosa-e-per-quanto) non è implementata: non
@@ -65,6 +77,20 @@ Non sono idee nuove: sono decisioni già scritte in `docs/` che il codice non im
   cache dei token: in memoria, mai su disco, e va svuotata allo scollegamento dell'account.
 - **Fatto quando**: due messaggi consecutivi dello stesso utente producono una sola lettura Key
   Vault e una sola risoluzione di membership, verificato nei log in debug.
+- **Fatto**: `Tessera.Data/Caching/{CacheKeys,CacheTtl}.cs` centralizzano chiavi e TTL.
+  `ChannelIdentityRepository.ResolveUserAsync` (15 min), `MembershipRepository.FindAsync`
+  (5 min, con `Invalidate` statico chiamato da `SpaceService` a ogni scrittura su `Membership`/
+  `MembershipPermissions`, da `InviteService.ConsumeAsync` e da
+  `AccountDeletionService` — quest'ultimo perché promuove un successore mutando `IsOwner`
+  direttamente sul `DbContext`, bypassando `SpaceService.TransferOwnershipAsync`) ed
+  `ExpenseService.GetCategoriesAsync` (1 h) sono in cache. `LinkedAccountService.GetValidAccessTokenAsync`
+  cachea l'**access token** (non il refresh token, che resta solo in Key Vault, regola 4) fino a
+  `scadenza − 5 minuti`, invalidata da `UnlinkAsync` — prima di questo intervento la chiamata
+  faceva una lettura Key Vault **e** uno scambio col provider a ogni singolo messaggio che
+  toccava il calendario, indipendentemente da quanto l'access token precedente fosse ancora
+  valido: era il punto peggiore, più di quanto il testo del lotto lasciasse intendere.
+  `IMemoryCache` registrato una volta in `Program.cs` (Singleton, condiviso fra tutti i servizi
+  Scoped che lo iniettano).
 
 ### A3 — Storico conversazionale in L3
 
@@ -109,15 +135,18 @@ Non sono idee nuove: sono decisioni già scritte in `docs/` che il codice non im
   riuscita; `ProcessedMessagePurgeJob` che elimina le righe completate oltre i 7 giorni.
 - **Fatto quando**: `/health` risponde e il job compare nei log dello scheduler.
 
-### A6 — Metriche mancanti
+### A6 — Metriche mancanti ✅
 
-- [ ] **Dove**: `LlmFallbackClient.TrackTurn`
+- [x] **Dove**: `LlmFallbackClient.TrackTurn`
 - **Perché**: [05-ottimizzazioni.md](05-ottimizzazioni.md#cosa-misurare-da-subito) chiede i token
   per turno p50/p95 — c'è `L3TokensTotal`, manca lo split input/output e soprattutto i **cached
   token**, che sono l'unico modo di sapere se il prompt caching sta davvero funzionando. Senza,
   A1 non è misurabile.
 - **Cosa**: tracciare `L3TokensInput`, `L3TokensOutput`, `L3TokensCached` dalla `ChatTokenUsage`.
 - **Fatto quando**: il rapporto cached/input è visibile in Application Insights.
+- **Fatto**: le tre metriche sono tracciate da `usage.InputTokenCount`, `.OutputTokenCount` e
+  `.InputTokenDetails.CachedTokenCount` (SDK `OpenAI` 2.1.0), accanto a `L3TokensTotal` già
+  esistente.
 
 ---
 
@@ -627,7 +656,7 @@ eseguirli.
 
 | Passo | Contenuto | Perché in questa posizione |
 |---|---|---|
-| 1 | **A1, A2, A6** | Token, latenza, misurabilità. Tutto già progettato in `docs/`, nessuna decisione da prendere |
+| 1 | **A1, A2, A6** ✅ | Token, latenza, misurabilità. Tutto già progettato in `docs/`, nessuna decisione da prendere |
 | 2 | **A4, A5** | Correttezza e operabilità: il messaggio perso è un difetto silenzioso, e si sistema in poche ore |
 | 3 | **A3** + **F1** | Lo storico conversazionale è la retention; il corpus del router lo protegge dalle regressioni |
 | 4 | **B1, B2, B3, B4, B6, B7** | Sei interventi visibili e circoscritti. B3 è il più importante: è la pagina a uso quotidiano |

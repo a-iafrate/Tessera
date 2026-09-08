@@ -1,12 +1,13 @@
 using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Tessera.Core.Spaces;
 
 namespace Tessera.Data;
 
 // Mirrors LinkService's token pattern (docs/02-modello-dati.md) — no email sender exists
 // yet (docs/07-compliance.md), so the token itself, shared out-of-band, is the invite.
-public sealed class InviteService(TesseraDbContext db)
+public sealed class InviteService(TesseraDbContext db, IMemoryCache cache)
 {
     public async Task<InviteToken> CreateAsync(
         Guid spaceId, Guid invitedByUserId, AccessLevel shoppingListLevel, AccessLevel expensesLevel,
@@ -108,6 +109,11 @@ public sealed class InviteService(TesseraDbContext db)
 
         invite.ConsumedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(ct);
+
+        // Without this, a "not a member yet" result cached by an earlier permission check
+        // (IAccessPolicy, SpaceResolver) would keep denying access to the space just joined
+        // for up to 5 minutes (docs/05-ottimizzazioni.md).
+        MembershipRepository.Invalidate(cache, userId, invite.SpaceId);
         return membership;
     }
 

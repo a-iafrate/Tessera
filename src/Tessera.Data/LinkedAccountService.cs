@@ -3,10 +3,12 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Tessera.Core.Abstractions;
 using Tessera.Core.Calendars;
 using Tessera.Core.Users;
+using Tessera.Data.Caching;
 
 namespace Tessera.Data;
 
@@ -18,7 +20,7 @@ namespace Tessera.Data;
 // (Key Vault) specifically, never wherever an SDK would otherwise put it.
 public sealed class LinkedAccountService(
     TesseraDbContext db, ITokenVault tokenVault, IEnumerable<ICalendarProvider> calendarProviders,
-    IHttpClientFactory httpClientFactory, IConfiguration configuration)
+    IHttpClientFactory httpClientFactory, IConfiguration configuration, IMemoryCache cache)
 {
     // The minimum scope for each need (docs/07-compliance.md) — never a broad "full calendar"
     // grant, both because it's unnecessary and because OAuth review looks favorably on the
@@ -146,8 +148,18 @@ public sealed class LinkedAccountService(
     // token itself must never be persisted, only the refresh token (in Key Vault) and its
     // expiry are (docs/07-compliance.md). An in-memory cache with a TTL is the documented
     // optimization once request volume justifies it; not needed yet.
+    // Cached in memory until (provider-issued expiry − 5 minutes) so a message that touches
+    // the calendar doesn't pay a Key Vault read *and* a provider token-endpoint round trip on
+    // every turn (docs/05-ottimizzazioni.md, docs/07-compliance.md "Cache in memoria, con
+    // attenzione") — never persisted to disk, only IMemoryCache, and cleared on unlink below.
     public async Task<string> GetValidAccessTokenAsync(LinkedAccount account, CancellationToken ct)
     {
+        var cacheKey = CacheKeys.AccessToken(account.Id);
+        if (cache.TryGetValue(cacheKey, out string? cachedAccessToken) && cachedAccessToken is not null)
+        {
+            return cachedAccessToken;
+        }
+
         var config = GetConfig(account.Provider);
         var refreshToken = await tokenVault.GetAsync(account.TokenSecretName, ct)
             ?? throw new InvalidOperationException($"No refresh token stored for linked account {account.Id}.");
@@ -169,6 +181,13 @@ public sealed class LinkedAccountService(
 
         account.TokenExpiresAt = DateTimeOffset.UtcNow.AddSeconds(payload.ExpiresIn);
         await db.SaveChangesAsync(ct);
+
+        var safeTtl = TimeSpan.FromSeconds(payload.ExpiresIn) - CacheTtl.AccessTokenSafetyMargin;
+        if (safeTtl > TimeSpan.Zero)
+        {
+            cache.Set(cacheKey, payload.AccessToken, safeTtl);
+        }
+
         return payload.AccessToken;
     }
 
@@ -196,6 +215,7 @@ public sealed class LinkedAccountService(
         }
 
         await tokenVault.DeleteAsync(account.TokenSecretName, ct);
+        cache.Remove(CacheKeys.AccessToken(account.Id));
 
         // ExternalCalendar/CalendarSpaceMapping aren't modeled as EF-owned/cascade
         // relationships (they're looked up by LinkedAccountId, not a navigation), so the

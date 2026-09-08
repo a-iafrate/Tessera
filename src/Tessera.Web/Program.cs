@@ -165,6 +165,13 @@ builder.Services.AddSingleton(PartitionedRateLimiter.Create<string, string>(key 
         Window = TimeSpan.FromHours(1),
     })));
 
+// Single-instance IMemoryCache backing the five TTLs in docs/05-ottimizzazioni.md's "Cache:
+// cosa e per quanto" — channel identity, membership permissions, categories, OAuth access
+// tokens, and (LlmToolRegistry) the per-space tool schema. Redis would be the next step if
+// this app ever ran on more than one instance (docs/05: "a quel punto serve anche Service Bus,
+// ed è un altro momento del progetto") — not yet.
+builder.Services.AddMemoryCache();
+
 builder.Services.AddScoped<UserProvisioningService>();
 builder.Services.AddScoped<IChannelIdentityRepository, ChannelIdentityRepository>();
 builder.Services.AddScoped<IMembershipRepository, MembershipRepository>();

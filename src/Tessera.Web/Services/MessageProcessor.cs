@@ -653,7 +653,21 @@ public sealed class MessageProcessor(
         var db = scope.ServiceProvider.GetRequiredService<TesseraDbContext>();
         var space = await db.Spaces.AsNoTracking().FirstAsync(s => s.Id == spaceId, ct);
         var recentAction = await undo.GetRecentCorrectableActionAsync(user.Id, ct);
-        var context = new LlmContext(culture.Name, user.TimeZoneId ?? "UTC", DateTimeOffset.UtcNow, space.Name, recentAction?.Description);
+
+        // Drives which tools LlmTools.Build offers this turn (docs/05-ottimizzazioni.md,
+        // "Schema dei tool per contesto") — a member with only Read on Expenses never sees
+        // record_expense, and a space with no calendar linked never sees the five calendar
+        // tools, regardless of permission. IMembershipRepository is cached (5 min TTL,
+        // docs/05), so this is a cache hit on every turn after the first.
+        var membershipRepository = scope.ServiceProvider.GetRequiredService<IMembershipRepository>();
+        var membership = await membershipRepository.FindAsync(user.Id, spaceId, ct);
+        var accessByResource = BuildAccessByResource(membership);
+        var hasLinkedCalendar = scope.ServiceProvider.GetService<CalendarQueryService>() is not null
+            && await db.CalendarSpaceMappings.AsNoTracking().AnyAsync(m => m.SpaceId == spaceId, ct);
+
+        var context = new LlmContext(
+            culture.Name, user.TimeZoneId ?? "UTC", DateTimeOffset.UtcNow, space.Name,
+            accessByResource, hasLinkedCalendar, recentAction?.Description);
 
         var result = await llmFallback.TryCompleteAsync(text, context, ct);
         if (result is null)
@@ -708,6 +722,26 @@ public sealed class MessageProcessor(
                 shopping, address, spaceId, user.Id, recentAction.ItemId, args.GetProperty("corrected_text").GetString() ?? "", ct),
             _ => await SendNotUnderstoodAsync(address, text, culture, ct),
         };
+    }
+
+    // The owner's effective level is Admin on every resource regardless of MembershipPermission
+    // rows (IAccessPolicy.CanAsync applies the same short-circuit) — a resource with no row at
+    // all for a non-owner member is AccessLevel.None, the GetValueOrDefault default in
+    // LlmTools.Build. No membership (a caller that got this far without one, which shouldn't
+    // normally happen) yields an empty map, which offers no tools at all — the safe failure.
+    private static IReadOnlyDictionary<ResourceKind, AccessLevel> BuildAccessByResource(Membership? membership)
+    {
+        if (membership is null)
+        {
+            return new Dictionary<ResourceKind, AccessLevel>();
+        }
+
+        if (membership.IsOwner)
+        {
+            return Enum.GetValues<ResourceKind>().ToDictionary(resource => resource, _ => AccessLevel.Admin);
+        }
+
+        return membership.Permissions.ToDictionary(p => p.Resource, p => p.Level);
     }
 
     // The single most useful weekly signal in the product (docs/10-conversazione.md: "leggere

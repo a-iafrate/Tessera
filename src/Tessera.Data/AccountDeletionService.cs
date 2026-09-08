@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Tessera.Data;
 
@@ -9,7 +10,7 @@ namespace Tessera.Data;
 // is stripped — the orphaned GUID left on AddedByUserId/CreatedByUserId is no longer personal
 // data once nothing links it back to a person. Only the "Personale" space, which by
 // construction nobody else is a member of, is deleted outright along with its content.
-public sealed class AccountDeletionService(TesseraDbContext db, SpaceService spaces)
+public sealed class AccountDeletionService(TesseraDbContext db, SpaceService spaces, IMemoryCache cache)
 {
     public async Task<string> ExportAsJsonAsync(Guid userId, CancellationToken ct)
     {
@@ -105,6 +106,15 @@ public sealed class AccountDeletionService(TesseraDbContext db, SpaceService spa
 
                 successor.IsOwner = true;
                 await db.SaveChangesAsync(ct);
+
+                // This mutates Membership.IsOwner directly rather than through
+                // SpaceService.TransferOwnershipAsync (which would need the departing account
+                // to still authorize the transfer — it doesn't, it's the one being deleted),
+                // so it has to invalidate MembershipRepository's cache itself
+                // (docs/05-ottimizzazioni.md): without this, a successor who was recently
+                // active could keep being evaluated as a non-owner for up to 5 minutes after
+                // actually becoming one.
+                MembershipRepository.Invalidate(cache, successor.UserId, space.Id);
             }
 
             await spaces.PseudonymizeMembershipAsync(space.Id, userId, ct);

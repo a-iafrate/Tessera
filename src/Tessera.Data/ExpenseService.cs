@@ -1,12 +1,14 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Tessera.Core.Abstractions;
 using Tessera.Core.Expenses;
 using Tessera.Core.Shopping;
 using Tessera.Core.Spaces;
+using Tessera.Data.Caching;
 
 namespace Tessera.Data;
 
-public sealed class ExpenseService(TesseraDbContext db, IAccessPolicy accessPolicy)
+public sealed class ExpenseService(TesseraDbContext db, IAccessPolicy accessPolicy, IMemoryCache cache)
 {
     public async Task<string> GetSpaceCurrencyAsync(Guid spaceId, CancellationToken ct)
     {
@@ -199,12 +201,20 @@ public sealed class ExpenseService(TesseraDbContext db, IAccessPolicy accessPoli
     // Deterministic order: callers reference a category by its position in this list
     // (Telegram's callback_data is capped at 64 bytes — too little for two GUIDs — so the
     // inline keyboard encodes an index here instead of the category id).
+    // "Quasi statiche" (docs/05-ottimizzazioni.md, 1h TTL) — today categories are only the
+    // seeded system rows, so a per-space cache entry never actually needs invalidating; the
+    // per-space key (rather than one shared entry) is kept anyway so a future per-space custom
+    // category doesn't silently ship without cache correctness.
     public async Task<IReadOnlyList<Category>> GetCategoriesAsync(Guid spaceId, CancellationToken ct) =>
-        await db.Categories
-            .AsNoTracking()
-            .Where(x => x.SpaceId == null || x.SpaceId == spaceId)
-            .OrderBy(x => x.Id)
-            .ToListAsync(ct);
+        (await cache.GetOrCreateAsync(CacheKeys.Categories(spaceId), async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = CacheTtl.Categories;
+            return (IReadOnlyList<Category>)await db.Categories
+                .AsNoTracking()
+                .Where(x => x.SpaceId == null || x.SpaceId == spaceId)
+                .OrderBy(x => x.Id)
+                .ToListAsync(ct);
+        }))!;
 
     // The console list view (no equivalent exists on the bot side, which only ever shows
     // aggregates) — most recent first, capped by the caller.

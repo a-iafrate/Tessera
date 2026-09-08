@@ -1,11 +1,18 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Tessera.Core.Spaces;
 
 namespace Tessera.Data;
 
 // "Admin per spazio" (docs/06-roadmap.md) is Membership.IsOwner — the docs' own Membership
 // model has no separate admin flag, and there's exactly one owner/admin tier per space.
-public sealed class SpaceService(TesseraDbContext db)
+//
+// Every write to a Membership or its MembershipPermissions here is followed by
+// MembershipRepository.Invalidate for the affected (userId, spaceId) pair — the repository
+// caches FindAsync for 5 minutes (docs/05-ottimizzazioni.md), and without this a permission
+// change, an ownership transfer, or a removal would silently keep applying the old answer for
+// up to 5 minutes.
+public sealed class SpaceService(TesseraDbContext db, IMemoryCache cache)
 {
     public async Task<Space> CreateAsync(Guid ownerUserId, string name, CancellationToken ct)
     {
@@ -31,6 +38,7 @@ public sealed class SpaceService(TesseraDbContext db)
         });
 
         await db.SaveChangesAsync(ct);
+        MembershipRepository.Invalidate(cache, ownerUserId, space.Id);
         return space;
     }
 
@@ -147,6 +155,8 @@ public sealed class SpaceService(TesseraDbContext db)
         currentOwnerMembership.IsOwner = false;
         newOwnerMembership.IsOwner = true;
         await db.SaveChangesAsync(ct);
+        MembershipRepository.Invalidate(cache, currentOwnerUserId, spaceId);
+        MembershipRepository.Invalidate(cache, newOwnerUserId, spaceId);
     }
 
     // Only the Admin can remove someone else — docs/02-modello-dati.md's "same data rules as
@@ -237,6 +247,7 @@ public sealed class SpaceService(TesseraDbContext db)
         }
 
         await db.SaveChangesAsync(ct);
+        MembershipRepository.Invalidate(cache, userId, spaceId);
     }
 
     // Pseudonymized departure (docs/02-modello-dati.md §Caso 2, docs/07-compliance.md): unlike
@@ -266,6 +277,7 @@ public sealed class SpaceService(TesseraDbContext db)
         db.MembershipPermissions.RemoveRange(membership.Permissions);
         db.Memberships.Remove(membership);
         await db.SaveChangesAsync(ct);
+        MembershipRepository.Invalidate(cache, userId, spaceId);
     }
 
     // The sole member leaving is equivalent to deleting the space (docs/02-modello-dati.md):
@@ -316,5 +328,9 @@ public sealed class SpaceService(TesseraDbContext db)
 
         db.Spaces.Remove(space);
         await db.SaveChangesAsync(ct);
+        if (membership is not null)
+        {
+            MembershipRepository.Invalidate(cache, membership.UserId, spaceId);
+        }
     }
 }
