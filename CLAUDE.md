@@ -45,6 +45,7 @@ Design decisions live in `docs/`. **Read the relevant file before implementing**
 | `docs/10-conversazione.md` | Bot replies, onboarding, undo, error handling, tone |
 | `docs/11-logo.md` | Which brand asset to use in which context |
 | `docs/12-stile-sito.md` | Design tokens for the web console: colors, type, components |
+| `docs/13-piano-miglioramenti.md` | Picking up the next improvement task — batches, acceptance criteria, order |
 
 ## Stack
 

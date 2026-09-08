@@ -25,15 +25,15 @@ Assistente conversazionale per uso personale e familiare, accessibile via Telegr
 
 La condivisione è il cuore del prodotto: uno **spazio** raggruppa più utenti e più risorse, con permessi granulari per tipo di risorsa. Lista della spesa condivisa con il partner, sola disponibilità del calendario con gli amici.
 
-La risorsa personale è il caso degenere — uno spazio con un solo membro. **Tutto è condivisibile per costruzione**, non per estensione successiva: vedi [02-modello-dati.md](02-modello-dati.md).
+La risorsa personale è il caso degenere — uno spazio con un solo membro. **Tutto è condivisibile per costruzione**, non per estensione successiva: vedi [02-modello-dati.md](docs/02-modello-dati.md).
 
-Interfaccia e interazione sono **multilingua** (italiano ed inglese con supporto completo, altre lingue via LLM): vedi [09-localizzazione.md](09-localizzazione.md).
+Interfaccia e interazione sono **multilingua** (italiano ed inglese con supporto completo, altre lingue via LLM): vedi [09-localizzazione.md](docs/09-localizzazione.md).
 
 ## Stack
 
 .NET 10 · ASP.NET Core · Blazor Web App (server interactive) · EF Core · Azure App Service (Windows o Linux) · Azure SQL o Cosmos DB · Key Vault · Azure OpenAI (gpt-4o-mini) · Telegram.Bot · Microsoft Graph SDK · Google.Apis.Calendar.v3
 
-Host singolo: la console web e i webhook dei bot vivono nella stessa applicazione ASP.NET. Vedi [01-architettura.md](01-architettura.md).
+Host singolo: la console web e i webhook dei bot vivono nella stessa applicazione ASP.NET. Vedi [01-architettura.md](docs/01-architettura.md).
 
 ## Convenzioni linguistiche
 
@@ -47,26 +47,27 @@ Host singolo: la console web e i webhook dei bot vivono nella stessa applicazion
 | Testi in italiano per l'utente | solo `Messages.it.resx` |
 | Questa documentazione (`docs/`) | **Italiano** |
 
-Nessun testo destinato all'utente va scritto direttamente nel codice: passa da `IStringLocalizer` con una chiave inglese. Vedi [09-localizzazione.md](09-localizzazione.md).
+Nessun testo destinato all'utente va scritto direttamente nel codice: passa da `IStringLocalizer` con una chiave inglese. Vedi [09-localizzazione.md](docs/09-localizzazione.md).
 
-Le istruzioni per gli assistenti AI sono versionate nel repository: `CLAUDE.md` alla root e `.github/copilot-instructions.md`. Contengono la sintesi delle regole e rimandano a questa cartella per il razionale — motivo per cui `docs/` deve stare nel repository e non in un wiki esterno. Dettagli in [08-setup-sviluppo.md](08-setup-sviluppo.md).
+Le istruzioni per gli assistenti AI sono versionate nel repository: `CLAUDE.md` alla root e `.github/copilot-instructions.md`. Contengono la sintesi delle regole e rimandano a questa cartella per il razionale — motivo per cui `docs/` deve stare nel repository e non in un wiki esterno. Dettagli in [08-setup-sviluppo.md](docs/08-setup-sviluppo.md).
 
 ## Documentazione
 
 | Documento | Contenuto |
 |---|---|
-| [01-architettura.md](01-architettura.md) | Struttura della soluzione, host unico, pipeline dei messaggi, deploy Azure |
-| [02-modello-dati.md](02-modello-dati.md) | Spazi, membership, permessi, risorse polimorfiche, schema EF Core |
-| [03-integrazioni.md](03-integrazioni.md) | Telegram, WhatsApp Cloud API, Google Calendar, Microsoft Graph, Alexa (scartata) |
-| [04-costi.md](04-costi.md) | Stima mensile per infrastruttura e LLM, scenari di crescita |
-| [05-ottimizzazioni.md](05-ottimizzazioni.md) | Router di intent, prompt caching, riduzione latenza e token |
-| [06-roadmap.md](06-roadmap.md) | Fasi, stime, punti di decisione |
-| [07-compliance.md](07-compliance.md) | OAuth verification, GDPR, gestione dei token |
-| [08-setup-sviluppo.md](08-setup-sviluppo.md) | Ambiente locale, ngrok, secrets, migrations |
-| [09-localizzazione.md](09-localizzazione.md) | Multilingua: router per lingua, comandi, notifiche per destinatario |
-| [10-conversazione.md](10-conversazione.md) | Onboarding, undo, recupero dagli errori, tono dei messaggi |
-| [11-logo.md](11-logo.md) | Il segno, i file, quale usare per ogni contesto |
-| [12-stile-sito.md](12-stile-sito.md) | Palette, tipografia, componenti — coerenti col logo |
+| [01-architettura.md](docs/01-architettura.md) | Struttura della soluzione, host unico, pipeline dei messaggi, deploy Azure |
+| [02-modello-dati.md](docs/02-modello-dati.md) | Spazi, membership, permessi, risorse polimorfiche, schema EF Core |
+| [03-integrazioni.md](docs/03-integrazioni.md) | Telegram, WhatsApp Cloud API, Google Calendar, Microsoft Graph, Alexa (scartata) |
+| [04-costi.md](docs/04-costi.md) | Stima mensile per infrastruttura e LLM, scenari di crescita |
+| [05-ottimizzazioni.md](docs/05-ottimizzazioni.md) | Router di intent, prompt caching, riduzione latenza e token |
+| [06-roadmap.md](docs/06-roadmap.md) | Fasi, stime, punti di decisione |
+| [07-compliance.md](docs/07-compliance.md) | OAuth verification, GDPR, gestione dei token |
+| [08-setup-sviluppo.md](docs/08-setup-sviluppo.md) | Ambiente locale, ngrok, secrets, migrations |
+| [09-localizzazione.md](docs/09-localizzazione.md) | Multilingua: router per lingua, comandi, notifiche per destinatario |
+| [10-conversazione.md](docs/10-conversazione.md) | Onboarding, undo, recupero dagli errori, tono dei messaggi |
+| [11-logo.md](docs/11-logo.md) | Il segno, i file, quale usare per ogni contesto |
+| [12-stile-sito.md](docs/12-stile-sito.md) | Palette, tipografia, componenti — coerenti col logo |
+| [13-piano-miglioramenti.md](docs/13-piano-miglioramenti.md) | Piano operativo dei miglioramenti in corso — lotti, criteri di accettazione, ordine |
 
 ## Quick start (sviluppo)
 
@@ -95,4 +96,4 @@ Corollario operativo: ogni funzione oltre la Fase 1 deve giustificarsi come **co
 
 Per questo la Fase 1 è deliberatamente minima e senza OAuth: serve a scoprire la retention prima di spendere settimane in verification e business account. Il punto di decisione è alla fine della Fase 1, non alla fine del progetto.
 
-E per questo [10-conversazione.md](10-conversazione.md) pesa quanto i documenti sulle funzioni: la qualità dell'onboarding e del recupero dagli errori determina la retention più di qualsiasi capacità aggiuntiva.
+E per questo [10-conversazione.md](docs/10-conversazione.md) pesa quanto i documenti sulle funzioni: la qualità dell'onboarding e del recupero dagli errori determina la retention più di qualsiasi capacità aggiuntiva.
