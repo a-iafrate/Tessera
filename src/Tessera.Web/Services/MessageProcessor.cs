@@ -694,17 +694,26 @@ public sealed class MessageProcessor(
         var hasLinkedCalendar = scope.ServiceProvider.GetService<CalendarQueryService>() is not null
             && await db.CalendarSpaceMappings.AsNoTracking().AnyAsync(m => m.SpaceId == spaceId, ct);
 
+        // Own column, own TTL, independent of the pending-confirmation slot the same row also
+        // carries (docs/05-ottimizzazioni.md, "Storico limitato" — A3, docs/13-piano-miglioramenti.md).
+        var conversationState = await db.ConversationStates.FirstOrDefaultAsync(s => s.UserId == user.Id, ct);
+        var now = DateTimeOffset.UtcNow;
+        var recentExchanges = RecentExchange.Parse(conversationState?.RecentExchangesJson, now);
+
         var context = new LlmContext(
-            culture.Name, user.TimeZoneId ?? "UTC", DateTimeOffset.UtcNow, space.Name,
-            accessByResource, hasLinkedCalendar, recentAction?.Description);
+            culture.Name, user.TimeZoneId ?? "UTC", now, space.Name,
+            accessByResource, hasLinkedCalendar, recentExchanges, recentAction?.Description);
 
         var result = await llmFallback.TryCompleteAsync(text, context, ct);
         if (result is null)
         {
             // The deterministic paths must survive an Azure OpenAI outage
-            // (docs/06-roadmap.md) — this is the same honest reply as "not configured".
+            // (docs/06-roadmap.md) — this is the same honest reply as "not configured". No
+            // history entry either: there's nothing the model actually did with this message.
             return await SendNotUnderstoodAsync(address, text, culture, ct);
         }
+
+        await AppendRecentExchangeAsync(db, conversationState, user.Id, text, result, recentExchanges, now, ct);
 
         if (result.ToolCall is null)
         {
@@ -771,6 +780,31 @@ public sealed class MessageProcessor(
         }
 
         return membership.Permissions.ToDictionary(p => p.Resource, p => p.Level);
+    }
+
+    // Persists this turn as the newest RecentExchange (docs/05-ottimizzazioni.md, "Storico
+    // limitato" — A3). existingState/existingExchanges are what HandleLlmFallbackAsync already
+    // read for building LlmContext — reused here rather than re-queried, since nothing else
+    // could have changed ConversationState for this user in between (the queue is drained
+    // strictly sequentially per docs/01-architettura.md, so there's no concurrent writer to
+    // race against). Only StateJson/PendingIntent/ExpiresAt are left untouched: those belong to
+    // whatever pending-confirmation flow, if any, is independently in progress on the same row.
+    private static async Task AppendRecentExchangeAsync(
+        TesseraDbContext db, ConversationState? existingState, Guid userId, string userText,
+        LlmResult result, IReadOnlyList<RecentExchange> existingExchanges, DateTimeOffset now, CancellationToken ct)
+    {
+        var state = existingState;
+        if (state is null)
+        {
+            state = new ConversationState { Id = Guid.NewGuid(), UserId = userId, ExpiresAt = now };
+            db.ConversationStates.Add(state);
+        }
+
+        var entry = new RecentExchange(
+            userText, result.ToolCall?.Name, result.ToolCall?.Arguments.GetRawText(), now);
+        state.RecentExchangesJson = RecentExchange.Serialize(existingExchanges, entry);
+        state.UpdatedAt = now;
+        await db.SaveChangesAsync(ct);
     }
 
     // The single most useful weekly signal in the product (docs/10-conversazione.md: "leggere

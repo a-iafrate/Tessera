@@ -40,12 +40,36 @@ public class IntentRouterTests
         { "it", "annulla operazione", "undo" },
         { "it", "no aspetta", "undo" },
 
-        // italiano — devono cadere a L3
+        // italiano — devono cadere a L3: frasi che 05-ottimizzazioni.md cita come non coperte
+        // dal fast path — "manca X"/"finito X"/"serve X" e i follow-up impliciti non hanno
+        // trigger word riconosciuto da nessun matcher, quindi vanno a L3 oggi (docs/13,
+        // lotto F, deliberatamente non promossi a L2: il rischio di falso positivo su un
+        // messaggio non di spesa è più alto del guadagno di latenza).
         { "it", "finito il detersivo", null },
+        { "it", "manca la carta igienica", null },
+        // Sempre L3 per costruzione: nessun trigger word di nessun matcher — è esattamente il
+        // caso che LlmContext.RecentExchanges (A3, docs/13-piano-miglioramenti.md) risolve una
+        // volta arrivato a L3, non qualcosa che il router potrebbe mai prendere prima.
+        { "it", "e a febbraio?", null },
+        { "it", "domani prendi anche le uova", null },
+        { "it", "ah e il caffè", null },
         { "it", "sposta la riunione con Marco e avvisalo", null },
         { "it", "aggiungi nota test", null },
         { "it", "aggiungi una nota che dice test", null },
         { "it", "metti note su questo", null },
+
+        // italiano — near-miss: frasi che assomigliano a un intento ma un matcher preciso
+        // non deve prendere, altrimenti un'azione sbagliata parte senza mai passare da L3
+        // (docs/05-ottimizzazioni.md: il fast path può sbagliare per difetto, mai per eccesso
+        // senza che l'utente se ne accorga).
+        { "it", "quanto costa il latte?", null },                    // "quanto" ≠ "quanto ho speso"
+        { "it", "vorrei un consiglio sulla spesa", null },            // "spesa" da sola non basta
+        { "it", "cosa mi consigli per cena stasera", null },         // "cosa" ≠ "cosa c'è in lista"
+        { "it", "ricordami la riunione di domani", null },           // manca "di|che" dopo "ricordami"
+        { "it", "ho un impegno importante domani", null },            // "ho" ≠ "ho speso"
+        { "it", "ho aggiunto il latte per sbaglio", null },           // "ho aggiunto" ≠ "aggiungi"
+        { "it", "svuota la dispensa", null },                         // "la dispensa" ≠ "la lista"
+        { "it", "cancella l'appuntamento di domani", null },          // "cancella" non è un trigger
 
         // inglese — L2
         { "en", "add milk", "shopping.add" },
@@ -75,10 +99,24 @@ public class IntentRouterTests
         { "en", "cancel that", "undo" },
         { "en", "no wait", "undo" },
 
-        // inglese — L3
+        // inglese — L3: the same docs/05-ottimizzazioni.md gap, equivalent English phrasing
         { "en", "we're out of detergent", null },
+        { "en", "we're missing toilet paper", null },
+        { "en", "and in February?", null },
+        { "en", "don't forget the eggs tomorrow", null },
+        { "en", "oh and the coffee", null },
         { "en", "add note test", null },
         { "en", "add a note that says test", null },
+
+        // inglese — near-miss, same rationale as the Italian block above
+        { "en", "how much does milk cost?", null },                  // "how much" alone isn't enough
+        { "en", "I'd like some advice on shopping", null },          // "shopping" alone doesn't trigger
+        { "en", "what do you recommend for dinner tonight", null },  // "what" ≠ "what's on the list"
+        { "en", "remind me about tomorrow's meeting", null },        // missing "to|that" after "remind me"
+        { "en", "I have an important commitment tomorrow", null },
+        { "en", "I added milk by mistake", null },                    // "I added" ≠ "add"
+        { "en", "empty the pantry", null },                           // "the pantry" ≠ "the list"
+        { "en", "cancel the appointment tomorrow", null },            // "cancel" alone isn't "cancel that"
 
         // lingua senza matcher — sempre L3, per progetto
         { "de", "milch hinzufügen", null },
@@ -186,6 +224,27 @@ public class IntentRouterTests
         Assert.Equal("expenses.add", match?.Intent);
         Assert.Equal("Tesco", match?.Slots["merchant"]);
         Assert.False(match?.Slots.ContainsKey("category"));
+    }
+
+    // Turns "ogni matcher ha copertura positiva nel corpus" from a manual promise into
+    // something that fails the build if broken — a new matcher registered in Matchers.All
+    // without a matching Corpus row is exactly the kind of silent gap this whole file exists
+    // to catch (docs/05-ottimizzazioni.md, docs/13-piano-miglioramenti.md F1).
+    [Fact]
+    public void Corpus_CoversEveryRegisteredMatcherWithAtLeastOnePositiveCase()
+    {
+        var coveredPairs = ((IEnumerable<object[]>)Corpus)
+            .Where(row => row[2] is not null)
+            .Select(row => ((string)row[0], (string)row[2]!))
+            .ToHashSet();
+
+        var uncovered = Matchers.All
+            .Select(m => (m.Culture, m.Intent))
+            .Distinct()
+            .Where(pair => !coveredPairs.Contains(pair))
+            .ToList();
+
+        Assert.Empty(uncovered);
     }
 
     [Fact]

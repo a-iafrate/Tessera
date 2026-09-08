@@ -92,9 +92,9 @@ Non sono idee nuove: sono decisioni già scritte in `docs/` che il codice non im
   `IMemoryCache` registrato una volta in `Program.cs` (Singleton, condiviso fra tutti i servizi
   Scoped che lo iniettano).
 
-### A3 — Storico conversazionale in L3
+### A3 — Storico conversazionale in L3 ✅
 
-- [ ] **Dove**: `Tessera.Ai/Llm/LlmFallbackClient.TryCompleteAsync`, `LlmContext`,
+- [x] **Dove**: `Tessera.Ai/Llm/LlmFallbackClient.TryCompleteAsync`, `LlmContext`,
   `ConversationState.StateJson`
 - **Perché**: [05-ottimizzazioni.md](05-ottimizzazioni.md#storico-limitato) prescrive "ultimi 6-8
   turni, o ancora meglio uno stato conversazionale strutturato". Oggi il prompt è
@@ -108,6 +108,26 @@ Non sono idee nuove: sono decisioni già scritte in `docs/` che il codice non im
   system prompt, o si invalida il prefisso cacheable.
 - **Fatto quando**: la sequenza "quanto ho speso a gennaio" → "e a febbraio" risponde su febbraio,
   e un test sul corpus del router copre il caso.
+- **Fatto**: nuovo record `RecentExchange` (testo utente, nome del tool chiamato, argomenti del
+  tool, timestamp) in `Tessera.Core.Conversations`, con `Parse`/`Serialize` che filtrano per TTL
+  a 30 min e tengono gli ultimi 4 — testato in isolamento senza database
+  (`RecentExchangeTests.cs`, 7 casi). Reso nella coda variabile del prompt come elenco "Recent
+  messages in this conversation", con un paragrafo aggiunto al system prompt (statico, non rompe
+  la cache) che istruisce il modello a usarlo solo per risolvere un follow-up, mai per
+  giustificare un'azione che il messaggio corrente non chiede. **Deviazione dal testo del
+  lotto**: niente riuso di `ConversationState.StateJson` — quella colonna, insieme a
+  `PendingIntent`, è già uno slot condiviso da sei flussi di conferma diversi (conferma
+  promemoria, conferma/spostamento/cancellazione evento calendario, scelta spazio, fallback
+  permessi): scriverci sopra anche lo storico degli scambi avrebbe fatto sì che una conferma in
+  sospeso e lo storico si sovrascrivessero a vicenda. Aggiunta invece `RecentExchangesJson`, una
+  colonna nuova sulla stessa riga, con TTL calcolato per-entry (non sul campo `ExpiresAt`
+  condiviso, che resta di competenza esclusiva del meccanismo di conferma). Migrazione
+  `AddRecentExchangesToConversationState` generata e applicata.
+- **Nota**: il criterio di completamento è verificato a livello di corpus del router (la frase
+  di follow-up "e a febbraio?" è aggiunta come caso L3 esplicito in `IntentRouterTests.cs`, con
+  commento che rimanda a questa voce) — una verifica end-to-end contro un vero completamento
+  Azure OpenAI resta fuori portata dei test unitari esistenti, che oggi non toccano
+  `LlmFallbackClient`.
 
 ### A4 — Messaggio perso al riavvio ✅
 
@@ -575,18 +595,38 @@ dichiarati (divisione delle spese, meal planning, turni di casa, sync Alexa) res
 
 ## Lotto F — Test e manutenibilità
 
-### F1 — Ampliare il corpus del router
+### F1 — Ampliare il corpus del router ✅
 
-- [ ] **Dove**: `tests/Tessera.Ai.Tests/Routing/IntentRouterTests.cs`
-- **Perché**: 12 casi `InlineData` per 22 matcher (11 IT, 11 EN). `CLAUDE.md` chiama questi test
-  "i più preziosi del codebase" e avverte che regrediscono facilmente;
-  [05-ottimizzazioni.md](05-ottimizzazioni.md#testare-il-router-è-essenziale) chiede un corpus
-  crescente di frasi reali.
+- [x] **Dove**: `tests/Tessera.Ai.Tests/Routing/IntentRouterTests.cs`
+- **Perché**: `CLAUDE.md` chiama questi test "i più preziosi del codebase" e avverte che
+  regrediscono facilmente; [05-ottimizzazioni.md](05-ottimizzazioni.md#testare-il-router-è-essenziale)
+  chiede un corpus crescente di frasi reali. **Correzione a questo stesso documento**: il "12 casi
+  `InlineData` per 22 matcher" scritto qui era una lettura sbagliata — quei 12 erano le altre
+  `[Theory]` del file (estrazione slot), non il `Corpus` vero, che già contava ~46 righe via
+  `MemberData`. La copertura positiva era già ragionevole; quello che mancava davvero era la
+  direzione negativa (frasi simili a un intento che un matcher non deve prendere).
 - **Cosa**: portare il corpus a coprire ogni matcher con almeno una formulazione positiva e una
   negativa (deve andare a L3), incluse le frasi che `05` elenca come non coperte — "manca il pane",
   "finito il detersivo", "serve il caffè". Se quelle passano a L3 quando potrebbero essere gestite
   a L2, sono anche il lavoro di **F1b**: aggiungere i matcher corrispondenti.
 - **Fatto quando**: ogni matcher ha copertura in entrambe le direzioni.
+- **Fatto**: 23 nuove righe di corpus (117→142 test), verificate riga per riga contro la regex
+  reale di ogni matcher prima di scriverle — non solo le frasi già citate in `05` (più "domani
+  prendi anche le uova", "ah e il caffè", equivalenti EN), ma soprattutto **near-miss**: frasi che
+  assomigliano a un intento ma non devono attivarlo ("quanto costa il latte?" ≠ "quanto ho speso",
+  "ho aggiunto il latte per sbaglio" ≠ "aggiungi", "cancella l'appuntamento di domani" non è
+  `shopping.clear`/`undo`). Aggiunto anche `Corpus_CoversEveryRegisteredMatcherWithAtLeastOnePositiveCase`
+  — invariante meccanica che fallisce la build se un futuro matcher viene registrato senza una riga
+  di corpus corrispondente, invece di restare una promessa manuale. Aggiunta la riga di
+  regressione specifica per **A3** ("e a febbraio?" → sempre L3 per costruzione, nessun trigger
+  word di nessun matcher).
+- **F1b non fatto, deliberatamente**: non ho aggiunto nuovi matcher L2 per "manca/finito/serve X".
+  A differenza di tutto il resto del lotto A (cache, filtro tool, health check — tutti interni,
+  zero impatto sul comportamento visibile all'utente), un nuovo matcher L2 con confidenza 1.0
+  cambia cosa il bot fa davvero: "manca poco all'arrivo" o "we're out of time" verrebbero aggiunti
+  come voci sbagliate a una lista condivisa, un errore silenzioso mitigato solo da `/undo` — un
+  compromesso rischio/beneficio diverso da una modifica di plumbing, e una decisione di prodotto
+  che merita un via libera esplicito separato, non un'estensione implicita di "amplia il corpus".
 
 ### F2 — Test dei permessi
 
@@ -678,7 +718,7 @@ eseguirli.
 |---|---|---|
 | 1 | **A1, A2, A6** ✅ | Token, latenza, misurabilità. Tutto già progettato in `docs/`, nessuna decisione da prendere |
 | 2 | **A4, A5** ✅ | Correttezza e operabilità: il messaggio perso è un difetto silenzioso, e si sistema in poche ore |
-| 3 | **A3** + **F1** | Lo storico conversazionale è la retention; il corpus del router lo protegge dalle regressioni |
+| 3 | **A3** + **F1** ✅ | Lo storico conversazionale è la retention; il corpus del router lo protegge dalle regressioni |
 | 4 | **B1, B2, B3, B4, B6, B7** | Sei interventi visibili e circoscritti. B3 è il più importante: è la pagina a uso quotidiano |
 | 5 | **B5, B8, B9, B10, B11, B14** | Accessibilità, riscontro, tono. B8 è solo riscrittura di risorse |
 | 6 | **F2** | I permessi, prima di aggiungere superficie che li usa |

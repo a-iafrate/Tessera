@@ -46,6 +46,12 @@ public sealed class LlmFallbackClient(ChatClient chatClient, ILogger<LlmFallback
         If the context message below mentions a recent action, and the current message is a
         short correction to it rather than a new, unrelated request, use the matching
         correction tool instead of the normal add/create tool.
+
+        The context message may also list recent messages from this same conversation, oldest
+        first, each with what tool (if any) was called for it. Use these only to resolve a
+        follow-up that depends on them — "and in February?" after a spending question means
+        the same query, shifted to February — never to justify an action the current message
+        doesn't itself ask for.
         """;
 
     public async Task<LlmResult?> TryCompleteAsync(string userMessage, LlmContext context, CancellationToken ct)
@@ -127,6 +133,18 @@ public sealed class LlmFallbackClient(ChatClient chatClient, ILogger<LlmFallback
         if (context.RecentAction is not null)
         {
             lines.Add($"- Recent action, a moment ago: {context.RecentAction}");
+        }
+
+        if (context.RecentExchanges.Count > 0)
+        {
+            lines.Add("- Recent messages in this conversation, oldest first:");
+            foreach (var exchange in context.RecentExchanges)
+            {
+                var whatHappened = exchange.ToolName is null
+                    ? "you replied in plain text, no tool called"
+                    : $"you called {exchange.ToolName}({exchange.ToolArgsJson})";
+                lines.Add($"  - User said: \"{exchange.UserText}\" — {whatHappened}");
+            }
         }
 
         return string.Join('\n', lines);
