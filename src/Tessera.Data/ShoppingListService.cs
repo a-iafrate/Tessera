@@ -82,6 +82,28 @@ public sealed class ShoppingListService(TesseraDbContext db, IAccessPolicy acces
         return item;
     }
 
+    // The console's checkbox is a real toggle, not a one-way "done" button (unlike the bot's
+    // inline keyboard, which never re-offers a checked item — checking it is one-way there, and
+    // reversing a mistaken tap goes through /undo's short-lived, per-user LastOperation instead,
+    // docs/10-conversazione.md). A permanent, always-available uncheck fills the gap /undo
+    // doesn't cover: correcting a check made minutes ago, or by a different space member.
+    public async Task<ShoppingItem?> UncheckItemByIdAsync(Guid spaceId, Guid userId, Guid itemId, CancellationToken ct)
+    {
+        await EnsureAccessAsync(spaceId, userId, AccessLevel.Write, ct);
+
+        var item = await FindItemInSpaceAsync(spaceId, itemId, ct);
+        if (item is null || !item.IsChecked)
+        {
+            return null;
+        }
+
+        item.IsChecked = false;
+        item.CheckedByUserId = null;
+        item.CheckedAt = null;
+        await db.SaveChangesAsync(ct);
+        return item;
+    }
+
     public async Task<ShoppingItem?> RemoveItemAsync(
         Guid spaceId, Guid userId, string itemText, string? listName, CancellationToken ct)
     {

@@ -265,10 +265,19 @@ distinti, uno stesso intervento.
   rollback su `UnauthorizedAccessException`; sezione "Già preso (n)" separata in fondo;
   conteggio "{n} da comprare" in cima. `ClearAsync` invariato (resta `--danger`, conferma
   esistente), ma ora sotto un ulteriore `seam` di separazione.
-- **Nota**: `CheckItemByIdAsync` non ha un equivalente "scheck" — spuntare è a senso unico
-  (`docs/02-modello-dati.md`), quindi la checkbox delle voci già prese è renderizzata
-  `checked disabled`, non interattiva; corrisponde esattamente alla capacità esistente, non ne
-  aggiunge una nuova.
+- **Corretto dopo la prima stesura, su segnalazione diretta dell'utente**: la prima versione
+  renderizzava la checkbox delle voci già prese come `checked disabled` (non interattiva),
+  giustificato all'epoca da `CheckItemByIdAsync` non avendo un equivalente "uncheck"
+  (`docs/02-modello-dati.md`) — ma questo lascia chi spunta una voce per sbaglio, o vuole
+  rimetterla in lista, senza via d'uscita nella console, che non ha un bottone di undo come il
+  bot. Aggiunto `ShoppingListService.UncheckItemByIdAsync` (simmetrico a `CheckItemByIdAsync`,
+  stesso pattern), e la checkbox è ora un vero toggle in entrambe le direzioni, ottimistico con
+  rollback su `UnauthorizedAccessException` in entrambi i sensi. Non è lo stesso meccanismo
+  dell'`/undo` del bot (finestra di 10 minuti, un'operazione sola, per utente,
+  [10-conversazione.md](10-conversazione.md)): è un togle sempre disponibile, più adatto alla
+  console che non ha una superficie di undo propria. Verificato visivamente (spunta → "Già
+  preso" → spunta di nuovo → torna in "da comprare", checkbox interattiva in entrambi gli
+  stati).
 - **Bug trovato e corretto tramite verifica visiva reale** (screenshot con Playwright contro
   l'app avviata, non solo build/test): le due `@foreach` su `UncheckedItems`/`CheckedItems`
   senza `@key` facevano sì che, quando una voce passava da una lista all'altra, il diffing di

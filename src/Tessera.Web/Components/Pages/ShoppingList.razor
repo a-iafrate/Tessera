@@ -177,10 +177,13 @@
         }
     }
 
-    // Check is one-way (docs/02-modello-dati.md: there's no "uncheck" — CheckItemByIdAsync
-    // refuses an already-checked item), so the optimistic flip is only ever false -> true;
-    // rollback puts it back to false on failure.
-    private async Task CheckAsync(ShoppingItem item)
+    // A real toggle, both directions optimistic with rollback — checking off an item by
+    // mistake (or a member wanting to put something back on the list) must not be a dead end
+    // in the console, which has no undo button of its own. The bot's own inline keyboard stays
+    // one-way on purpose (checking there is final, reversible only through /undo's short
+    // per-user window — docs/10-conversazione.md); this is the console's equivalent of that
+    // same undo, just always available instead of time-limited.
+    private async Task ToggleCheckedAsync(ShoppingItem item)
     {
         if (!busyItemIds.Add(item.Id))
         {
@@ -188,22 +191,26 @@
         }
 
         errorMessage = null;
-        item.IsChecked = true;
+        var wasChecked = item.IsChecked;
+        item.IsChecked = !wasChecked;
         StateHasChanged();
 
         try
         {
-            var updated = await ShoppingListService.CheckItemByIdAsync(SpaceId, userId, item.Id, CancellationToken.None);
+            var updated = wasChecked
+                ? await ShoppingListService.UncheckItemByIdAsync(SpaceId, userId, item.Id, CancellationToken.None)
+                : await ShoppingListService.CheckItemByIdAsync(SpaceId, userId, item.Id, CancellationToken.None);
             if (updated is null)
             {
-                // Already checked or removed by someone else in the meantime — reload to pick
-                // up whatever the true state actually is rather than trust the optimistic guess.
+                // Already in the target state, or removed, by someone else in the meantime —
+                // reload to pick up whatever the true state actually is rather than trust the
+                // optimistic guess.
                 await ReloadAsync();
             }
         }
         catch (UnauthorizedAccessException)
         {
-            item.IsChecked = false;
+            item.IsChecked = wasChecked;
             errorMessage = Localizer["ShoppingList.GenericError"];
         }
         finally
@@ -280,8 +287,8 @@
     private RenderFragment RenderRow(ShoppingItem item) => @<li class="shopping-row" @key="item.Id">
         <label class="shopping-row-label">
             <input type="checkbox" class="shopping-row-checkbox"
-                   checked="@item.IsChecked" disabled="@(!canWrite || item.IsChecked || busyItemIds.Contains(item.Id))"
-                   @onchange="() => CheckAsync(item)" />
+                   checked="@item.IsChecked" disabled="@(!canWrite || busyItemIds.Contains(item.Id))"
+                   @onchange="() => ToggleCheckedAsync(item)" />
             <span class="@(item.IsChecked ? "shopping-row-text shopping-row-text-checked" : "shopping-row-text")">@item.RawText</span>
         </label>
         @if (canWrite)
