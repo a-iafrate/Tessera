@@ -1,5 +1,6 @@
 ﻿@using Microsoft.AspNetCore.Components.Authorization
 @using Tessera.Web.Components.Account.Shared
+@using Tessera.Web.Components.Pages
 <Router AppAssembly="typeof(Program).Assembly">
     <Found Context="routeData">
         <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
@@ -10,9 +11,14 @@
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
     <NotFound>
+        @* The actual "unmatched route" fallback — hardcoded English markup lived here before
+           (a hard-rule violation, docs/13-piano-miglioramenti.md B14) and NotFound.razor's own
+           route (/not-found) was reachable only by navigating to it directly, never by this
+           branch. Rendering the same component here means both paths show the same localized
+           content; NotFound.razor no longer sets its own @layout since LayoutView here is what
+           actually applies MainLayout to a non-routed component instance. *@
         <LayoutView Layout="typeof(Layout.MainLayout)">
-            <h3>Not Found</h3>
-            <p>Sorry, the content you are looking for does not exist.</p>
+            <NotFound />
         </LayoutView>
     </NotFound>
 </Router>

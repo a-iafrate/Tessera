@@ -12,23 +12,25 @@
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JsRuntime
 
-<div class="navbar" id="navbar-root" @onkeydown="HandleKeyDown">
+<a href="#main" class="skip-link">@Localizer["Nav.SkipToContent"]</a>
+
+<header class="navbar" id="navbar-root" @onkeydown="HandleKeyDown">
     <a class="wordmark" href="/">Tessera</a>
     <button class="nav-toggle" type="button" @onclick="ToggleMenu" aria-label="@Localizer["Nav.ToggleMenu"]" aria-expanded="@(isMenuOpen ? "true" : "false")">
         <span></span><span></span><span></span>
     </button>
     <nav class="@(isMenuOpen ? "nav-open" : "")">
-        <a href="/pricing">@Localizer["Nav.Pricing"]</a>
-        <a href="/support">@Localizer["Nav.Support"]</a>
+        <NavLink href="/pricing" ActiveClass="nav-active">@Localizer["Nav.Pricing"]</NavLink>
+        <NavLink href="/support" ActiveClass="nav-active">@Localizer["Nav.Support"]</NavLink>
         <AuthorizeView>
             <Authorized>
-                <a href="/spaces">@Localizer["Nav.YourSpaces"]</a>
-                <a href="/chat">@Localizer["Nav.Chat"]</a>
-                <a href="/settings">@Localizer["Nav.Settings"]</a>
-                <a href="/account" class="nav-account">
+                <NavLink href="/spaces" ActiveClass="nav-active">@Localizer["Nav.YourSpaces"]</NavLink>
+                <NavLink href="/chat" ActiveClass="nav-active">@Localizer["Nav.Chat"]</NavLink>
+                <NavLink href="/settings" ActiveClass="nav-active">@Localizer["Nav.Settings"]</NavLink>
+                <NavLink href="/account" ActiveClass="nav-active" class="nav-account">
                     <UserAvatar DisplayName="@displayName" PictureUrl="@pictureUrl" Size="1.75" />
                     @(displayName ?? Localizer["Nav.Account"].Value)
-                </a>
+                </NavLink>
                 <form action="Account/Logout" method="post" style="margin: 0;">
                     <AntiforgeryToken />
                     <input type="hidden" name="returnUrl" value="" />
@@ -36,14 +38,18 @@
                 </form>
             </Authorized>
             <NotAuthorized>
-                <a href="Account/Login">@Localizer["Nav.LogIn"]</a>
-                <a href="Account/Register">@Localizer["Nav.Register"]</a>
+                <NavLink href="Account/Login" ActiveClass="nav-active">@Localizer["Nav.LogIn"]</NavLink>
+                <NavLink href="Account/Register" ActiveClass="nav-active">@Localizer["Nav.Register"]</NavLink>
             </NotAuthorized>
         </AuthorizeView>
     </nav>
-</div>
+</header>
 
-@Body
+<main id="main">
+    @Body
+</main>
+
+<Toast />
 
 <footer class="footer">
     <a href="/pricing">@Localizer["Nav.Pricing"]</a>

@@ -16,6 +16,7 @@
 @inject IAccessPolicy AccessPolicy
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JsRuntime
+@inject ToastService ToastService
 @inject IStringLocalizer<Messages> Localizer
 
 <PageTitle>@Localizer["ShoppingList.PageTitle"]</PageTitle>
@@ -30,18 +31,16 @@
         <a href="/" class="text-soft">@Localizer["Common.BackToDashboard"]</a>
         <h1>@Localizer["ShoppingList.PageTitle"] — @space.Name</h1>
 
-        @if (errorMessage is not null)
-        {
-            <div class="alert alert-danger" role="alert">@errorMessage</div>
-        }
-
         @if (canWrite)
         {
             <div class="card" style="max-width: 32rem; margin-bottom: var(--space-6);">
                 <EditForm Model="this" OnValidSubmit="AddAsync">
-                    <div style="display: flex; gap: var(--space-2);">
-                        <input @bind="newItemText" placeholder="@Localizer["ShoppingList.AddPlaceholder"]"
-                               style="flex: 1; padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);" />
+                    <div style="display: flex; gap: var(--space-2); align-items: flex-start;">
+                        <div class="form-floating" style="flex: 1;">
+                            <input class="form-control" id="newItemText" @bind="newItemText" @bind:event="oninput"
+                                   placeholder="@Localizer["ShoppingList.AddPlaceholder"]" />
+                            <label for="newItemText">@Localizer["ShoppingList.AddLabel"]</label>
+                        </div>
                         <button type="submit" class="btn btn-primary" disabled="@(isAdding || string.IsNullOrWhiteSpace(newItemText))">
                             @if (isAdding) { <span class="spinner" aria-hidden="true"></span> }
                             @Localizer["ShoppingList.AddButton"]
@@ -57,7 +56,7 @@
 
         @if (items.Count == 0)
         {
-            <p class="text-soft">@Localizer["ShoppingList.Empty"]</p>
+            <p class="text-soft">@Localizer["ShoppingList.PageEmpty"]</p>
         }
         else
         {
@@ -111,7 +110,6 @@
     private bool isAdding;
     private bool isClearing;
     private string newItemText = "";
-    private string? errorMessage;
 
     // A mutable list, not the read-only snapshot GetItemsAsync returns directly — toggling or
     // removing one row updates this in place (optimistic, with rollback on failure) instead of
@@ -160,16 +158,17 @@
         }
 
         isAdding = true;
-        errorMessage = null;
+        var addedText = newItemText.Trim();
         try
         {
-            await ShoppingListService.AddItemAsync(SpaceId, userId, newItemText.Trim(), listName: null, CancellationToken.None);
+            await ShoppingListService.AddItemAsync(SpaceId, userId, addedText, listName: null, CancellationToken.None);
             newItemText = "";
             await ReloadAsync();
+            ToastService.ShowSuccess(Localizer["ShoppingList.ItemAdded", addedText]);
         }
         catch (UnauthorizedAccessException)
         {
-            errorMessage = Localizer["ShoppingList.GenericError"];
+            ToastService.ShowError(Localizer["ShoppingList.GenericError"]);
         }
         finally
         {
@@ -190,7 +189,6 @@
             return;
         }
 
-        errorMessage = null;
         var wasChecked = item.IsChecked;
         item.IsChecked = !wasChecked;
         StateHasChanged();
@@ -207,11 +205,17 @@
                 // optimistic guess.
                 await ReloadAsync();
             }
+            else
+            {
+                ToastService.ShowSuccess(wasChecked
+                    ? Localizer["ShoppingList.ItemUnchecked", item.RawText]
+                    : Localizer["ShoppingList.ItemChecked", item.RawText]);
+            }
         }
         catch (UnauthorizedAccessException)
         {
             item.IsChecked = wasChecked;
-            errorMessage = Localizer["ShoppingList.GenericError"];
+            ToastService.ShowError(Localizer["ShoppingList.GenericError"]);
         }
         finally
         {
@@ -226,7 +230,6 @@
             return;
         }
 
-        errorMessage = null;
         var index = items.IndexOf(item);
         items.Remove(item);
         StateHasChanged();
@@ -240,11 +243,15 @@
                 // leave a row missing that might not actually be gone.
                 await ReloadAsync();
             }
+            else
+            {
+                ToastService.ShowSuccess(Localizer["ShoppingList.ItemRemoved", item.RawText]);
+            }
         }
         catch (UnauthorizedAccessException)
         {
             items.Insert(Math.Min(index, items.Count), item);
-            errorMessage = Localizer["ShoppingList.GenericError"];
+            ToastService.ShowError(Localizer["ShoppingList.GenericError"]);
         }
         finally
         {
@@ -261,15 +268,15 @@
 
         isClearing = true;
         StateHasChanged();
-        errorMessage = null;
         try
         {
             await ShoppingListService.ClearAsync(SpaceId, userId, listName: null, CancellationToken.None);
             await ReloadAsync();
+            ToastService.ShowSuccess(Localizer["ShoppingList.ListCleared"]);
         }
         catch (UnauthorizedAccessException)
         {
-            errorMessage = Localizer["ShoppingList.GenericError"];
+            ToastService.ShowError(Localizer["ShoppingList.GenericError"]);
         }
         finally
         {

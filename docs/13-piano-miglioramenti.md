@@ -300,9 +300,9 @@ distinti, uno stesso intervento.
 - **Fatto**: assorbito nella riscrittura di B3 — `.shopping-row-text-checked` in
   `ShoppingList.razor.css` usa `var(--ink-soft)`.
 
-### B5 — Landmark e navigazione da tastiera
+### B5 — Landmark e navigazione da tastiera ✅ (con una riserva)
 
-- [ ] **Dove**: `Components/Layout/MainLayout.razor`
+- [x] **Dove**: `Components/Layout/MainLayout.razor`
 - **Perché**: `@Body` non è dentro un `<main>`, non c'è `<header>`, non c'è skip link. Chi usa uno
   screen reader o la tastiera riattraversa la navbar a ogni pagina.
   [12-stile-sito.md](12-stile-sito.md#accessibilità) prende l'accessibilità come vincolo, non come
@@ -310,6 +310,22 @@ distinti, uno stesso intervento.
 - **Cosa**: `<header>` intorno alla navbar, `<main id="main">` intorno a `@Body`, skip link come
   primo elemento focalizzabile, visibile solo al focus.
 - **Fatto quando**: Tab dal caricamento della pagina offre "salta al contenuto" come prima tappa.
+- **Fatto**: `<header class="navbar">`, `<main id="main">`, skip link `.skip-link` (off-canvas,
+  visibile al focus) come primo figlio del layout.
+- **Riserva emersa dalla verifica dal vivo**: il criterio "Fatto quando" **non è pienamente
+  soddisfatto**. `Routes.razor` ha già `<FocusOnNavigate RouteData="routeData" Selector="h1" />`
+  (Blazor, pre-esistente), che sposta il focus sull'`<h1>` a ogni navigazione — inclusa la prima.
+  Verificato con Playwright: `document.activeElement` è già l'`<h1>` subito dopo il caricamento,
+  *prima* di premere Tab. Lo skip link, posizionato prima nel DOM, non è mai la prima tappa reale
+  — un Tab dal caricamento passa all'elemento *dopo* l'h1, non torna indietro. Nella pratica il
+  problema che B5 voleva risolvere è già in gran parte coperto da `FocusOnNavigate` (il focus
+  salta comunque oltre la navbar, senza bisogno di premere Tab), e lo skip link resta un
+  meccanismo di riserva per i casi in cui `FocusOnNavigate` non si applica (screen reader che
+  gestiscono il focus diversamente, ingressi che non passano dal router di Blazor) — non dannoso,
+  ma non è "la prima tappa" come scritto. Non ho modificato `FocusOnNavigate` (funzionalità
+  distinta, pre-esistente, probabilmente deliberata): correggere questa interazione richiede una
+  decisione di prodotto (rimuovere l'auto-focus sull'h1, o accettare che lo skip link sia un
+  backup silenzioso) che non mi competeva prendere qui.
 
 ### B6 — Il menu mobile non si chiude navigando ✅
 
@@ -342,9 +358,9 @@ distinti, uno stesso intervento.
 - **Fatto quando**: un nome di spazio di 40 caratteri senza spazi non provoca scroll orizzontale
   a 360 px.
 
-### B8 — Gli stati vuoti annunciano un'assenza invece di invitare
+### B8 — Gli stati vuoti annunciano un'assenza invece di invitare ✅
 
-- [ ] **Dove**: `Home.razor` (386, 409, 432, 455, 478), `ShoppingList.razor:60`,
+- [x] **Dove**: `Home.razor` (386, 409, 432, 455, 478), `ShoppingList.razor:60`,
   `Expenses.razor:76`, `Reminders.razor:66`, `Notes.razor:64`, `Spaces.razor:26`
 - **Perché**: [12-stile-sito.md](12-stile-sito.md#stati-vuoti-e-di-errore) porta *letteralmente*
   "Nessuna spesa trovata." come esempio da non seguire, contro "Non ci sono ancora spese in questo
@@ -355,17 +371,29 @@ distinti, uno stesso intervento.
   due contesti (`ShoppingList.Empty` compare in pagina e in dashboard) vanno separate in due chiavi
   se il testo giusto differisce.
 - **Fatto quando**: ogni stato vuoto della console nomina l'azione successiva.
+- **Fatto**: `Spaces.Empty` e i due testi solo-dashboard (`Dashboard.NoPreviews`,
+  `Dashboard.TodayEmpty`) erano già nel formato giusto — nessuna modifica. Per gli altri quattro
+  (`ShoppingList`/`Expenses`/`Reminders`/`Notes`), le chiavi condivise fra pagina e anteprima
+  dashboard **sono state separate**: la dashboard mantiene la chiave originale, breve, corretta
+  lì perché il link "View X →" è già adiacente; la pagina intera usa una nuova chiave
+  `*.PageEmpty` che nomina l'azione (tutte e quattro le pagine hanno un modulo di aggiunta
+  proprio sopra, quindi "Aggiungi qui sopra" è sempre vero). Nessuna modifica a `Home.razor`.
 
-### B9 — Nessuna indicazione della pagina corrente
+### B9 — Nessuna indicazione della pagina corrente ✅
 
-- [ ] **Dove**: `Components/Layout/MainLayout.razor`
+- [x] **Dove**: `Components/Layout/MainLayout.razor`
 - **Perché**: la navbar usa `<a>` semplici: nulla indica dove ci si trova.
 - **Cosa**: `NavLink` con `ActiveClass`, e `aria-current="page"` sulla voce attiva.
 - **Fatto quando**: la voce corrispondente alla rotta corrente è distinguibile senza colore soltanto.
+- **Fatto**: ogni `<a>` della navbar è ora un `NavLink` con `ActiveClass="nav-active"` (`aria-current`
+  è automatico, comportamento nativo di `NavLink`); `.nav-active` aggiunge peso e sottolineatura,
+  non solo colore. Verificato dal vivo: su `/settings` solo "Settings" risulta attivo; su una
+  pagina sotto `/spaces/{id}/...` risulta attivo "Your spaces" (match di prefisso, deliberato —
+  `/spaces` è comunque "dove ci si trova" anche annidati).
 
-### B10 — Input fuori standard e senza etichetta
+### B10 — Input fuori standard e senza etichetta ✅ (con un'eccezione dichiarata)
 
-- [ ] **Dove**: `ShoppingList.razor:43-44`, e ogni altro `<input>` con `style` inline
+- [x] **Dove**: `ShoppingList.razor:43-44`, e ogni altro `<input>` con `style` inline
 - **Perché**: l'input di aggiunta ha padding e bordo scritti a mano invece della classe
   `.form-control` che esiste in `base.css:418` con `min-height: 44px` — quindi è sotto il target
   minimo toccabile richiesto da [12-stile-sito.md](12-stile-sito.md#accessibilità) — e ha solo un
@@ -374,10 +402,20 @@ distinti, uno stesso intervento.
   `<label>` reale, anche se visivamente sostituito dal placeholder.
 - **Fatto quando**: nessun `<input>` nella console porta uno `style` inline, e ognuno ha
   un'etichetta.
+- **Fatto**: `.form-floating`/`.form-control` su `ShoppingList` (voce), `Reminders` (testo, con
+  `<label class="form-label">` separate per Data/Ora — i `<input type=date/time>` nativi non si
+  prestano bene al pattern a etichetta fluttuante), `InviteMember` (link di invito, in sola
+  lettura, con `aria-label`). Nuove chiavi di risorsa per le etichette (`ShoppingList.AddLabel`,
+  `Reminders.TextLabel`/`DateLabel`/`TimeLabel`, `InviteMember.LinkFieldLabel`).
+  **Eccezione dichiarata**: l'input di `InviteMember` mantiene `style="flex: 1; font-family: var(--font-mono);"`
+  inline (il layout flessibile e il font monospazio sono contestuali, non standardizzabili senza
+  anticipare l'estrazione di utility che B13 rimanda apposta a dopo). `<select>` (Calendars,
+  Expenses, LevelPicker) restano fuori: il testo del lotto parla esplicitamente di `<input>`, i
+  `<select>` sono materia di B13.
 
-### B11 — Nessun riscontro dopo un'azione
+### B11 — Nessun riscontro dopo un'azione ✅
 
-- [ ] **Dove**: nuovo componente `Components/Shared/Toast.razor`, consumato dalle pagine che
+- [x] **Dove**: nuovo componente `Components/Shared/Toast.razor`, consumato dalle pagine che
   scrivono
 - **Perché**: [12-stile-sito.md](12-stile-sito.md#movimento) menziona "la comparsa dei toast di
   conferma" fra i movimenti previsti, ma nessun toast esiste. Oggi un'azione riuscita si deduce dal
@@ -387,6 +425,15 @@ distinti, uno stesso intervento.
   di `prefers-reduced-motion`, che sostituisca gli `alert` in cima alla pagina per il riscontro
   transitorio (gli errori persistenti restano dove sono).
 - **Fatto quando**: aggiungere una voce mostra una conferma senza spostare il contenuto.
+- **Fatto**: `ToastService` (Scoped, un evento) + `Toast.razor` renderizzato una sola volta in
+  `MainLayout`, posizione fissa in basso, `role="status"`/`role="alert"`, si auto-dismissa dopo 4s
+  (cancellabile se arriva un nuovo toast prima), rispetta `prefers-reduced-motion`. Sostituisce
+  gli `alert-danger` transitori (non quelli persistenti — qui non ce n'erano) in
+  `ShoppingList`/`Reminders`/`Expenses`/`Notes.razor`: conferma di successo su ogni scrittura
+  (aggiungi/spunta/rimuovi/svuota per la lista; aggiungi/completa per i promemoria; registra per
+  le spese; salva/modifica/elimina per le note), errore verso toast anziché alert fisso. Verificato
+  dal vivo: "Added: Yogurt" poi "Checked off: Yogurt" compaiono e scompaiono correttamente senza
+  spostare il contenuto della pagina.
 
 ### B12 — Le pagine pubbliche non si possono cambiare di lingua
 
@@ -415,12 +462,35 @@ distinti, uno stesso intervento.
   consolidato — non prima, o si rifattorizza due volte.
 - **Fatto quando**: nessun `style` inline resta nelle pagine, esclusi i valori calcolati a runtime.
 
-### B14 — Titoli di pagina mancanti
+### B14 — Titoli di pagina mancanti ✅
 
-- [ ] **Dove**: `Components/Pages/NotFound.razor`, `LevelPicker.razor`
+- [x] **Dove**: `Components/Pages/NotFound.razor`, `LevelPicker.razor`
 - **Cosa**: `<PageTitle>` localizzato (per `LevelPicker`, se è un componente e non una pagina, va
   verificato che non gli serva).
 - **Fatto quando**: ogni rotta ha un titolo proprio nella scheda del browser.
+- **Fatto**: `LevelPicker.razor` confermato essere un componente semplice (nessun `@page`, usato
+  dentro `SpaceDetail`), non gli serve. `NotFound.razor` ora ha `<PageTitle>` localizzato
+  (`NotFound.Title`/`NotFound.Body`, nuove chiavi) — e in passato aveva anche testo inglese
+  scritto direttamente nel markup (`"Not Found"`, violazione della regola sulla lingua), corretto
+  nello stesso intervento.
+- **Scoperta non prevista da questa voce, trovata verificando dal vivo**: il markup che l'utente
+  *vede davvero* per un URL non esistente non passava da `NotFound.razor` affatto. `Routes.razor`
+  aveva il proprio `<NotFound>` del `Router` con markup inglese cablato a mano, duplicato e
+  scollegato da `NotFound.razor` (che era raggiungibile solo navigando esplicitamente a
+  `/not-found`). Ho unificato i due — `Routes.razor` ora renderizza `<NotFound />` (il componente)
+  dentro il proprio `LayoutView`, e `NotFound.razor` non ha più un `@layout` proprio (era comunque
+  ignorato in questo punto d'uso). **Ma ho poi trovato, con una verifica dal vivo via curl, che
+  questo ramo di `Router` in pratica non viene mai raggiunto in questa app**: `Program.cs`
+  configura `UseStatusCodePagesWithReExecute("/not-found", ...)`, che intercetta il 404 a livello
+  HTTP e dovrebbe rieseguire la pipeline sulla pagina `/not-found` prima ancora che il `Router` di
+  Blazor entri in gioco. **Verificato che questo non funziona**: un URL inesistente restituisce
+  oggi `404` con corpo *completamente vuoto* (`Content-Length: 0`), non la pagina "not found".
+  Confermato via `git log` che `UseStatusCodePagesWithReExecute` esisteva già prima di questa
+  sessione (commit `6cf3d81`) — **non è una regressione introdotta qui**, ma un bug pre-esistente
+  scoperto per la prima volta durante questa verifica. Non l'ho corretto: tocca la pipeline HTTP
+  centrale (ordine dei middleware, `UseWhen`, assenza di un `UseRouting()` esplicito), è
+  potenzialmente delicato, ed è fuori dallo scope letterale di B14. Segnalato all'utente
+  separatamente per decidere se e quando intervenire.
 
 ### B15 — Nessun contesto di spazio persistente
 
@@ -432,6 +502,34 @@ distinti, uno stesso intervento.
 - **Cosa**: selettore di spazio nell'intestazione delle pagine con `SpaceId`, che cambia spazio
   restando sulla stessa risorsa, più un breadcrumb "Spazi › Casa › Lista della spesa".
 - **Fatto quando**: si passa dalla lista di uno spazio a quella di un altro con un'interazione.
+
+### B16 — Il 404 reale restituisce una pagina vuota (scoperto durante B14, non corretto)
+
+- [ ] **Dove**: `Program.cs` (pipeline HTTP — `UseWhen`/`UseStatusCodePagesWithReExecute`, nessun
+  `UseRouting()` esplicito), `Routes.razor`, `NotFound.razor`
+- **Perché**: scoperto verificando dal vivo B14 (non dal codice o da un test — un `curl` su un
+  URL inesistente). `Program.cs` configura
+  `UseStatusCodePagesWithReExecute("/not-found", ...)` per rieseguire la pipeline sulla pagina
+  "not found" quando qualunque richiesta produce 404. In pratica **non succede**: un URL
+  inesistente restituisce `HTTP 404` con `Content-Length: 0` — corpo completamente vuoto, non la
+  pagina localizzata. Confermato via `git log` che questa configurazione esisteva già prima di
+  questa sessione (introdotta in `6cf3d81`, poi condizionata a "non sotto `/hooks`" in `e1626f8`)
+  — non è una regressione di questo lotto. Navigare direttamente a `/not-found` invece funziona
+  perfettamente (200, pagina completa) — il problema è specificamente nella ri-esecuzione dopo
+  un 404, non nella pagina in sé.
+- **Ipotesi non verificata**: l'assenza di un `UseRouting()` esplicito lascia che ASP.NET Core lo
+  inserisca automaticamente in un punto che potrebbe non essere coerente con dove serve rispetto a
+  `UseWhen(...).UseStatusCodePagesWithReExecute(...)` — la correzione tipica per questo sintomo è
+  assicurarsi che il middleware delle status code pages sia registrato prima di `UseRouting()`.
+  Da verificare con un test mirato prima di cambiare la pipeline di produzione.
+- **Cosa**: non corretto in questa sessione — tocca l'ordine dei middleware HTTP centrali
+  (superficie sensibile, comune a *ogni* richiesta dell'app, non contenuta a una pagina), e non
+  rientra nello scope letterale di B14 (che riguardava `NotFound.razor` come componente). Richiede
+  una sessione dedicata con verifica attenta (idealmente un test di integrazione che chiami
+  l'app reale e verifichi lo status/corpo di un URL inesistente, così la correzione non regredisce
+  in futuro).
+- **Fatto quando**: un URL inesistente restituisce la pagina "not found" localizzata (corpo non
+  vuoto), status 404 mantenuto.
 
 ---
 
@@ -791,7 +889,7 @@ eseguirli.
 | 2 | **A4, A5** ✅ | Correttezza e operabilità: il messaggio perso è un difetto silenzioso, e si sistema in poche ore |
 | 3 | **A3** + **F1** ✅ | Lo storico conversazionale è la retention; il corpus del router lo protegge dalle regressioni |
 | 4 | **B1, B2, B3, B4, B6, B7** ✅ | Sei interventi visibili e circoscritti. B3 è il più importante: è la pagina a uso quotidiano |
-| 5 | **B5, B8, B9, B10, B11, B14** | Accessibilità, riscontro, tono. B8 è solo riscrittura di risorse |
+| 5 | **B5, B8, B9, B10, B11, B14** ✅ | Accessibilità, riscontro, tono. B8 è solo riscrittura di risorse. Scoperte due questioni non previste: B5's skip link è oscurato da `FocusOnNavigate` pre-esistente; il 404 reale (`UseStatusCodePagesWithReExecute`) è rotto da prima di questa sessione |
 | 6 | **F2** ✅ | I permessi, prima di aggiungere superficie che li usa — fatto fuori ordine, su richiesta esplicita, prima dei passi 4-5 (lotto B) |
 | 7 | **C3, C1** | Aggregazione e poi email: il canale che sostituisce WhatsApp |
 | 8 | **D3**, poi decisioni aperte 2 e 3, poi **D1, D4, D2, D5** | La telemetria prima del riassetto: si decide su dati, non a memoria |

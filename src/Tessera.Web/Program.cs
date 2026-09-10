@@ -201,6 +201,7 @@ builder.Services.AddScoped<ActorNameResolver>();
 builder.Services.AddScoped<AccountDeletionService>();
 builder.Services.AddScoped<OnboardingService>();
 builder.Services.AddScoped<UndoService>();
+builder.Services.AddScoped<ToastService>();
 builder.Services.AddSingleton(new IntentRouter(Matchers.All));
 
 // L3 fallback (docs/05-ottimizzazioni.md) — optional, like the Telegram pipeline below: the

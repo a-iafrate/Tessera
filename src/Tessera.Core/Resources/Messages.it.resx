@@ -220,6 +220,9 @@
   <data name="Reminders.ListEmpty" xml:space="preserve">
     <value>Nessun promemoria in sospeso</value>
   </data>
+  <data name="Reminders.PageEmpty" xml:space="preserve">
+    <value>Nessun promemoria in sospeso. Aggiungine uno qui sopra.</value>
+  </data>
   <data name="Reminders.ListItemLine" xml:space="preserve">
     <value>{0} — {1}</value>
   </data>
@@ -668,6 +671,12 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   <data name="Settings.ThemeDark" xml:space="preserve">
     <value>Scuro</value>
   </data>
+  <data name="NotFound.Title" xml:space="preserve">
+    <value>Pagina non trovata</value>
+  </data>
+  <data name="NotFound.Body" xml:space="preserve">
+    <value>La pagina che cerchi non esiste.</value>
+  </data>
   <data name="Support.Title" xml:space="preserve">
     <value>Assistenza</value>
   </data>
@@ -1079,6 +1088,9 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   <data name="Nav.ToggleMenu" xml:space="preserve">
     <value>Menu</value>
   </data>
+  <data name="Nav.SkipToContent" xml:space="preserve">
+    <value>Vai al contenuto</value>
+  </data>
   <data name="Profile.Title" xml:space="preserve">
     <value>Account</value>
   </data>
@@ -1246,6 +1258,9 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   </data>
   <data name="InviteMember.LinkGenerated" xml:space="preserve">
     <value>Link generato — condividilo con la persona che vuoi invitare (valido 7 giorni):</value>
+  </data>
+  <data name="InviteMember.LinkFieldLabel" xml:space="preserve">
+    <value>Link di invito</value>
   </data>
   <data name="InviteMember.CopyButton" xml:space="preserve">
     <value>Copia</value>
@@ -1606,6 +1621,9 @@ Provami subito:</value>
   <data name="Notes.Empty" xml:space="preserve">
     <value>Ancora nessuna nota.</value>
   </data>
+  <data name="Notes.PageEmpty" xml:space="preserve">
+    <value>Non ci sono ancora note. Salva la prima qui sopra, o dal bot.</value>
+  </data>
   <data name="Notes.TitlePlaceholder" xml:space="preserve">
     <value>Titolo (opzionale)</value>
   </data>
@@ -1633,11 +1651,26 @@ Provami subito:</value>
   <data name="Notes.GenericError" xml:space="preserve">
     <value>Qualcosa è andato storto. Riprova.</value>
   </data>
+  <data name="Notes.NoteAdded" xml:space="preserve">
+    <value>Nota salvata.</value>
+  </data>
+  <data name="Notes.NoteSaved" xml:space="preserve">
+    <value>Modifiche salvate.</value>
+  </data>
+  <data name="Notes.NoteDeleted" xml:space="preserve">
+    <value>Nota eliminata.</value>
+  </data>
   <data name="ShoppingList.PageTitle" xml:space="preserve">
     <value>Lista della spesa</value>
   </data>
   <data name="ShoppingList.Empty" xml:space="preserve">
     <value>La lista è vuota.</value>
+  </data>
+  <data name="ShoppingList.PageEmpty" xml:space="preserve">
+    <value>La lista è vuota. Aggiungi la prima voce qui sopra.</value>
+  </data>
+  <data name="ShoppingList.AddLabel" xml:space="preserve">
+    <value>Voce</value>
   </data>
   <data name="ShoppingList.AddPlaceholder" xml:space="preserve">
     <value>Aggiungi una voce...</value>
@@ -1666,6 +1699,21 @@ Provami subito:</value>
   <data name="ShoppingList.GenericError" xml:space="preserve">
     <value>Qualcosa è andato storto. Riprova.</value>
   </data>
+  <data name="ShoppingList.ItemAdded" xml:space="preserve">
+    <value>Aggiunto: {0}</value>
+  </data>
+  <data name="ShoppingList.ItemChecked" xml:space="preserve">
+    <value>Spuntato: {0}</value>
+  </data>
+  <data name="ShoppingList.ItemUnchecked" xml:space="preserve">
+    <value>Di nuovo in lista: {0}</value>
+  </data>
+  <data name="ShoppingList.ItemRemoved" xml:space="preserve">
+    <value>Rimosso: {0}</value>
+  </data>
+  <data name="ShoppingList.ListCleared" xml:space="preserve">
+    <value>Lista svuotata.</value>
+  </data>
   <data name="Expenses.PageTitle" xml:space="preserve">
     <value>Spese</value>
   </data>
@@ -1687,14 +1735,29 @@ Provami subito:</value>
   <data name="Expenses.Empty" xml:space="preserve">
     <value>Ancora nessuna spesa.</value>
   </data>
+  <data name="Expenses.PageEmpty" xml:space="preserve">
+    <value>Non ci sono ancora spese in questo spazio. Registra la prima qui sopra, o dal bot.</value>
+  </data>
   <data name="Expenses.GenericError" xml:space="preserve">
     <value>Qualcosa è andato storto. Riprova.</value>
+  </data>
+  <data name="Expenses.ExpenseRecorded" xml:space="preserve">
+    <value>Registrata: {0}</value>
   </data>
   <data name="Reminders.PageTitle" xml:space="preserve">
     <value>Promemoria</value>
   </data>
+  <data name="Reminders.TextLabel" xml:space="preserve">
+    <value>Promemoria</value>
+  </data>
   <data name="Reminders.TextPlaceholder" xml:space="preserve">
     <value>Di cosa vuoi essere avvisato?</value>
+  </data>
+  <data name="Reminders.DateLabel" xml:space="preserve">
+    <value>Data</value>
+  </data>
+  <data name="Reminders.TimeLabel" xml:space="preserve">
+    <value>Ora</value>
   </data>
   <data name="Reminders.AddButton" xml:space="preserve">
     <value>Aggiungi promemoria</value>
@@ -1704,6 +1767,12 @@ Provami subito:</value>
   </data>
   <data name="Reminders.GenericError" xml:space="preserve">
     <value>Qualcosa è andato storto. Riprova.</value>
+  </data>
+  <data name="Reminders.ReminderAdded" xml:space="preserve">
+    <value>Promemoria aggiunto: {0}</value>
+  </data>
+  <data name="Reminders.ReminderCompleted" xml:space="preserve">
+    <value>Fatto: {0}</value>
   </data>
   <data name="Calendars.PageTitle" xml:space="preserve">
     <value>Calendari</value>

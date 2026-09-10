@@ -44,6 +44,26 @@ a:hover { text-decoration: underline; }
   outline-offset: 2px;
 }
 
+/* Off-screen until focused — the first Tab stop on every page
+   (docs/13-piano-miglioramenti.md, B5). Positioned rather than the common
+   clip-to-1px trick: a fixed off-canvas position is simpler to reason about and doesn't rely
+   on overflow being hidden anywhere up the tree. */
+.skip-link {
+  position: absolute;
+  top: -3rem;
+  left: var(--space-4);
+  z-index: 100;
+  padding: var(--space-2) var(--space-4);
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+}
+
+.skip-link:focus {
+  top: var(--space-2);
+}
+
 .container {
   max-width: 72rem;
   margin: 0 auto;
@@ -128,6 +148,15 @@ a.card:hover { border-color: var(--clay); }
 .wordmark:hover { text-decoration: none; }
 
 .navbar nav { display: flex; align-items: center; gap: var(--space-4); }
+
+/* NavLink's ActiveClass (docs/13-piano-miglioramenti.md, B9) — weight and an underline, never
+   color alone, so the current page is still distinguishable for colorblind users
+   (docs/12-stile-sito.md#accessibilità, the same principle applied to permission badges). */
+.navbar nav a.nav-active {
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+}
 
 /* Hidden on desktop, where .navbar nav renders as a normal row. */
 .nav-toggle {
@@ -500,6 +529,37 @@ hr {
 .alert-danger { background: var(--paper-raised); border-color: var(--danger); color: var(--danger); }
 .alert-success { background: var(--paper-raised); border-color: var(--teal); color: var(--teal); }
 .alert-info { background: var(--paper-raised); border-color: var(--teal); color: var(--ink); }
+
+/* Transient confirmation/error for a write action (docs/13-piano-miglioramenti.md, B11) — never
+   shifts page content (fixed position), unlike the .alert- family above, which is still what a
+   persistent, page-level error uses. Bottom-center: doesn't collide with the top navbar or, on
+   mobile, get lost above the fold on a long page. */
+.toast {
+  position: fixed;
+  bottom: var(--space-6);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  max-width: calc(100vw - var(--space-8));
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+  background: var(--paper-raised);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  animation: toast-in var(--duration-base) var(--ease);
+}
+
+.toast-success { border-color: var(--teal); color: var(--teal); }
+.toast-error { border-color: var(--danger); color: var(--danger); }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(0.5rem); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
+}
 
 /* Usage meter (e.g. daily L3 calls used/limit) — a plain div bar rather than <progress>,
    since styling the native element consistently across browsers fights the design tokens

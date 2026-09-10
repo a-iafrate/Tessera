@@ -20,6 +20,7 @@
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JsRuntime
 @inject IServiceProvider ServiceProvider
+@inject ToastService ToastService
 @inject IStringLocalizer<Messages> Localizer
 
 <PageTitle>@Localizer["Expenses.PageTitle"]</PageTitle>
@@ -34,11 +35,6 @@
         <a href="/" class="text-soft">@Localizer["Common.BackToDashboard"]</a>
         <h1>@Localizer["Expenses.PageTitle"] — @space.Name</h1>
         <p class="text-soft">@Localizer["Expenses.ThisMonthTotal", MoneyFormatter.Format(monthlyTotal, currency, CultureInfo.CurrentUICulture.Name)]</p>
-
-        @if (errorMessage is not null)
-        {
-            <div class="alert alert-danger">@errorMessage</div>
-        }
 
         @if (canWrite)
         {
@@ -73,7 +69,7 @@
 
         @if (recent.Count == 0)
         {
-            <p class="text-soft">@Localizer["Expenses.Empty"]</p>
+            <p class="text-soft">@Localizer["Expenses.PageEmpty"]</p>
         }
         else
         {
@@ -116,7 +112,6 @@
     private Guid? newCategoryId;
     private string newMerchant = "";
     private DateOnly newDate = DateOnly.FromDateTime(DateTime.Today);
-    private string? errorMessage;
     private Dictionary<Guid, IReadOnlyList<Attachment>> attachmentsByExpense = [];
 
     // Attachments are conditionally registered (Program.cs — only when BlobStorage:ConnectionString
@@ -182,21 +177,22 @@
         }
 
         isBusy = true;
-        errorMessage = null;
+        var recordedAmount = newAmount.Value;
         try
         {
             await ExpenseService.RecordAsync(
-                SpaceId, userId, newAmount.Value, newCategoryId,
+                SpaceId, userId, recordedAmount, newCategoryId,
                 string.IsNullOrWhiteSpace(newMerchant) ? null : newMerchant.Trim(), newDate, note: null, CancellationToken.None);
             newAmount = null;
             newCategoryId = null;
             newMerchant = "";
             newDate = DateOnly.FromDateTime(DateTime.Today);
             await ReloadAsync();
+            ToastService.ShowSuccess(Localizer["Expenses.ExpenseRecorded", MoneyFormatter.Format(recordedAmount, currency, CultureInfo.CurrentUICulture.Name)]);
         }
         catch (UnauthorizedAccessException)
         {
-            errorMessage = Localizer["Expenses.GenericError"];
+            ToastService.ShowError(Localizer["Expenses.GenericError"]);
         }
         finally
         {

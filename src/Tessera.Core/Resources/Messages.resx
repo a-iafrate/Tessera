@@ -220,6 +220,9 @@
   <data name="Reminders.ListEmpty" xml:space="preserve">
     <value>No pending reminders</value>
   </data>
+  <data name="Reminders.PageEmpty" xml:space="preserve">
+    <value>No pending reminders. Add one above.</value>
+  </data>
   <data name="Reminders.ListItemLine" xml:space="preserve">
     <value>{0} — {1}</value>
   </data>
@@ -668,6 +671,12 @@ Note: I only read messages that start with / or mention me.</value>
   <data name="Settings.ThemeDark" xml:space="preserve">
     <value>Dark</value>
   </data>
+  <data name="NotFound.Title" xml:space="preserve">
+    <value>Page not found</value>
+  </data>
+  <data name="NotFound.Body" xml:space="preserve">
+    <value>Sorry, the page you're looking for doesn't exist.</value>
+  </data>
   <data name="Support.Title" xml:space="preserve">
     <value>Support</value>
   </data>
@@ -1079,6 +1088,9 @@ Note: I only read messages that start with / or mention me.</value>
   <data name="Nav.ToggleMenu" xml:space="preserve">
     <value>Menu</value>
   </data>
+  <data name="Nav.SkipToContent" xml:space="preserve">
+    <value>Skip to content</value>
+  </data>
   <data name="Profile.Title" xml:space="preserve">
     <value>Account</value>
   </data>
@@ -1246,6 +1258,9 @@ Note: I only read messages that start with / or mention me.</value>
   </data>
   <data name="InviteMember.LinkGenerated" xml:space="preserve">
     <value>Link generated — share it with the person you want to invite (valid 7 days):</value>
+  </data>
+  <data name="InviteMember.LinkFieldLabel" xml:space="preserve">
+    <value>Invite link</value>
   </data>
   <data name="InviteMember.CopyButton" xml:space="preserve">
     <value>Copy</value>
@@ -1606,6 +1621,9 @@ Try it now:</value>
   <data name="Notes.Empty" xml:space="preserve">
     <value>No notes yet.</value>
   </data>
+  <data name="Notes.PageEmpty" xml:space="preserve">
+    <value>No notes yet. Save the first one above, or from the bot.</value>
+  </data>
   <data name="Notes.TitlePlaceholder" xml:space="preserve">
     <value>Title (optional)</value>
   </data>
@@ -1633,11 +1651,26 @@ Try it now:</value>
   <data name="Notes.GenericError" xml:space="preserve">
     <value>Something went wrong. Please try again.</value>
   </data>
+  <data name="Notes.NoteAdded" xml:space="preserve">
+    <value>Note saved.</value>
+  </data>
+  <data name="Notes.NoteSaved" xml:space="preserve">
+    <value>Changes saved.</value>
+  </data>
+  <data name="Notes.NoteDeleted" xml:space="preserve">
+    <value>Note deleted.</value>
+  </data>
   <data name="ShoppingList.PageTitle" xml:space="preserve">
     <value>Shopping list</value>
   </data>
   <data name="ShoppingList.Empty" xml:space="preserve">
     <value>The list is empty.</value>
+  </data>
+  <data name="ShoppingList.PageEmpty" xml:space="preserve">
+    <value>The list is empty. Add the first item above.</value>
+  </data>
+  <data name="ShoppingList.AddLabel" xml:space="preserve">
+    <value>Item</value>
   </data>
   <data name="ShoppingList.AddPlaceholder" xml:space="preserve">
     <value>Add an item...</value>
@@ -1666,6 +1699,21 @@ Try it now:</value>
   <data name="ShoppingList.GenericError" xml:space="preserve">
     <value>Something went wrong. Please try again.</value>
   </data>
+  <data name="ShoppingList.ItemAdded" xml:space="preserve">
+    <value>Added: {0}</value>
+  </data>
+  <data name="ShoppingList.ItemChecked" xml:space="preserve">
+    <value>Checked off: {0}</value>
+  </data>
+  <data name="ShoppingList.ItemUnchecked" xml:space="preserve">
+    <value>Back on the list: {0}</value>
+  </data>
+  <data name="ShoppingList.ItemRemoved" xml:space="preserve">
+    <value>Removed: {0}</value>
+  </data>
+  <data name="ShoppingList.ListCleared" xml:space="preserve">
+    <value>List cleared.</value>
+  </data>
   <data name="Expenses.PageTitle" xml:space="preserve">
     <value>Expenses</value>
   </data>
@@ -1687,14 +1735,29 @@ Try it now:</value>
   <data name="Expenses.Empty" xml:space="preserve">
     <value>No expenses yet.</value>
   </data>
+  <data name="Expenses.PageEmpty" xml:space="preserve">
+    <value>No expenses recorded yet in this space. Log the first one above, or from the bot.</value>
+  </data>
   <data name="Expenses.GenericError" xml:space="preserve">
     <value>Something went wrong. Please try again.</value>
+  </data>
+  <data name="Expenses.ExpenseRecorded" xml:space="preserve">
+    <value>Recorded: {0}</value>
   </data>
   <data name="Reminders.PageTitle" xml:space="preserve">
     <value>Reminders</value>
   </data>
+  <data name="Reminders.TextLabel" xml:space="preserve">
+    <value>Reminder</value>
+  </data>
   <data name="Reminders.TextPlaceholder" xml:space="preserve">
     <value>What do you want to be reminded of?</value>
+  </data>
+  <data name="Reminders.DateLabel" xml:space="preserve">
+    <value>Date</value>
+  </data>
+  <data name="Reminders.TimeLabel" xml:space="preserve">
+    <value>Time</value>
   </data>
   <data name="Reminders.AddButton" xml:space="preserve">
     <value>Add reminder</value>
@@ -1704,6 +1767,12 @@ Try it now:</value>
   </data>
   <data name="Reminders.GenericError" xml:space="preserve">
     <value>Something went wrong. Please try again.</value>
+  </data>
+  <data name="Reminders.ReminderAdded" xml:space="preserve">
+    <value>Reminder added: {0}</value>
+  </data>
+  <data name="Reminders.ReminderCompleted" xml:space="preserve">
+    <value>Done: {0}</value>
   </data>
   <data name="Calendars.PageTitle" xml:space="preserve">
     <value>Calendars</value>

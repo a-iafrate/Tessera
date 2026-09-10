@@ -18,6 +18,7 @@
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JsRuntime
 @inject IServiceProvider ServiceProvider
+@inject ToastService ToastService
 @inject IStringLocalizer<Messages> Localizer
 
 <PageTitle>@Localizer["Notes.PageTitle"]</PageTitle>
@@ -31,11 +32,6 @@
     {
         <a href="/" class="text-soft">@Localizer["Common.BackToDashboard"]</a>
         <h1>@Localizer["Notes.PageTitle"] — @space.Name</h1>
-
-        @if (errorMessage is not null)
-        {
-            <div class="alert alert-danger">@errorMessage</div>
-        }
 
         @if (canWrite)
         {
@@ -61,7 +57,7 @@
 
         @if (notes.Count == 0)
         {
-            <p class="text-soft">@Localizer["Notes.Empty"]</p>
+            <p class="text-soft">@Localizer["Notes.PageEmpty"]</p>
         }
         else
         {
@@ -137,7 +133,6 @@
     private Guid? editingNoteId;
     private string editTitle = "";
     private string editBody = "";
-    private string? errorMessage;
     private Dictionary<Guid, IReadOnlyList<Attachment>> attachmentsByNote = [];
 
     // Attachments are conditionally registered (Program.cs — only when BlobStorage:AccountName
@@ -200,17 +195,17 @@
         }
 
         isBusy = true;
-        errorMessage = null;
         try
         {
             await NoteService.CreateAsync(SpaceId, userId, string.IsNullOrWhiteSpace(newTitle) ? null : newTitle.Trim(), newBody.Trim(), CancellationToken.None);
             newTitle = "";
             newBody = "";
             await ReloadAsync();
+            ToastService.ShowSuccess(Localizer["Notes.NoteAdded"]);
         }
         catch (UnauthorizedAccessException)
         {
-            errorMessage = Localizer["Notes.GenericError"];
+            ToastService.ShowError(Localizer["Notes.GenericError"]);
         }
         finally
         {
@@ -238,16 +233,16 @@
         }
 
         isBusy = true;
-        errorMessage = null;
         try
         {
             await NoteService.UpdateAsync(SpaceId, userId, noteId, string.IsNullOrWhiteSpace(editTitle) ? null : editTitle.Trim(), editBody.Trim(), CancellationToken.None);
             editingNoteId = null;
             await ReloadAsync();
+            ToastService.ShowSuccess(Localizer["Notes.NoteSaved"]);
         }
         catch (UnauthorizedAccessException)
         {
-            errorMessage = Localizer["Notes.GenericError"];
+            ToastService.ShowError(Localizer["Notes.GenericError"]);
         }
         finally
         {
@@ -264,7 +259,6 @@
 
         isBusy = true;
         StateHasChanged();
-        errorMessage = null;
         try
         {
             await NoteService.DeleteAsync(SpaceId, userId, noteId, CancellationToken.None);
@@ -274,10 +268,11 @@
             }
 
             await ReloadAsync();
+            ToastService.ShowSuccess(Localizer["Notes.NoteDeleted"]);
         }
         catch (UnauthorizedAccessException)
         {
-            errorMessage = Localizer["Notes.GenericError"];
+            ToastService.ShowError(Localizer["Notes.GenericError"]);
         }
         finally
         {

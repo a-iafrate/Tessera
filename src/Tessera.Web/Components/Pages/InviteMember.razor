@@ -25,7 +25,8 @@
         <div class="card">
             <p>@Localizer["InviteMember.LinkGenerated"]</p>
             <div style="display: flex; gap: var(--space-2);">
-                <input readonly value="@inviteLink" style="flex: 1; padding: var(--space-2); font-family: var(--font-mono); border: 1px solid var(--line); border-radius: var(--radius-sm);" onclick="this.select()" />
+                <input readonly value="@inviteLink" class="form-control" aria-label="@Localizer["InviteMember.LinkFieldLabel"]"
+                       style="flex: 1; font-family: var(--font-mono);" onclick="this.select()" />
                 <button type="button" class="btn btn-secondary" @onclick="CopyLinkAsync">
                     @(justCopied ? Localizer["InviteMember.CopiedButton"] : Localizer["InviteMember.CopyButton"])
                 </button>

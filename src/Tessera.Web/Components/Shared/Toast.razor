@@ -1,0 +1,53 @@
+@implements IDisposable
+@inject ToastService ToastService
+
+@if (current is not null)
+{
+    <div class="toast toast-@(current.Kind == ToastKind.Success ? "success" : "error")"
+         role="@(current.Kind == ToastKind.Success ? "status" : "alert")">
+        @current.Text
+    </div>
+}
+
+@code {
+    // Renders once, in MainLayout, regardless of which page is routed — a page just raises
+    // ToastService.ShowSuccess/ShowError after a write instead of rendering its own transient
+    // alert (docs/13-piano-miglioramenti.md, B11).
+    private ToastMessage? current;
+    private CancellationTokenSource? dismissCts;
+
+    protected override void OnInitialized()
+    {
+        ToastService.OnShow += Show;
+    }
+
+    private void Show(ToastMessage message)
+    {
+        dismissCts?.Cancel();
+        dismissCts = new CancellationTokenSource();
+        current = message;
+        _ = InvokeAsync(StateHasChanged);
+        _ = DismissAfterDelayAsync(dismissCts.Token);
+    }
+
+    private async Task DismissAfterDelayAsync(CancellationToken ct)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(4), ct);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        current = null;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        ToastService.OnShow -= Show;
+        dismissCts?.Cancel();
+    }
+}
