@@ -7,6 +7,7 @@ using Azure.Security.KeyVault.Secrets;
 using Azure.Storage.Blobs;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Localization;
@@ -504,12 +505,30 @@ if (!app.Environment.IsDevelopment())
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
+// Registered unconditionally, not wrapped in UseWhen(...) as it was before
+// (docs/13-piano-miglioramenti.md, B16): branching the middleware itself through UseWhen
+// silently broke the re-execution entirely — verified live that every 404, on any path,
+// came back with an empty body instead of the "/not-found" page. Opting a path out (below)
+// through IStatusCodePagesFeature is the mechanism ASP.NET Core actually supports for this.
+app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+
 // Webhooks are machine-to-machine: a 401/404 there must stay that status code, not be
 // rewritten into the Blazor "/not-found" page (whose own antiforgery check then rejects
 // the JSON body and masks the original status with a 400).
-app.UseWhen(
-    ctx => !ctx.Request.Path.StartsWithSegments("/hooks"),
-    branch => branch.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true));
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/hooks"))
+    {
+        var statusCodePagesFeature = context.Features.Get<IStatusCodePagesFeature>();
+        if (statusCodePagesFeature is not null)
+        {
+            statusCodePagesFeature.Enabled = false;
+        }
+    }
+
+    await next();
+});
+
 app.UseHttpsRedirection();
 
 app.UseAuthentication();

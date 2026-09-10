@@ -503,9 +503,9 @@ distinti, uno stesso intervento.
   restando sulla stessa risorsa, più un breadcrumb "Spazi › Casa › Lista della spesa".
 - **Fatto quando**: si passa dalla lista di uno spazio a quella di un altro con un'interazione.
 
-### B16 — Il 404 reale restituisce una pagina vuota (scoperto durante B14, non corretto)
+### B16 — Il 404 reale restituisce una pagina vuota ✅
 
-- [ ] **Dove**: `Program.cs` (pipeline HTTP — `UseWhen`/`UseStatusCodePagesWithReExecute`, nessun
+- [x] **Dove**: `Program.cs` (pipeline HTTP — `UseWhen`/`UseStatusCodePagesWithReExecute`, nessun
   `UseRouting()` esplicito), `Routes.razor`, `NotFound.razor`
 - **Perché**: scoperto verificando dal vivo B14 (non dal codice o da un test — un `curl` su un
   URL inesistente). `Program.cs` configura
@@ -530,6 +530,19 @@ distinti, uno stesso intervento.
   in futuro).
 - **Fatto quando**: un URL inesistente restituisce la pagina "not found" localizzata (corpo non
   vuoto), status 404 mantenuto.
+- **Causa trovata e corretta**: non era l'assenza di `UseRouting()` esplicito (provato per primo,
+  non ha cambiato nulla). La causa reale è `UseWhen(...)` che avvolge
+  `UseStatusCodePagesWithReExecute` — verificato empiricamente (build, avvio, richiesta,
+  ripeti) che registrare il middleware **fuori** da `UseWhen` risolve immediatamente la
+  ri-esecuzione, mentre incapsularlo in un branch `UseWhen` la rompe silenziosamente del tutto
+  (nessuna traccia nei log, nemmeno con logging di routing a livello Debug). L'esclusione per
+  `/hooks` — il motivo per cui `UseWhen` era lì — ora si ottiene con il meccanismo che ASP.NET
+  Core offre proprio per questo: un middleware che, solo per i path sotto `/hooks`, imposta
+  `context.Features.Get<IStatusCodePagesFeature>().Enabled = false` prima di proseguire.
+  Verificato dal vivo entrambi i casi: un URL inesistente ora restituisce 404 con 8 KB di corpo
+  (la pagina "Page not found" completa); una POST a `/hooks/telegram` senza il secret token
+  resta un 400 con corpo di testo semplice, non riscritta nella pagina di errore. Nessun altro
+  percorso (home, pricing, `/health`, login) risulta toccato dal riordino.
 
 ---
 
