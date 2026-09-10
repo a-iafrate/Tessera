@@ -435,9 +435,9 @@ distinti, uno stesso intervento.
   dal vivo: "Added: Yogurt" poi "Checked off: Yogurt" compaiono e scompaiono correttamente senza
   spostare il contenuto della pagina.
 
-### B12 — Le pagine pubbliche non si possono cambiare di lingua
+### B12 — Le pagine pubbliche non si possono cambiare di lingua ✅
 
-- [ ] **Dove**: `MainLayout.razor` (footer), `AuthenticatedUserRequestCultureProvider`
+- [x] **Dove**: `MainLayout.razor` (footer), `AuthenticatedUserRequestCultureProvider`
 - **Perché**: il selettore di lingua è nel profilo, quindi dietro il login. Un visitatore italiano
   che arriva su una pagina servita in inglese — o viceversa — non ha modo di cambiarla, sulle
   stesse pagine che [06-roadmap.md](06-roadmap.md) elenca come prerequisito per la verification
@@ -447,6 +447,22 @@ distinti, uno stesso intervento.
   richiesto da [09-localizzazione.md](09-localizzazione.md)).
 - **Fatto quando**: un visitatore non autenticato cambia lingua e la scelta sopravvive alla
   navigazione.
+- **Fatto**: nuovo endpoint `GET /set-culture?culture=it|en&returnUrl=...` (`CultureEndpoints.cs`)
+  — scrive il cookie standard `CookieRequestCultureProvider` sempre, e in più aggiorna
+  `User.PreferredCulture` se la richiesta è autenticata (stesso metodo
+  `UserProvisioningService.SetPreferredCultureAsync` già usato da `/language` sul bot e da
+  `Profile.razor`). `Results.LocalRedirect`, non `Redirect`: `returnUrl` arriva dalla query
+  string di un endpoint anonimo, un redirect aperto sarebbe un vettore di phishing.
+  `CookieRequestCultureProvider` aggiunto a `RequestCultureProviders`, in mezzo — dopo la
+  preferenza DB (che resta la fonte di verità da autenticati) e prima di `Accept-Language`.
+  Selettore "English"/"Italiano" nel footer (nomi non tradotti, stessa convenzione già in uso
+  nel `<select>` di `Profile.razor`), stato attivo segnato con peso/sottolineatura come
+  `.nav-active`. Verificato dal vivo: click su "Italiano" → contenuto in italiano, cookie
+  `c=it|uic=it` impostato, navigazione a `/pricing` mantiene l'italiano.
+- **Trovato verificando dal vivo, corretto nello stesso intervento**: `<html lang="en">` in
+  `App.razor` era fisso, indipendente dalla cultura reale della richiesta — uno screen reader
+  annunciava una pagina in italiano come se fosse inglese. Ora legge
+  `CultureInfo.CurrentUICulture` (già negoziata dal middleware quando `App.razor` renderizza).
 
 ### B13 — Stili inline al posto delle classi
 

@@ -1,5 +1,5 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html lang="@CurrentCulture.TwoLetterISOLanguageName">
 
 <head>
     <meta charset="utf-8" />
@@ -69,6 +69,13 @@
 @code {
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
+
+    // CultureInfo.CurrentUICulture is already the request's negotiated culture by the time this
+    // renders — UseRequestLocalization runs well before MapRazorComponents in Program.cs.
+    // Previously hardcoded to "en" regardless of the actual page language (found verifying
+    // B12, docs/13-piano-miglioramenti.md): a screen reader has no way to pick the right
+    // pronunciation for an Italian page announced as English.
+    private static System.Globalization.CultureInfo CurrentCulture => System.Globalization.CultureInfo.CurrentUICulture;
 
     // Identity's Account pages are [ExcludeFromInteractiveRouting] (docs: they need the
     // real HttpContext to set auth cookies, which isn't available over a SignalR circuit).

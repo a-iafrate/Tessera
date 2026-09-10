@@ -153,6 +153,11 @@ builder.Services.Configure<RequestLocalizationOptions>(options =>
     options.RequestCultureProviders =
     [
         new AuthenticatedUserRequestCultureProvider(),
+        // The footer language switcher (docs/13-piano-miglioramenti.md, B12) writes this cookie
+        // via /set-culture for a visitor who isn't signed in yet — checked after the DB
+        // preference above (which stays the source of truth once signed in) and before the
+        // browser's Accept-Language, so an explicit choice always beats an implicit one.
+        new CookieRequestCultureProvider(),
         new AcceptLanguageHeaderRequestCultureProvider(),
     ];
 });
@@ -547,6 +552,7 @@ app.MapRazorComponents<App>()
 
 // Additional endpoints required by the Identity /Account Razor components.
 app.MapAdditionalIdentityEndpoints();
+app.MapCultureEndpoints();
 
 app.MapHealthChecks("/health").AllowAnonymous();
 

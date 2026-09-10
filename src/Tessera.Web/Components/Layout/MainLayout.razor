@@ -1,5 +1,6 @@
 @inherits LayoutComponentBase
 @implements IDisposable
+@using System.Globalization
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.EntityFrameworkCore
@@ -56,6 +57,10 @@
     <a href="/support">@Localizer["Nav.Support"]</a>
     <a href="/privacy">@Localizer["Nav.Privacy"]</a>
     <a href="/terms">@Localizer["Nav.Terms"]</a>
+    <span class="footer-lang">
+        <a href="@CultureLink("en")" class="@(IsCurrentCulture("en") ? "footer-lang-active" : "")" aria-current="@(IsCurrentCulture("en") ? "true" : null)">English</a>
+        <a href="@CultureLink("it")" class="@(IsCurrentCulture("it") ? "footer-lang-active" : "")" aria-current="@(IsCurrentCulture("it") ? "true" : null)">Italiano</a>
+    </span>
 </footer>
 
 <div id="blazor-error-ui" data-nosnippet>
@@ -74,6 +79,18 @@
     private DotNetObjectReference<MainLayout>? dotNetRef;
 
     private void ToggleMenu() => isMenuOpen = !isMenuOpen;
+
+    // Each language shown in its own name ("English"/"Italiano"), never translated — the same
+    // convention Profile.razor's own culture <select> already uses, and the only sane one for
+    // a language picker: a visitor has to recognize their own language's name regardless of
+    // whichever language happens to be active right now.
+    private bool IsCurrentCulture(string culture) =>
+        string.Equals(CultureInfo.CurrentUICulture.TwoLetterISOLanguageName, culture, StringComparison.OrdinalIgnoreCase);
+
+    // GET, not a click handler — this needs a real navigation (see /set-culture,
+    // docs/13-piano-miglioramenti.md B12), so it's built as a plain link, not @onclick.
+    private string CultureLink(string culture) =>
+        $"/set-culture?culture={culture}&returnUrl={Uri.EscapeDataString(new Uri(NavigationManager.Uri).PathAndQuery)}";
 
     // Escape closes the menu whenever focus is anywhere inside the navbar — the toggle button
     // right after opening it, or a link inside the open <nav> itself (docs/13-piano-miglioramenti.md,
