@@ -27,7 +27,9 @@
     else
     {
         <a href="/" class="text-soft">@Localizer["Common.BackToDashboard"]</a>
-        <h1>@Localizer["SpaceCalendars.PageTitle"] — @space.Name</h1>
+        <SpaceResourceHeader SpaceId="SpaceId" UserId="userId" Resource="ResourceKind.Calendar"
+                              RouteSegment="calendars" ResourceTitleKey="SpaceCalendars.PageTitle"
+                              MinLevel="AccessLevel.Availability" />
 
         @if (calendarSpace is null)
         {

@@ -29,7 +29,8 @@
     else
     {
         <a href="/" class="text-soft">@Localizer["Common.BackToDashboard"]</a>
-        <h1>@Localizer["ShoppingList.PageTitle"] — @space.Name</h1>
+        <SpaceResourceHeader SpaceId="SpaceId" UserId="userId" Resource="ResourceKind.ShoppingList"
+                              RouteSegment="shopping-list" ResourceTitleKey="ShoppingList.PageTitle" />
 
         @if (canWrite)
         {

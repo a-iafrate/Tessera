@@ -31,7 +31,8 @@
     else
     {
         <a href="/" class="text-soft">@Localizer["Common.BackToDashboard"]</a>
-        <h1>@Localizer["Notes.PageTitle"] — @space.Name</h1>
+        <SpaceResourceHeader SpaceId="SpaceId" UserId="userId" Resource="ResourceKind.Notes"
+                              RouteSegment="notes" ResourceTitleKey="Notes.PageTitle" />
 
         @if (canWrite)
         {

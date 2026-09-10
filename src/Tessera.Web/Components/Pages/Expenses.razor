@@ -33,7 +33,8 @@
     else
     {
         <a href="/" class="text-soft">@Localizer["Common.BackToDashboard"]</a>
-        <h1>@Localizer["Expenses.PageTitle"] — @space.Name</h1>
+        <SpaceResourceHeader SpaceId="SpaceId" UserId="userId" Resource="ResourceKind.Expenses"
+                              RouteSegment="expenses" ResourceTitleKey="Expenses.PageTitle" />
         <p class="text-soft">@Localizer["Expenses.ThisMonthTotal", MoneyFormatter.Format(monthlyTotal, currency, CultureInfo.CurrentUICulture.Name)]</p>
 
         @if (canWrite)

@@ -713,6 +713,12 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   <data name="Common.BackToDashboard" xml:space="preserve">
     <value>← Torna alla dashboard</value>
   </data>
+  <data name="Common.BreadcrumbLabel" xml:space="preserve">
+    <value>Percorso</value>
+  </data>
+  <data name="Common.SwitchSpace" xml:space="preserve">
+    <value>Cambia spazio:</value>
+  </data>
   <data name="Spaces.Title" xml:space="preserve">
     <value>I tuoi spazi</value>
   </data>

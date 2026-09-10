@@ -642,3 +642,44 @@ hr {
 }
 
 .btn-link:hover { text-decoration: underline; opacity: 1; }
+
+/* SpaceResourceHeader (docs/13-piano-miglioramenti.md, B15) — breadcrumb trail plus the
+   space-switching <select>, shared by every page rooted at /spaces/{id}/... */
+.space-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  margin: var(--space-2) 0 var(--space-4);
+}
+
+.space-breadcrumb a { color: var(--ink-soft); }
+.space-breadcrumb a:hover { color: var(--link); }
+.space-breadcrumb-sep { color: var(--line); }
+
+.space-header-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.space-header-row h1 { margin-bottom: 0; }
+
+.space-switcher-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+
+.space-switcher-label select {
+  width: auto;
+  min-width: 10rem;
+}

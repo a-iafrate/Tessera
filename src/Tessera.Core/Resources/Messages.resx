@@ -713,6 +713,12 @@ Note: I only read messages that start with / or mention me.</value>
   <data name="Common.BackToDashboard" xml:space="preserve">
     <value>← Back to dashboard</value>
   </data>
+  <data name="Common.BreadcrumbLabel" xml:space="preserve">
+    <value>Breadcrumb</value>
+  </data>
+  <data name="Common.SwitchSpace" xml:space="preserve">
+    <value>Switch space:</value>
+  </data>
   <data name="Spaces.Title" xml:space="preserve">
     <value>Your spaces</value>
   </data>

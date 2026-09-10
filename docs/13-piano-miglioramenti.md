@@ -508,9 +508,9 @@ distinti, uno stesso intervento.
   potenzialmente delicato, ed è fuori dallo scope letterale di B14. Segnalato all'utente
   separatamente per decidere se e quando intervenire.
 
-### B15 — Nessun contesto di spazio persistente
+### B15 — Nessun contesto di spazio persistente ✅
 
-- [ ] **Dove**: `MainLayout.razor`, pagine sotto `/spaces/{id}/...`
+- [x] **Dove**: `MainLayout.razor`, pagine sotto `/spaces/{id}/...`
 - **Perché**: dentro `/spaces/{id}/shopping-list` l'unico riferimento allo spazio è nell'`<h1>` e
   l'unica uscita è "torna alla dashboard". Con più spazi — il caso normale del prodotto secondo
   [02-modello-dati.md](02-modello-dati.md#condivisibile-per-costruzione) — passare dalla lista di
@@ -518,6 +518,28 @@ distinti, uno stesso intervento.
 - **Cosa**: selettore di spazio nell'intestazione delle pagine con `SpaceId`, che cambia spazio
   restando sulla stessa risorsa, più un breadcrumb "Spazi › Casa › Lista della spesa".
 - **Fatto quando**: si passa dalla lista di uno spazio a quella di un altro con un'interazione.
+- **Fatto**: nuovo componente condiviso `Components/Shared/SpaceResourceHeader.razor` — breadcrumb
+  "Your spaces › {Spazio} › {Risorsa}" più un `<select>` che elenca ogni altro spazio dove
+  l'utente ha almeno il livello minimo richiesto per quella risorsa (calcolato con
+  `AccessPolicy.CanAsync` per ciascuno spazio di appartenenza, non solo quello corrente).
+  Collegato a `ShoppingList`, `Reminders`, `Expenses`, `Notes` (tutti a `AccessLevel.Read`) e
+  `SpaceCalendars` (a `AccessLevel.Availability`, coerente con il minimo che la pagina stessa già
+  richiede per essere visibile). **`SpaceUsage` e `InviteMember` esclusi deliberatamente**: la
+  prima è una pagina da proprietario legata all'abbonamento, non un `ResourceKind` condiviso; la
+  seconda è un'azione singola, non una vista ricorrente — includerle avrebbe richiesto piegare il
+  modello del componente a un caso che il testo del lotto non cita esplicitamente.
+- **Bug trovato e corretto tramite verifica dal vivo con due spazi reali**: la prima versione
+  navigava con `NavigationManager.NavigateTo` senza `forceLoad`, e la pagina restava
+  visivamente "congelata" sui dati del vecchio spazio nonostante l'URL cambiasse correttamente
+  — confermato con un reload manuale della stessa pagina, che mostrava i dati giusti. Causa:
+  tutte le pagine sotto `/spaces/{id}/...` caricano i propri dati in `OnInitializedAsync`, che
+  Blazor **non rilancia** quando si naviga fra due URL che risolvono allo stesso componente
+  instradato con un parametro diverso — solo `OnParametersSetAsync` (che il nuovo componente usa
+  correttamente) viene richiamato. Corretto con `forceLoad: true` sulla navigazione dello
+  switcher: un reload completo, ma comunque un solo passaggio invece dei due (dashboard → spazio)
+  che sostituisce. Non ho toccato le pagine esistenti per spostare il caricamento dati in
+  `OnParametersSetAsync` — sarebbe la correzione più organica ma tocca cinque pagine con logica
+  già consolidata, fuori da quanto B15 chiedeva.
 
 ### B16 — Il 404 reale restituisce una pagina vuota ✅
 

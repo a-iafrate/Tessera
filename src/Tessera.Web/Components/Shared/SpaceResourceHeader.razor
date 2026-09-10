@@ -1,0 +1,113 @@
+@using Microsoft.Extensions.Localization
+@using Tessera.Core.Abstractions
+@using Tessera.Core.Resources
+@using Tessera.Core.Spaces
+@using Tessera.Data
+
+@inject SpaceService SpaceService
+@inject IAccessPolicy AccessPolicy
+@inject NavigationManager NavigationManager
+@inject IStringLocalizer<Messages> Localizer
+
+@* Replaces a bare <h1>{Resource} — {space.Name}</h1> on every page rooted at
+   /spaces/{SpaceId}/... (docs/13-piano-miglioramenti.md, B15): with more than one space — the
+   normal case, not the exception (docs/02-modello-dati.md, "condivisibile per costruzione") —
+   the only way to go from Casa's shopping list to Personale's was back to the dashboard and in
+   again. The breadcrumb states where you are; the <select> moves to the same resource in a
+   different space without leaving it. *@
+@if (currentSpace is not null)
+{
+    <nav class="space-breadcrumb" aria-label="@Localizer["Common.BreadcrumbLabel"]">
+        <a href="/spaces">@Localizer["Nav.YourSpaces"]</a>
+        <span class="space-breadcrumb-sep" aria-hidden="true">›</span>
+        <a href="@($"/spaces/{SpaceId}")">@currentSpace.Name</a>
+        <span class="space-breadcrumb-sep" aria-hidden="true">›</span>
+        <span>@Localizer[ResourceTitleKey]</span>
+    </nav>
+
+    <div class="space-header-row">
+        <h1>@Localizer[ResourceTitleKey] — @currentSpace.Name</h1>
+
+        @if (otherSpaces.Count > 0)
+        {
+            <label class="space-switcher-label" for="space-switcher">
+                @Localizer["Common.SwitchSpace"]
+                <select id="space-switcher" class="form-control" @onchange="OnSpaceChanged">
+                    <option value="@SpaceId">@currentSpace.Name</option>
+                    @foreach (var other in otherSpaces)
+                    {
+                        <option value="@other.Id">@other.Name</option>
+                    }
+                </select>
+            </label>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public Guid SpaceId { get; set; }
+
+    [Parameter, EditorRequired]
+    public Guid UserId { get; set; }
+
+    [Parameter, EditorRequired]
+    public ResourceKind Resource { get; set; }
+
+    // The path segment right after /spaces/{id}/ for this page — "shopping-list", "reminders",
+    // etc. — so switching spaces can rebuild the same resource's URL for the new one.
+    [Parameter, EditorRequired]
+    public string RouteSegment { get; set; } = "";
+
+    [Parameter, EditorRequired]
+    public string ResourceTitleKey { get; set; } = "";
+
+    // Matches whatever minimum each page itself already enforces to be viewable at all —
+    // AccessLevel.Read for most resources, but AccessLevel.Availability for calendars
+    // (docs/07-compliance.md: freebusy-only access is a real, valid case that shouldn't be
+    // excluded from the switcher just because it can't see event details).
+    [Parameter]
+    public AccessLevel MinLevel { get; set; } = AccessLevel.Read;
+
+    private Space? currentSpace;
+    private List<Space> otherSpaces = [];
+
+    // OnParametersSetAsync, not OnInitializedAsync: SpaceId comes from the parent page's own
+    // route parameter, and Blazor reuses this component instance across a same-page space
+    // switch rather than recreating it, so this has to re-run whenever SpaceId changes.
+    protected override async Task OnParametersSetAsync()
+    {
+        currentSpace = await SpaceService.GetByIdAsync(SpaceId, UserId, CancellationToken.None);
+
+        var memberSpaces = await SpaceService.GetForUserAsync(UserId, CancellationToken.None);
+        var others = new List<Space>();
+        foreach (var candidate in memberSpaces)
+        {
+            if (candidate.Id == SpaceId)
+            {
+                continue;
+            }
+
+            if (await AccessPolicy.CanAsync(UserId, candidate.Id, Resource, MinLevel, CancellationToken.None))
+            {
+                others.Add(candidate);
+            }
+        }
+
+        otherSpaces = others;
+    }
+
+    private void OnSpaceChanged(ChangeEventArgs e)
+    {
+        if (Guid.TryParse(e.Value?.ToString(), out var newSpaceId) && newSpaceId != SpaceId)
+        {
+            // forceLoad: true — verified live that without it, Blazor Server reuses this same
+            // routed page instance across a same-route-pattern navigation (only SpaceId
+            // changes) and never re-runs its OnInitializedAsync, so every page here kept
+            // showing the *previous* space's items after switching (docs/13-piano-miglioramenti.md,
+            // B15). A full reload is still strictly better than the two-navigation round trip
+            // through the dashboard this switcher replaces.
+            NavigationManager.NavigateTo($"/spaces/{newSpaceId}/{RouteSegment}", forceLoad: true);
+        }
+    }
+}
