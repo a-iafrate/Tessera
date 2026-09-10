@@ -45,20 +45,23 @@
         </div>
     }
 
-    <div class="seam" aria-hidden="true">
-        <span></span><span></span><span></span>
-    </div>
-
-    <h2>@Localizer["Spaces.CreateHeading"]</h2>
-    <EditForm Model="this" OnValidSubmit="CreateAsync">
-        <div class="card create-space-row max-w-32">
-            <input @bind="newSpaceName" placeholder="@Localizer["Spaces.CreatePlaceholder"]" class="form-control flex-1" />
-            <button type="submit" class="btn btn-primary" disabled="@(isBusy || string.IsNullOrWhiteSpace(newSpaceName))">
-                @if (isBusy) { <span class="spinner" aria-hidden="true"></span> }
-                @Localizer["Spaces.CreateButton"]
-            </button>
+    @if (spaces is not null)
+    {
+        <div class="seam" aria-hidden="true">
+            <span></span><span></span><span></span>
         </div>
-    </EditForm>
+
+        <h2>@Localizer["Spaces.CreateHeading"]</h2>
+        <EditForm Model="this" OnValidSubmit="CreateAsync">
+            <div class="card create-space-row max-w-32">
+                <input @bind="newSpaceName" placeholder="@Localizer["Spaces.CreatePlaceholder"]" class="form-control flex-1" />
+                <button type="submit" class="btn btn-primary" disabled="@(isBusy || string.IsNullOrWhiteSpace(newSpaceName))">
+                    @if (isBusy) { <span class="spinner" aria-hidden="true"></span> }
+                    @Localizer["Spaces.CreateButton"]
+                </button>
+            </div>
+        </EditForm>
+    }
 </div>
 
 @code {

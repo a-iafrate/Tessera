@@ -686,14 +686,46 @@ in regime forfettario senza iscrizione al registro imprese — vedi *Decisioni a
   fila in `/chat`, B (con `/chat` aperta) ha ricevuto **un solo** messaggio aggregato
   ("… added 3 items: milk, eggs, bread") invece di tre. Lo stesso test ha anche fatto emergere
   un bug preesistente e indipendente da questa modifica — confermato riproducendolo anche su
-  `main` prima di C3 (`git stash`): navigazioni Blazor Server ravvicinate fra pagine diverse
-  possono far condividere lo stesso `DbContext` scoped a due render concorrenti
-  (`InviteMember.OnInitializedAsync` contro il proprio layout), con errori intermittenti
-  "Invalid operation. The connection is closed." o "A second operation was started on this
-  context instance". Non risolto qui — è un problema di concorrenza sul `DbContext` scoped che
-  attraversa più pagine, non specifico a C3; da riprendere come voce a sé.
+  `main` prima di C3 (`git stash`), poi diagnosticato e risolto nella stessa sessione (vedi nota
+  a parte più sotto): non un problema architetturale diffuso, ma due pagine specifiche
+  (`InviteMember.razor`, `Spaces.razor`) che rendevano un bottone/form interattivo *prima* che
+  `OnInitializedAsync` finisse di caricare i dati, permettendo un click abbastanza rapido da far
+  partire una query sul `DbContext` scoped del circuito mentre quella di `OnInitializedAsync`
+  era ancora in volo sullo stesso `DbContext` — da cui "Invalid operation. The connection is
+  closed." o "A second operation was started on this context instance".
   `NotificationAggregationBuffer<TEvent>` ha 7 test unitari nuovi
   (`tests/Tessera.Core.Tests/Notifications/`), senza database.
+
+**Bug trovato durante la verifica di C3, poi risolto (fuori dal perimetro di C3 in sé)**:
+`InviteMember.razor` non aveva nessuna guardia di caricamento — a differenza di ogni altra
+pagina sotto `/spaces/{id}/...`, che segue tutte lo stesso pattern `@if (space is null) {
+spinner } else { ... tutto il resto, incluso ogni form ... }` — quindi il form con il bottone
+"Generate link" (e, in assenza del controllo di ownership già completato, potenzialmente
+visibile anche a un non-owner per una frazione di secondo) era cliccabile fin dal primissimo
+render sincrono, ben prima che `OnInitializedAsync` finisse di validare spazio e permessi.
+`Spaces.razor` aveva la guardia ma non la copriva tutta: proteggeva solo l'elenco degli spazi,
+non il form "Crea nuovo spazio" subito sotto. In entrambi i casi un click abbastanza rapido
+(verificato con Playwright, ma raggiungibile anche da un utente reale su una rete lenta che
+clicca prima che la pagina abbia davvero finito di caricare) faceva partire l'handler del
+bottone mentre `OnInitializedAsync` stava ancora usando lo stesso `DbContext` scoped del
+circuito, con l'intero circuito Blazor che si rompeva ("An unhandled error has occurred.
+Reload") invece di un errore contenuto. Diagnosticato aggiungendo un tracciamento temporaneo
+per istanza di componente (rimosso) che ha mostrato `GenerateAsync` partire mentre
+`OnInitializedAsync` era ancora sospesa sulla stessa istanza — non un problema di
+prerendering/circuiti concorrenti come ipotizzato all'inizio. **Fix**: `InviteMember.razor` ha
+ora un campo `loaded` (impostato solo dopo che spazio e ownership sono stati validati) con la
+stessa guardia `@if (!loaded) { spinner } else { ... }` delle altre pagine; `Spaces.razor` ha
+il form di creazione spostato dentro `@if (spaces is not null) { ... }`. Verificato dal vivo:
+8 tentativi consecutivi il più rapidi possibile con Playwright contro `InviteMember`/`Spaces`
+(prima: crash quasi sistematico) — zero crash dopo il fix. Non toccate le altre pagine sotto
+`Components/Pages`: verificate una per una, seguono già tutte il pattern corretto (guardia che
+copre l'intero contenuto interattivo), tranne `Home.razor`, la cui unica occorrenza residua di
+"connection is closed" nei log è un caso diverso e innocuo — una query di `OnInitializedAsync`
+abbandonata perché l'utente ha già navigato altrove, non un'azione dell'utente su quella stessa
+pagina; non ha una guardia perché non ha bottoni che scrivono, solo link. `DetailedErrors: true`
+aggiunto a `appsettings.Development.json` (solo Development) perché è stato indispensabile per
+diagnosticare questo bug e servirà alla prossima occasione — senza, ASP.NET Core mostra solo
+"An unhandled error has occurred" senza stack trace lato client.
 
 ---
 

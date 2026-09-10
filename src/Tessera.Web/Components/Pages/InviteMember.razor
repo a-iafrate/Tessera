@@ -20,7 +20,11 @@
 <div class="container">
     <h1>@Localizer["InviteMember.Title"]@(space is not null ? $" — {space.Name}" : "")</h1>
 
-    @if (inviteLink is not null)
+    @if (!loaded)
+    {
+        <p class="text-soft"><span class="spinner" aria-hidden="true"></span> @Localizer["Common.Loading"]</p>
+    }
+    else if (inviteLink is not null)
     {
         <div class="card">
             <p>@Localizer["InviteMember.LinkGenerated"]</p>
@@ -76,6 +80,7 @@
 
     private Space? space;
     private Guid userId;
+    private bool loaded;
     private string preset = "Partner";
     private string? inviteLink;
     private bool isBusy;
@@ -95,7 +100,10 @@
         if (space is null || !await SpaceService.IsOwnerAsync(SpaceId, userId, CancellationToken.None))
         {
             NavigationManager.NavigateTo($"/spaces/{SpaceId}");
+            return;
         }
+
+        loaded = true;
     }
 
     // Presets per docs/02-modello-dati.md — Calendar isn't usable yet (Fase 2), so "Custom"
