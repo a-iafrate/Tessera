@@ -1,0 +1,14 @@
+.level-picker-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+}
+
+/* Deliberately more compact than the shared .form-control (no min-height, tighter padding):
+   this select sits inline next to a label, not stacked in a form column. */
+.level-picker-select {
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+}

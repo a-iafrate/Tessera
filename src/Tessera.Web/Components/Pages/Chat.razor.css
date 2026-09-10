@@ -1,0 +1,51 @@
+/* The chat window fills the card edge-to-edge; padding lives on the inner rows instead. */
+.chat-card {
+    padding: 0;
+    overflow: hidden;
+}
+
+.chat-empty {
+    margin: auto;
+}
+
+.chat-attachment-error {
+    margin: var(--space-4) var(--space-4) 0;
+}
+
+.chat-attachment-preview {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4) 0;
+    color: var(--ink-soft);
+    font-size: var(--text-sm);
+}
+
+.chat-attachment-remove {
+    padding: 0 var(--space-2);
+    min-height: auto;
+}
+
+.chat-attach-label {
+    cursor: pointer;
+}
+
+.chat-file-input {
+    display: none;
+}
+
+.chat-message-text {
+    margin: 0;
+    white-space: pre-wrap;
+}
+
+.chat-attachment-image {
+    max-width: 100%;
+    border-radius: var(--radius-sm);
+    margin-top: var(--space-2);
+}
+
+.chat-document-link {
+    display: block;
+    margin-top: var(--space-2);
+}

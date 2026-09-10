@@ -24,7 +24,7 @@
     {
         <div class="card">
             <p>@Localizer["InviteMember.LinkGenerated"]</p>
-            <div style="display: flex; gap: var(--space-2);">
+            <div class="inline-row">
                 <input readonly value="@inviteLink" class="form-control" aria-label="@Localizer["InviteMember.LinkFieldLabel"]"
                        style="flex: 1; font-family: var(--font-mono);" onclick="this.select()" />
                 <button type="button" class="btn btn-secondary" @onclick="CopyLinkAsync">
@@ -35,12 +35,12 @@
     }
     else
     {
-        <div class="card" style="max-width: 32rem;">
+        <div class="card max-w-32">
             <h2>@Localizer["InviteMember.PresetHeading"]</h2>
-            <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+            <div class="stack stack-sm">
                 @foreach (var option in Presets)
                 {
-                    <label style="display: flex; align-items: center; gap: var(--space-2);">
+                    <label class="inline-row items-center">
                         <input type="radio" name="preset" checked="@(preset == option)" @onchange="() => preset = option" />
                         @Localizer[$"InviteMember.Preset.{option}"]
                     </label>
@@ -49,7 +49,7 @@
 
             @if (preset == "Custom")
             {
-                <div style="margin-top: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3);">
+                <div class="stack mt-4">
                     <LevelPicker Label="@Localizer["ResourceKind.ShoppingList"].Value" @bind-Level="shoppingListLevel" />
                     <LevelPicker Label="@Localizer["ResourceKind.Expenses"].Value" @bind-Level="expensesLevel" />
                     <LevelPicker Label="@Localizer["ResourceKind.Reminders"].Value" @bind-Level="remindersLevel" />
@@ -57,7 +57,7 @@
                 </div>
             }
 
-            <button class="btn btn-primary" style="margin-top: var(--space-4);" disabled="@isBusy" @onclick="GenerateAsync">
+            <button class="btn btn-primary mt-4" disabled="@isBusy" @onclick="GenerateAsync">
                 @if (isBusy) { <span class="spinner" aria-hidden="true"></span> }
                 @Localizer["InviteMember.GenerateButton"]
             </button>

@@ -427,6 +427,7 @@ a.card:hover { border-color: var(--clay); }
 
 .text-soft { color: var(--ink-soft); }
 .text-mono { font-family: var(--font-mono); }
+.text-sm { font-size: var(--text-sm); }
 
 header {
   max-width: 72rem;
@@ -514,6 +515,64 @@ body > h1 {
 .mb-3 { margin-bottom: var(--space-4); }
 .w-100 { width: 100%; }
 .text-danger { color: var(--danger); }
+
+/* Spacing utilities extracted from inline styles repeated across many components
+   (docs/13-piano-miglioramenti.md, B13). `.mb-3` above predates this set and intentionally
+   maps to Bootstrap's spacer scale for Identity-page parity, not to `--space-3`; everything
+   below maps directly to the token of the same number. */
+.m-0 { margin: 0; }
+.mb-0 { margin-bottom: 0; }
+.mt-1 { margin-top: var(--space-1); }
+.mt-2 { margin-top: var(--space-2); }
+.mt-3 { margin-top: var(--space-3); }
+.mt-4 { margin-top: var(--space-4); }
+.mt-6 { margin-top: var(--space-6); }
+.mt-8 { margin-top: var(--space-8); }
+.mb-1 { margin-bottom: var(--space-1); }
+.mb-2 { margin-bottom: var(--space-2); }
+/* Named in full, not `.mb-3` — that name is already the Bootstrap-parity class above. */
+.mb-space-3 { margin-bottom: var(--space-3); }
+.mb-6 { margin-bottom: var(--space-6); }
+.mb-8 { margin-bottom: var(--space-8); }
+.ml-2 { margin-left: var(--space-2); }
+.ml-3 { margin-left: var(--space-3); }
+
+.max-w-32 { max-width: 32rem; }
+.max-w-40 { max-width: 40rem; }
+.max-w-42 { max-width: 42rem; }
+
+/* Flex primitives, composable so a single page-specific tweak doesn't need its own class. */
+.flex-1 { flex: 1; }
+.items-center { align-items: center; }
+
+/* A flex item that grows and wraps onto its own line below ~14rem — feature/step tiles,
+   dashboard shortcut cards, form-row fields. */
+.grid-item { flex: 1; min-width: 14rem; }
+
+/* Removes the link color/underline from an anchor styled to look like a `.card`, not a link. */
+.card-link { color: var(--ink); }
+
+/* Vertical flex stack — `.stack-sm` tightens the gap for denser lists. */
+.stack { display: flex; flex-direction: column; gap: var(--space-3); }
+.stack-sm { gap: var(--space-2); }
+
+.inline-row { display: flex; gap: var(--space-2); }
+
+/* A clickable inline row pairing a checkbox/radio with its label text — calendar share
+   settings and invite presets both need this outside the Identity-scaffolded `.checkbox`. */
+.checkbox-label { display: flex; align-items: center; gap: var(--space-2); cursor: pointer; }
+
+/* Deliberately smaller than the shared .form-control (padding var(--space-2), not
+   var(--space-3), no min-height) — for a `<select>` sitting inline in a dense row rather than
+   stacked in a form column. `<select>` is out of scope for the .form-control migration
+   (docs/13-piano-miglioramenti.md, B13). */
+.select-compact { padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm); }
+
+.card-grid {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
 
 .checkbox label {
   display: flex;

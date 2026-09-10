@@ -40,10 +40,10 @@
             <div class="alert alert-danger">@Localizer[$"Calendars.Error.{errorKey}", errorProviderName ?? ""]</div>
         }
 
-        <div style="display: flex; gap: var(--space-4); flex-wrap: wrap;">
+        <div class="card-grid">
         @foreach (var state in providers)
         {
-            <div class="card" style="flex: 1; min-width: 22rem;">
+            <div class="card provider-card">
                 <h2>@Localizer["Calendars.ProviderHeading", state.DisplayName]</h2>
 
                 @if (!state.IsLinked)
@@ -61,12 +61,12 @@
                     }
                     else
                     {
-                        <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+                        <div class="stack stack-sm">
                             @foreach (var calendar in state.Calendars)
                             {
                                 <div class="card">
-                                    <div style="display: flex; align-items: center; gap: var(--space-3);">
-                                        <label style="display: flex; align-items: center; gap: var(--space-2); flex: 1; cursor: pointer;">
+                                    <div class="calendar-row-header">
+                                        <label class="calendar-row-label">
                                             <input type="checkbox" checked="@calendar.IsEnabled" disabled="@isBusy"
                                                    @onchange="e => ToggleAsync(calendar.Id, (bool)e.Value!)" />
                                             <span>@calendar.Name</span>
@@ -79,22 +79,22 @@
 
                                     @if (calendar.IsEnabled && calendarSpace is not null)
                                     {
-                                        <div style="margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--line);">
-                                            <strong style="font-size: var(--text-sm);">@Localizer["Calendars.ShareHeading"]</strong>
+                                        <div class="calendar-share-section">
+                                            <strong class="text-sm">@Localizer["Calendars.ShareHeading"]</strong>
                                             @if (mySpaces.Count == 0)
                                             {
-                                                <p class="text-soft" style="margin: var(--space-1) 0 0;">@Localizer["Calendars.ShareNoSpaces"] <a href="/spaces">@Localizer["Calendars.ShareCreateSpaceLink"]</a></p>
+                                                <p class="text-soft mt-1 mb-0">@Localizer["Calendars.ShareNoSpaces"] <a href="/spaces">@Localizer["Calendars.ShareCreateSpaceLink"]</a></p>
                                             }
                                             else
                                             {
-                                                <div style="display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-2);">
+                                                <div class="stack stack-sm mt-2">
                                                     @foreach (var space in mySpaces)
                                                     {
                                                         var level = shareMappings.TryGetValue((space.Id, calendar.Id), out var mapping) ? mapping.ShareLevel : (CalendarShareLevel?)null;
                                                         var isDefaultWriteTarget = shareMappings.TryGetValue((space.Id, calendar.Id), out var m2) && m2.IsDefaultWriteTarget;
-                                                        <div style="display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;">
-                                                            <span style="flex: 1; min-width: 8rem;">@space.Name</span>
-                                                            <select disabled="@isBusy" style="padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);"
+                                                        <div class="calendar-share-row">
+                                                            <span class="calendar-space-name">@space.Name</span>
+                                                            <select disabled="@isBusy" class="select-compact"
                                                                     value="@LevelValue(level)" @onchange="e => SetShareLevelAsync(space.Id, calendar.Id, e.Value?.ToString())">
                                                                 <option value="none">@Localizer["SpaceCalendars.LevelNone"]</option>
                                                                 <option value="availability">@Localizer["SpaceCalendars.LevelAvailability"]</option>
@@ -103,7 +103,7 @@
                                                             </select>
                                                             @if (level == CalendarShareLevel.Write)
                                                             {
-                                                                <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer;">
+                                                                <label class="checkbox-label">
                                                                     <input type="checkbox" checked="@isDefaultWriteTarget" disabled="@isBusy"
                                                                            @onchange="e => SetShareDefaultWriteTargetAsync(space.Id, calendar.Id, (bool)e.Value!)" />
                                                                     <span>@Localizer["SpaceCalendars.DefaultWriteTarget"]</span>
@@ -120,7 +120,7 @@
                         </div>
                     }
 
-                    <div style="display: flex; gap: var(--space-3); margin-top: var(--space-4);">
+                    <div class="calendar-actions-row mt-4">
                         <a class="btn btn-secondary" href="/oauth/@state.RouteSegment/link">@Localizer["Calendars.RelinkButton", state.DisplayName]</a>
                         <button class="btn btn-danger" disabled="@isBusy" @onclick="() => UnlinkAsync(state.Provider)">
                             @if (isBusy) { <span class="spinner" aria-hidden="true"></span> }

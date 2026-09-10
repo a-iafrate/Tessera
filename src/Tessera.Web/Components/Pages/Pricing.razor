@@ -15,7 +15,7 @@
 
 <PageTitle>@Localizer["Pricing.Title"]</PageTitle>
 
-<div class="container" style="max-width: 60rem;">
+<div class="container pricing-container">
     <h1>@Localizer["Pricing.Title"]</h1>
     <p class="text-soft">@Localizer["Pricing.Intro"]</p>
     <p class="text-soft">@Localizer["Pricing.ReceiptScanningExplainer"]</p>
@@ -26,12 +26,12 @@
     }
     else
     {
-        <div style="display: flex; gap: var(--space-4); flex-wrap: wrap; margin-top: var(--space-6);">
+        <div class="card-grid mt-6">
             @foreach (var plan in plans)
             {
-                <div class="card" style="flex: 1; min-width: 14rem;">
+                <div class="card grid-item">
                     <h2>@plan.Name</h2>
-                    <p style="font-size: 1.5rem; margin: var(--space-2) 0;">
+                    <p class="plan-price">
                         @if (plan.MonthlyPrice == 0)
                         {
                             @Localizer["Pricing.Free"]
@@ -39,7 +39,7 @@
                         else
                         {
                             @MoneyFormatter.Format(plan.MonthlyPrice, plan.Currency, CultureInfo.CurrentUICulture.Name)
-                            <span class="text-soft" style="font-size: 1rem;">@Localizer["Pricing.PerMonth"]</span>
+                            <span class="text-soft plan-price-suffix">@Localizer["Pricing.PerMonth"]</span>
                         }
                     </p>
                     <ul>
@@ -55,10 +55,10 @@
         {
             @if (ownedSpaces.Count > 0)
             {
-                <div class="card" style="max-width: 32rem; margin-top: var(--space-6);">
+                <div class="card max-w-32 mt-6">
                     <h2>@Localizer["Pricing.SubscribeHeading"]</h2>
                     <p class="text-soft">@Localizer["Pricing.SubscribeBody"]</p>
-                    <div style="display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-3);">
+                    <div class="stack stack-sm mt-3">
                         @foreach (var s in ownedSpaces)
                         {
                             <a class="btn btn-primary" href="@($"/spaces/{s.Id}/usage")">@Localizer["Pricing.SubscribeLinkForSpace", s.Name]</a>
@@ -68,12 +68,12 @@
             }
             else
             {
-                <p class="text-soft" style="margin-top: var(--space-6);">@Localizer["Pricing.NoOwnedSpaceNote"]</p>
+                <p class="text-soft mt-6">@Localizer["Pricing.NoOwnedSpaceNote"]</p>
             }
         }
         else
         {
-            <p class="text-soft" style="margin-top: var(--space-6);">
+            <p class="text-soft mt-6">
                 @Localizer["Pricing.LoginToSubscribeNote"] <a href="Account/Login">@Localizer["Nav.LogIn"]</a>
             </p>
         }

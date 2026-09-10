@@ -32,7 +32,7 @@
                     <UserAvatar DisplayName="@displayName" PictureUrl="@pictureUrl" Size="1.75" />
                     @(displayName ?? Localizer["Nav.Account"].Value)
                 </NavLink>
-                <form action="Account/Logout" method="post" style="margin: 0;">
+                <form action="Account/Logout" method="post" class="m-0">
                     <AntiforgeryToken />
                     <input type="hidden" name="returnUrl" value="" />
                     <button type="submit" class="btn btn-secondary">@Localizer["Nav.LogOut"]</button>

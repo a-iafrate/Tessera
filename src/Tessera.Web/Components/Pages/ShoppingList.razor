@@ -34,10 +34,10 @@
 
         @if (canWrite)
         {
-            <div class="card" style="max-width: 32rem; margin-bottom: var(--space-6);">
+            <div class="card max-w-32 mb-6">
                 <EditForm Model="this" OnValidSubmit="AddAsync">
-                    <div style="display: flex; gap: var(--space-2); align-items: flex-start;">
-                        <div class="form-floating" style="flex: 1;">
+                    <div class="shopping-add-row">
+                        <div class="form-floating flex-1">
                             <input class="form-control" id="newItemText" @bind="newItemText" @bind:event="oninput"
                                    placeholder="@Localizer["ShoppingList.AddPlaceholder"]" />
                             <label for="newItemText">@Localizer["ShoppingList.AddLabel"]</label>

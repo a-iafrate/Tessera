@@ -50,9 +50,9 @@
             {
                 @if (gettingStarted.Any(s => !s.Done))
                 {
-                    <div class="card" style="margin-bottom: var(--space-6);">
-                        <h2 style="margin-bottom: var(--space-3);">@Localizer["Dashboard.GettingStartedHeading"]</h2>
-                        <ul style="margin: 0; list-style: none; padding: 0; display: flex; flex-direction: column; gap: var(--space-2);">
+                    <div class="card mb-6">
+                        <h2 class="mb-space-3">@Localizer["Dashboard.GettingStartedHeading"]</h2>
+                        <ul class="getting-started-list">
                             @foreach (var step in gettingStarted)
                             {
                                 <li>
@@ -70,15 +70,15 @@
                     </div>
                 }
 
-                <div class="card" style="margin-bottom: var(--space-6);">
-                    <h2 style="margin-bottom: var(--space-3);">@Localizer["Dashboard.TodayHeading"]</h2>
+                <div class="card mb-6">
+                    <h2 class="mb-space-3">@Localizer["Dashboard.TodayHeading"]</h2>
                     @if (todayItems.Count == 0)
                     {
-                        <p class="text-soft" style="margin: 0;">@Localizer["Dashboard.TodayEmpty"]</p>
+                        <p class="text-soft m-0">@Localizer["Dashboard.TodayEmpty"]</p>
                     }
                     else
                     {
-                        <ul style="margin: 0;">
+                        <ul class="m-0">
                             @foreach (var item in todayItems)
                             {
                                 <li>
@@ -99,16 +99,16 @@
                 }
                 else
                 {
-                    <div style="display: flex; flex-direction: column; gap: var(--space-4);">
+                    <div class="space-preview-stack">
                         @foreach (var preview in previews)
                         {
                             <div class="card">
-                                <a href="@($"/spaces/{preview.Space.Id}")" style="color: var(--ink);">
+                                <a href="@($"/spaces/{preview.Space.Id}")" class="card-link">
                                     <h3 style="margin-bottom: @(preview.OwnerDisplayName is null ? "var(--space-3)" : "0")">@preview.Space.Name</h3>
                                 </a>
                                 @if (preview.OwnerDisplayName is not null)
                                 {
-                                    <p class="text-soft" style="margin: 0 0 var(--space-3); font-size: var(--text-sm);">@Localizer["Spaces.SharedByLabel", preview.OwnerDisplayName]</p>
+                                    <p class="text-soft mb-space-3 text-sm">@Localizer["Spaces.SharedByLabel", preview.OwnerDisplayName]</p>
                                 }
                                 @SectionsGrid(preview)
                             </div>
@@ -128,7 +128,7 @@
                 <h1>Tessera: @Localizer["Landing.Tagline"]</h1>
                 <p class="lead">@Localizer["Landing.Lead"]</p>
                 <a class="btn btn-primary btn-lg" href="Account/Register">@Localizer["Landing.CtaPrimary"]</a>
-                <a class="btn btn-secondary btn-lg" href="Account/Login" style="margin-left: var(--space-3);">@Localizer["Landing.CtaSecondary"]</a>
+                <a class="btn btn-secondary btn-lg ml-3" href="Account/Login">@Localizer["Landing.CtaSecondary"]</a>
             </div>
             <div class="chat-mockup" aria-hidden="true">
                 <span class="chat-bubble from-user">@Localizer["Landing.ChatUser1"]</span>
@@ -139,18 +139,18 @@
         </div>
 
         <div class="container">
-            <div style="display: flex; gap: var(--space-4); flex-wrap: wrap; margin: var(--space-8) 0;">
-                <div style="flex: 1; min-width: 14rem;">
-                    <h3 style="margin-bottom: var(--space-2);">@Localizer["Landing.TrustNoInstallTitle"]</h3>
-                    <p class="text-soft" style="margin: 0;">@Localizer["Landing.TrustNoInstallBody"]</p>
+            <div class="card-grid mt-8 mb-8">
+                <div class="grid-item">
+                    <h3 class="mb-2">@Localizer["Landing.TrustNoInstallTitle"]</h3>
+                    <p class="text-soft m-0">@Localizer["Landing.TrustNoInstallBody"]</p>
                 </div>
-                <div style="flex: 1; min-width: 14rem;">
-                    <h3 style="margin-bottom: var(--space-2);">@Localizer["Landing.TrustSharedTitle"]</h3>
-                    <p class="text-soft" style="margin: 0;">@Localizer["Landing.TrustSharedBody"]</p>
+                <div class="grid-item">
+                    <h3 class="mb-2">@Localizer["Landing.TrustSharedTitle"]</h3>
+                    <p class="text-soft m-0">@Localizer["Landing.TrustSharedBody"]</p>
                 </div>
-                <div style="flex: 1; min-width: 14rem;">
-                    <h3 style="margin-bottom: var(--space-2);">@Localizer["Landing.TrustPrivacyTitle"]</h3>
-                    <p class="text-soft" style="margin: 0;">@Localizer["Landing.TrustPrivacyBody"] <a href="/privacy">@Localizer["Landing.TrustPrivacyLink"]</a></p>
+                <div class="grid-item">
+                    <h3 class="mb-2">@Localizer["Landing.TrustPrivacyTitle"]</h3>
+                    <p class="text-soft m-0">@Localizer["Landing.TrustPrivacyBody"] <a href="/privacy">@Localizer["Landing.TrustPrivacyLink"]</a></p>
                 </div>
             </div>
 
@@ -159,22 +159,22 @@
             </div>
 
             <h2>@Localizer["Landing.FeaturesHeading"]</h2>
-            <div style="display: flex; gap: var(--space-4); flex-wrap: wrap; margin-top: var(--space-6);">
-                <div class="card" style="flex: 1; min-width: 14rem;">
-                    <h3 style="margin-bottom: var(--space-2);">@Localizer["Landing.FeatureShoppingTitle"]</h3>
-                    <p class="text-soft" style="margin: 0;">@Localizer["Landing.FeatureShoppingBody"]</p>
+            <div class="card-grid mt-6">
+                <div class="card grid-item">
+                    <h3 class="mb-2">@Localizer["Landing.FeatureShoppingTitle"]</h3>
+                    <p class="text-soft m-0">@Localizer["Landing.FeatureShoppingBody"]</p>
                 </div>
-                <div class="card" style="flex: 1; min-width: 14rem;">
-                    <h3 style="margin-bottom: var(--space-2);">@Localizer["Landing.FeatureRemindersTitle"]</h3>
-                    <p class="text-soft" style="margin: 0;">@Localizer["Landing.FeatureRemindersBody"]</p>
+                <div class="card grid-item">
+                    <h3 class="mb-2">@Localizer["Landing.FeatureRemindersTitle"]</h3>
+                    <p class="text-soft m-0">@Localizer["Landing.FeatureRemindersBody"]</p>
                 </div>
-                <div class="card" style="flex: 1; min-width: 14rem;">
-                    <h3 style="margin-bottom: var(--space-2);">@Localizer["Landing.FeatureCalendarTitle"]</h3>
-                    <p class="text-soft" style="margin: 0;">@Localizer["Landing.FeatureCalendarBody"]</p>
+                <div class="card grid-item">
+                    <h3 class="mb-2">@Localizer["Landing.FeatureCalendarTitle"]</h3>
+                    <p class="text-soft m-0">@Localizer["Landing.FeatureCalendarBody"]</p>
                 </div>
-                <div class="card" style="flex: 1; min-width: 14rem;">
-                    <h3 style="margin-bottom: var(--space-2);">@Localizer["Landing.FeatureNotesTitle"]</h3>
-                    <p class="text-soft" style="margin: 0;">@Localizer["Landing.FeatureNotesBody"]</p>
+                <div class="card grid-item">
+                    <h3 class="mb-2">@Localizer["Landing.FeatureNotesTitle"]</h3>
+                    <p class="text-soft m-0">@Localizer["Landing.FeatureNotesBody"]</p>
                 </div>
             </div>
 
@@ -183,21 +183,21 @@
             </div>
 
             <h2>@Localizer["Landing.HowItWorksHeading"]</h2>
-            <div style="display: flex; gap: var(--space-6); flex-wrap: wrap; margin-top: var(--space-6);">
-                <div style="flex: 1; min-width: 14rem;">
-                    <p class="text-soft" style="font-family: var(--font-mono); margin-bottom: var(--space-2);">01</p>
-                    <h3 style="margin-bottom: var(--space-2);">@Localizer["Landing.Step1Title"]</h3>
-                    <p class="text-soft" style="margin: 0;">@Localizer["Landing.Step1Body"]</p>
+            <div class="how-it-works-row mt-6">
+                <div class="grid-item">
+                    <p class="text-soft step-number">01</p>
+                    <h3 class="mb-2">@Localizer["Landing.Step1Title"]</h3>
+                    <p class="text-soft m-0">@Localizer["Landing.Step1Body"]</p>
                 </div>
-                <div style="flex: 1; min-width: 14rem;">
-                    <p class="text-soft" style="font-family: var(--font-mono); margin-bottom: var(--space-2);">02</p>
-                    <h3 style="margin-bottom: var(--space-2);">@Localizer["Landing.Step2Title"]</h3>
-                    <p class="text-soft" style="margin: 0;">@Localizer["Landing.Step2Body"]</p>
+                <div class="grid-item">
+                    <p class="text-soft step-number">02</p>
+                    <h3 class="mb-2">@Localizer["Landing.Step2Title"]</h3>
+                    <p class="text-soft m-0">@Localizer["Landing.Step2Body"]</p>
                 </div>
-                <div style="flex: 1; min-width: 14rem;">
-                    <p class="text-soft" style="font-family: var(--font-mono); margin-bottom: var(--space-2);">03</p>
-                    <h3 style="margin-bottom: var(--space-2);">@Localizer["Landing.Step3Title"]</h3>
-                    <p class="text-soft" style="margin: 0;">@Localizer["Landing.Step3Body"]</p>
+                <div class="grid-item">
+                    <p class="text-soft step-number">03</p>
+                    <h3 class="mb-2">@Localizer["Landing.Step3Title"]</h3>
+                    <p class="text-soft m-0">@Localizer["Landing.Step3Body"]</p>
                 </div>
             </div>
 
@@ -205,8 +205,8 @@
                 <span></span><span></span><span></span>
             </div>
 
-            <div class="card" style="max-width: 32rem; margin: 0 auto; text-align: center;">
-                <h2 style="margin-bottom: var(--space-2);">@Localizer["Landing.PricingTeaserHeading"]</h2>
+            <div class="card max-w-32 pricing-teaser-card">
+                <h2 class="mb-2">@Localizer["Landing.PricingTeaserHeading"]</h2>
                 <p class="text-soft">@Localizer["Landing.PricingTeaserBody"]</p>
                 <a href="/pricing">@Localizer["Landing.PricingTeaserLink"]</a>
             </div>
@@ -217,7 +217,7 @@
 
             <FaqSection />
 
-            <div style="text-align: center; margin: var(--space-12) 0;">
+            <div class="final-cta">
                 <a class="btn btn-primary btn-lg" href="Account/Register">@Localizer["Landing.CtaFinal"]</a>
             </div>
         </div>
@@ -381,20 +381,20 @@
         return entries.OrderBy(e => e.IsEmpty).Select(e => e.Key).ToList();
     }
 
-    private RenderFragment SectionsGrid(SpacePreview preview) => @<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: var(--space-3);">
+    private RenderFragment SectionsGrid(SpacePreview preview) => @<div class="sections-grid">
         @foreach (var key in SectionOrder(preview))
         {
             @if (key == "reminders")
             {
                 var reminders = preview.Reminders!;
                 <div class="dashboard-section @(reminders.Count == 0 ? "dashboard-section-empty" : "")">
-                    <div style="margin-bottom: var(--space-1);">
+                    <div class="mb-1">
                         <strong>🔔 @Localizer["Dashboard.RemindersHeading"]</strong>
-                        <a href="@($"/spaces/{preview.Space.Id}/reminders")" style="font-size: var(--text-sm); margin-left: var(--space-2);">@Localizer["Dashboard.ViewAllReminders"]</a>
+                        <a href="@($"/spaces/{preview.Space.Id}/reminders")" class="dashboard-view-all-link">@Localizer["Dashboard.ViewAllReminders"]</a>
                     </div>
                     @if (reminders.Count > 0)
                     {
-                        <ul style="margin: var(--space-1) 0 0;">
+                        <ul class="mt-1 mb-0">
                             @foreach (var reminder in reminders)
                             {
                                 <li>@MessageProcessor.FormatDueAt(reminder.DueAt, timeZone!, CultureInfo.CurrentUICulture) — @Truncate(reminder.Text)</li>
@@ -403,7 +403,7 @@
                     }
                     else
                     {
-                        <p class="text-soft" style="margin: var(--space-1) 0 0;">@Localizer["Reminders.ListEmpty"]</p>
+                        <p class="text-soft mt-1 mb-0">@Localizer["Reminders.ListEmpty"]</p>
                     }
                 </div>
             }
@@ -411,13 +411,13 @@
             {
                 var events = preview.Events!;
                 <div class="dashboard-section @(events.Count == 0 ? "dashboard-section-empty" : "")">
-                    <div style="margin-bottom: var(--space-1);">
+                    <div class="mb-1">
                         <strong>📅 @Localizer["Dashboard.CalendarHeading"]</strong>
-                        <a href="@($"/spaces/{preview.Space.Id}/calendars")" style="font-size: var(--text-sm); margin-left: var(--space-2);">@Localizer["Dashboard.ManageCalendarsLink"]</a>
+                        <a href="@($"/spaces/{preview.Space.Id}/calendars")" class="dashboard-view-all-link">@Localizer["Dashboard.ManageCalendarsLink"]</a>
                     </div>
                     @if (events.Count > 0)
                     {
-                        <ul style="margin: var(--space-1) 0 0;">
+                        <ul class="mt-1 mb-0">
                             @foreach (var calendarEvent in events)
                             {
                                 <li>@MessageProcessor.FormatDueAt(calendarEvent.Start, timeZone!, CultureInfo.CurrentUICulture) — @Truncate(calendarEvent.Title)</li>
@@ -426,7 +426,7 @@
                     }
                     else
                     {
-                        <p class="text-soft" style="margin: var(--space-1) 0 0;">@Localizer["Calendars.EventsEmpty"]</p>
+                        <p class="text-soft mt-1 mb-0">@Localizer["Calendars.EventsEmpty"]</p>
                     }
                 </div>
             }
@@ -434,13 +434,13 @@
             {
                 var shoppingItems = preview.ShoppingItems!;
                 <div class="dashboard-section @(shoppingItems.Count == 0 ? "dashboard-section-empty" : "")">
-                    <div style="margin-bottom: var(--space-1);">
+                    <div class="mb-1">
                         <strong>🛒 @Localizer["Dashboard.ShoppingHeading"]</strong>
-                        <a href="@($"/spaces/{preview.Space.Id}/shopping-list")" style="font-size: var(--text-sm); margin-left: var(--space-2);">@Localizer["Dashboard.ViewAllShoppingList"]</a>
+                        <a href="@($"/spaces/{preview.Space.Id}/shopping-list")" class="dashboard-view-all-link">@Localizer["Dashboard.ViewAllShoppingList"]</a>
                     </div>
                     @if (shoppingItems.Count > 0)
                     {
-                        <ul style="margin: var(--space-1) 0 0;">
+                        <ul class="mt-1 mb-0">
                             @foreach (var item in shoppingItems)
                             {
                                 <li>@Truncate(item.RawText)</li>
@@ -449,7 +449,7 @@
                     }
                     else
                     {
-                        <p class="text-soft" style="margin: var(--space-1) 0 0;">@Localizer["ShoppingList.Empty"]</p>
+                        <p class="text-soft mt-1 mb-0">@Localizer["ShoppingList.Empty"]</p>
                     }
                 </div>
             }
@@ -457,13 +457,13 @@
             {
                 var expenses = preview.Expenses!;
                 <div class="dashboard-section @(expenses.Count == 0 ? "dashboard-section-empty" : "")">
-                    <div style="margin-bottom: var(--space-1);">
+                    <div class="mb-1">
                         <strong>💶 @Localizer["Dashboard.ExpensesHeading"]</strong>
-                        <a href="@($"/spaces/{preview.Space.Id}/expenses")" style="font-size: var(--text-sm); margin-left: var(--space-2);">@Localizer["Dashboard.ViewAllExpenses"]</a>
+                        <a href="@($"/spaces/{preview.Space.Id}/expenses")" class="dashboard-view-all-link">@Localizer["Dashboard.ViewAllExpenses"]</a>
                     </div>
                     @if (expenses.Count > 0)
                     {
-                        <ul style="margin: var(--space-1) 0 0;">
+                        <ul class="mt-1 mb-0">
                             @foreach (var expense in expenses)
                             {
                                 <li>@MoneyFormatter.Format(expense.Amount, expense.Currency, CultureInfo.CurrentUICulture.Name) — @(expense.Merchant ?? Localizer["Expenses.NoCategory"].Value)</li>
@@ -472,7 +472,7 @@
                     }
                     else
                     {
-                        <p class="text-soft" style="margin: var(--space-1) 0 0;">@Localizer["Expenses.Empty"]</p>
+                        <p class="text-soft mt-1 mb-0">@Localizer["Expenses.Empty"]</p>
                     }
                 </div>
             }
@@ -480,13 +480,13 @@
             {
                 var notes = preview.Notes!;
                 <div class="dashboard-section @(notes.Count == 0 ? "dashboard-section-empty" : "")">
-                    <div style="margin-bottom: var(--space-1);">
+                    <div class="mb-1">
                         <strong>🗒️ @Localizer["Dashboard.NotesHeading"]</strong>
-                        <a href="@($"/spaces/{preview.Space.Id}/notes")" style="font-size: var(--text-sm); margin-left: var(--space-2);">@Localizer["Dashboard.ViewAllNotes"]</a>
+                        <a href="@($"/spaces/{preview.Space.Id}/notes")" class="dashboard-view-all-link">@Localizer["Dashboard.ViewAllNotes"]</a>
                     </div>
                     @if (notes.Count > 0)
                     {
-                        <ul style="margin: var(--space-1) 0 0;">
+                        <ul class="mt-1 mb-0">
                             @foreach (var note in notes)
                             {
                                 <li>@(string.IsNullOrEmpty(note.Title) ? Truncate(note.Body) : note.Title)</li>
@@ -495,7 +495,7 @@
                     }
                     else
                     {
-                        <p class="text-soft" style="margin: var(--space-1) 0 0;">@Localizer["Notes.Empty"]</p>
+                        <p class="text-soft mt-1 mb-0">@Localizer["Notes.Empty"]</p>
                     }
                 </div>
             }

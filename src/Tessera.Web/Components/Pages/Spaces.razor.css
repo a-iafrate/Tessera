@@ -1,0 +1,11 @@
+/* An <a> is inline by default; the whole card needs to be the tap target, not just the text
+   baseline. .card-link (base.css) removes the link color/underline. */
+.space-card-link {
+    display: block;
+}
+
+.create-space-row {
+    display: flex;
+    gap: var(--space-3);
+    align-items: center;
+}

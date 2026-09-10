@@ -34,12 +34,12 @@
             <div class="alert alert-success">@statusMessage</div>
         }
 
-        <div style="display: flex; gap: var(--space-4); flex-wrap: wrap;">
-            <div class="card" style="flex: 1; min-width: 18rem;">
+        <div class="card-grid">
+            <div class="card profile-card">
                 <h2>@Localizer["Profile.NameHeading"]</h2>
-                <div style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3);">
+                <div class="profile-name-row">
                     <UserAvatar DisplayName="@displayName" PictureUrl="@pictureUrl" Size="3" />
-                    <div style="flex: 1;">
+                    <div class="flex-1">
                         <div class="form-floating mb-3">
                             <input class="form-control" id="displayName" value="@displayName" disabled="@isBusy" @onchange="OnDisplayNameChangedAsync" />
                             <label for="displayName">@Localizer["Profile.NameLabel"]</label>
@@ -53,7 +53,7 @@
                 <p class="text-soft">@Localizer["Profile.NameBody"]</p>
             </div>
 
-            <div class="card" style="flex: 1; min-width: 18rem;">
+            <div class="card profile-card">
                 <h2>@Localizer["Profile.LanguageHeading"]</h2>
                 <div class="form-floating mb-3">
                     <select class="form-control" id="culture" value="@culture" disabled="@isBusy" @onchange="OnCultureChangedAsync">
@@ -65,7 +65,7 @@
                 <p class="text-soft">@Localizer["Profile.LanguageBody"]</p>
             </div>
 
-            <div class="card" style="flex: 1; min-width: 18rem;">
+            <div class="card profile-card">
                 <h2>@Localizer["Profile.TimeZoneHeading"]</h2>
                 <div class="form-floating mb-3">
                     <select class="form-control" id="timeZone" value="@(timeZoneId ?? "")" disabled="@isBusy" @onchange="OnTimeZoneChangedAsync">
@@ -82,7 +82,7 @@
 
             @if (spaces.Count > 0)
             {
-                <div class="card" style="flex: 1; min-width: 18rem;">
+                <div class="card profile-card">
                     <h2>@Localizer["Profile.DefaultSpaceHeading"]</h2>
                     <div class="form-floating mb-3">
                         <select class="form-control" id="defaultSpace" value="@(defaultSpaceId?.ToString() ?? "")" disabled="@isBusy" @onchange="OnDefaultSpaceChangedAsync">

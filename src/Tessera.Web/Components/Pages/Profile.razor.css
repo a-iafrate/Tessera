@@ -1,0 +1,11 @@
+.profile-card {
+    flex: 1;
+    min-width: 18rem;
+}
+
+.profile-name-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+}

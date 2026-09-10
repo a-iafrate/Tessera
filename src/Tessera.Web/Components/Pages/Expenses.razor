@@ -39,22 +39,19 @@
 
         @if (canWrite)
         {
-            <div class="card" style="max-width: 32rem; margin-bottom: var(--space-6);">
+            <div class="card max-w-32 mb-6">
                 <EditForm Model="this" OnValidSubmit="RecordAsync">
-                    <div style="display: flex; flex-direction: column; gap: var(--space-2);">
-                        <input type="number" step="0.01" min="0" @bind="newAmount" placeholder="@Localizer["Expenses.AmountPlaceholder"]"
-                               style="padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);" />
-                        <select @bind="newCategoryId" style="padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);">
+                    <div class="stack stack-sm">
+                        <input type="number" step="0.01" min="0" @bind="newAmount" placeholder="@Localizer["Expenses.AmountPlaceholder"]" class="form-control" />
+                        <select @bind="newCategoryId" class="select-compact">
                             <option value="">@Localizer["Expenses.NoCategory"]</option>
                             @foreach (var category in categories)
                             {
                                 <option value="@category.Id">@MessageProcessor.GetCategoryDisplayName(category, Localizer)</option>
                             }
                         </select>
-                        <input @bind="newMerchant" placeholder="@Localizer["Expenses.MerchantPlaceholder"]"
-                               style="padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);" />
-                        <input type="date" @bind="newDate"
-                               style="padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);" />
+                        <input @bind="newMerchant" placeholder="@Localizer["Expenses.MerchantPlaceholder"]" class="form-control" />
+                        <input type="date" @bind="newDate" class="form-control" />
                         <button type="submit" class="btn btn-primary" disabled="@(isBusy || newAmount is null || newAmount <= 0)">
                             @if (isBusy) { <span class="spinner" aria-hidden="true"></span> }
                             @Localizer["Expenses.RecordButton"]
@@ -74,7 +71,7 @@
         }
         else
         {
-            <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+            <div class="stack stack-sm">
                 @foreach (var expense in recent)
                 {
                     <div class="card list-row">

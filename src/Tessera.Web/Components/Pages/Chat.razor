@@ -22,15 +22,15 @@
 
 <PageTitle>@Localizer["Chat.PageTitle"]</PageTitle>
 
-<div class="container" style="max-width: 40rem;">
+<div class="container max-w-40">
     <h1>@Localizer["Chat.PageTitle"]</h1>
     <p class="text-soft">@(displayName is null ? Localizer["Chat.Intro"] : Localizer["Chat.Greeting", displayName])</p>
 
-    <div class="card" style="padding: 0; overflow: hidden;">
+    <div class="card chat-card">
         <div class="chat-window" id="chat-window">
             @if (messages.Count == 0)
             {
-                <p class="text-soft" style="margin: auto;">@Localizer["Chat.Empty"]</p>
+                <p class="text-soft chat-empty">@Localizer["Chat.Empty"]</p>
             }
             @foreach (var msg in messages)
             {
@@ -54,21 +54,21 @@
 
         @if (attachmentError is not null)
         {
-            <div class="alert alert-danger" style="margin: var(--space-4) var(--space-4) 0;">@attachmentError</div>
+            <div class="alert alert-danger chat-attachment-error">@attachmentError</div>
         }
 
         @if (pendingAttachment is not null)
         {
-            <div style="display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-4) 0; color: var(--ink-soft); font-size: var(--text-sm);">
+            <div class="chat-attachment-preview">
                 <span>📎 @pendingAttachment.FileName</span>
-                <button type="button" class="btn btn-secondary" style="padding: 0 var(--space-2); min-height: auto;" @onclick="() => pendingAttachment = null">✕</button>
+                <button type="button" class="btn btn-secondary chat-attachment-remove" @onclick="() => pendingAttachment = null">✕</button>
             </div>
         }
 
         <form class="chat-input-bar" @onsubmit="SendAsync">
-            <label class="btn btn-secondary" style="cursor: pointer;" title="@Localizer["Chat.AttachButton"]">
+            <label class="btn btn-secondary chat-attach-label" title="@Localizer["Chat.AttachButton"]">
                 📎
-                <InputFile OnChange="OnFileSelectedAsync" style="display: none;" accept="image/*,application/pdf" disabled="@isSending" />
+                <InputFile OnChange="OnFileSelectedAsync" class="chat-file-input" accept="image/*,application/pdf" disabled="@isSending" />
             </label>
             <input class="form-control" @bind="draft" @bind:event="oninput" placeholder="@Localizer["Chat.InputPlaceholder"]" disabled="@isSending" />
             <button type="submit" class="btn btn-primary" disabled="@(isSending || (string.IsNullOrWhiteSpace(draft) && pendingAttachment is null))">@Localizer["Chat.SendButton"]</button>
@@ -240,15 +240,15 @@
     private RenderFragment ChatBubbleContent(ChatBubble msg) => @<text>
         @if (msg.Text is { Length: > 0 })
         {
-            <p style="margin: 0; white-space: pre-wrap;">@msg.Text</p>
+            <p class="chat-message-text">@msg.Text</p>
         }
         @if (msg.PhotoUrl is not null)
         {
-            <img src="@msg.PhotoUrl" alt="" style="max-width: 100%; border-radius: var(--radius-sm); margin-top: var(--space-2);" />
+            <img src="@msg.PhotoUrl" alt="" class="chat-attachment-image" />
         }
         @if (msg.DocumentUrl is not null)
         {
-            <a href="@msg.DocumentUrl" target="_blank" rel="noopener" style="display: block; margin-top: var(--space-2);">📎 @msg.DocumentFileName</a>
+            <a href="@msg.DocumentUrl" target="_blank" rel="noopener" class="chat-document-link">📎 @msg.DocumentFileName</a>
         }
         @if (msg.Rows.Count > 0)
         {

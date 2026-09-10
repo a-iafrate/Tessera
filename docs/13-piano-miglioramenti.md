@@ -464,9 +464,9 @@ distinti, uno stesso intervento.
   annunciava una pagina in italiano come se fosse inglese. Ora legge
   `CultureInfo.CurrentUICulture` (già negoziata dal middleware quando `App.razor` renderizza).
 
-### B13 — Stili inline al posto delle classi
+### B13 — Stili inline al posto delle classi ✅
 
-- [ ] **Dove**: tutte le pagine; esistono solo due `.razor.css` (`MainLayout`, `ReconnectModal`)
+- [x] **Dove**: tutte le pagine; esistono solo due `.razor.css` (`MainLayout`, `ReconnectModal`)
 - **Perché**: [12-stile-sito.md](12-stile-sito.md#implementazione-in-blazor) prescrive CSS
   isolation per componente. Oggi layout e spaziature vivono in centinaia di attributi `style`
   ripetuti (`style="display: flex; gap: var(--space-4); flex-wrap: wrap"` compare identico in
@@ -477,6 +477,33 @@ distinti, uno stesso intervento.
   Da fare **in coda ai lotti B**, riusando i pattern che gli interventi precedenti hanno già
   consolidato — non prima, o si rifattorizza due volte.
 - **Fatto quando**: nessun `style` inline resta nelle pagine, esclusi i valori calcolati a runtime.
+- **Fatto**: aggiunte a `base.css` le utility effettivamente ripetute *fra più file* (non solo
+  dentro una pagina): `.stack`/`.stack-sm` (colonna flex, gap `--space-3`/`--space-2`),
+  `.card-grid` (la riga flex con wrap usata sia per griglie di card sia per righe di azioni),
+  `.grid-item` (`flex: 1; min-width: 14rem`) e `.card-link` (rimuove colore/sottolineatura da
+  un'ancora che è visivamente una `.card`), `.inline-row` e `.checkbox-label` (riga flex compatta
+  per checkbox/radio + etichetta), `.select-compact` (il `<select>` più stretto di
+  `.form-control`, usato da `Calendars.razor` e `SpaceCalendars.razor`), più una famiglia minima
+  di utility di spaziatura/larghezza (`.m-0`, `.mb-0`, `.mt-1`…`.mt-8`, `.mb-1`/`.mb-2`/
+  `.mb-space-3`/`.mb-6`/`.mb-8`, `.ml-2`/`.ml-3`, `.max-w-32`/`.max-w-40`/`.max-w-42`, `.text-sm`)
+  che mappano direttamente sul token dello stesso numero — `.mb-3` preesistente non è stato
+  toccato: resta l'eccezione voluta per la parità con la spacer scale di Bootstrap usata dalle
+  pagine Identity scaffolded. Gli `<input>`/`<textarea>` che duplicavano `.form-control` ad-hoc
+  (`padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm)`)
+  ora usano la classe condivisa; i `<select>` con lo stesso pattern sono rimasti fuori
+  deliberatamente (padding diverso, mai stati nel perimetro di B11) e usano `.select-compact`.
+  Ogni stile rimasto specifico di una pagina è finito nel `.razor.css` del componente, con nomi
+  semantici (non `.style-1`): nuovi file per `LevelPicker`, `AccountDelete`, `FaqSection`, `Chat`,
+  `Calendars`, `Notes`, `Settings`, `SpaceDetail`, `SpaceCalendars`, `Spaces`, `Profile`,
+  `Pricing`, `Home`, `Expenses`; `ShoppingList.razor.css` (già esistente) ha guadagnato una
+  regola in più. Le due eccezioni dichiarate sono rimaste intatte: il corpo HTML dell'email in
+  `ForgotPassword.razor` (`BuildResetPasswordEmailHtml`, CSS inline richiesto dai client di
+  posta) e lo `style="flex: 1; font-family: var(--font-mono);"` sull'input del link d'invito in
+  `InviteMember.razor` (eccezione già decisa in B12). Gli unici `style` rimasti nell'intero
+  albero `Components/` sono queste due eccezioni più i valori con interpolazione `@` a runtime
+  (`SpaceUsage.razor`, `UserAvatar.razor`, e il `margin-bottom` condizionale di `Home.razor`).
+  Nessuna logica C#/code-behind toccata: solo markup e CSS, `dotnet build` a zero warning e
+  `dotnet test` verde.
 
 ### B14 — Titoli di pagina mancanti ✅
 

@@ -4,9 +4,9 @@
 
 @inject IStringLocalizer<Messages> Localizer
 
-<label style="display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);">
+<label class="level-picker-label">
     <span>@Label</span>
-    <select value="@Level" @onchange="OnChanged" style="padding: var(--space-1) var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);">
+    <select value="@Level" @onchange="OnChanged" class="level-picker-select">
         <option value="@AccessLevel.None">@Localizer["AccessLevel.None"]</option>
         <option value="@AccessLevel.Read">@Localizer["AccessLevel.Read"]</option>
         <option value="@AccessLevel.Write">@Localizer["AccessLevel.Write"]</option>

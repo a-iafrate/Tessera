@@ -36,13 +36,11 @@
 
         @if (canWrite)
         {
-            <div class="card" style="max-width: 32rem; margin-bottom: var(--space-6);">
+            <div class="card max-w-32 mb-6">
                 <EditForm Model="this" OnValidSubmit="CreateAsync">
-                    <div style="display: flex; flex-direction: column; gap: var(--space-2);">
-                        <input @bind="newTitle" placeholder="@Localizer["Notes.TitlePlaceholder"]"
-                               style="padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);" />
-                        <textarea @bind="newBody" placeholder="@Localizer["Notes.BodyPlaceholder"]" rows="3"
-                                  style="padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm); font-family: inherit;"></textarea>
+                    <div class="stack stack-sm">
+                        <input @bind="newTitle" placeholder="@Localizer["Notes.TitlePlaceholder"]" class="form-control" />
+                        <textarea @bind="newBody" placeholder="@Localizer["Notes.BodyPlaceholder"]" rows="3" class="form-control"></textarea>
                         <button type="submit" class="btn btn-primary" disabled="@(isBusy || string.IsNullOrWhiteSpace(newBody))">
                             @if (isBusy) { <span class="spinner" aria-hidden="true"></span> }
                             @Localizer["Notes.AddButton"]
@@ -62,18 +60,16 @@
         }
         else
         {
-            <div style="display: flex; flex-direction: column; gap: var(--space-3);">
+            <div class="stack">
                 @foreach (var note in notes)
                 {
                     <div class="card">
                         @if (editingNoteId == note.Id)
                         {
-                            <div style="display: flex; flex-direction: column; gap: var(--space-2);">
-                                <input @bind="editTitle" placeholder="@Localizer["Notes.TitlePlaceholder"]"
-                                       style="padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm);" />
-                                <textarea @bind="editBody" rows="3"
-                                          style="padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm); font-family: inherit;"></textarea>
-                                <div style="display: flex; gap: var(--space-2);">
+                            <div class="stack stack-sm">
+                                <input @bind="editTitle" placeholder="@Localizer["Notes.TitlePlaceholder"]" class="form-control" />
+                                <textarea @bind="editBody" rows="3" class="form-control"></textarea>
+                                <div class="inline-row">
                                     <button class="btn btn-primary" disabled="@(isBusy || string.IsNullOrWhiteSpace(editBody))" @onclick="() => SaveEditAsync(note.Id)">
                                         @if (isBusy) { <span class="spinner" aria-hidden="true"></span> }
                                         @Localizer["Notes.SaveButton"]
@@ -88,10 +84,10 @@
                             {
                                 <strong>@note.Title</strong>
                             }
-                            <p style="white-space: pre-wrap; margin: var(--space-2) 0;">@note.Body</p>
+                            <p class="note-body">@note.Body</p>
                             @if (attachmentsByNote.TryGetValue(note.Id, out var noteAttachments) && noteAttachments.Count > 0)
                             {
-                                <ul style="list-style: none; padding: 0; margin: 0 0 var(--space-2) 0; display: flex; flex-direction: column; gap: var(--space-1);">
+                                <ul class="note-attachments">
                                     @foreach (var attachment in noteAttachments)
                                     {
                                         <li>
@@ -104,7 +100,7 @@
                             }
                             @if (canWrite)
                             {
-                                <div style="display: flex; gap: var(--space-2);">
+                                <div class="inline-row">
                                     <button class="btn btn-secondary" disabled="@isBusy" @onclick="() => StartEdit(note)">@Localizer["Notes.EditButton"]</button>
                                     <button class="btn btn-danger" disabled="@isBusy" @onclick="() => DeleteAsync(note.Id)">@Localizer["Notes.DeleteButton"]</button>
                                 </div>

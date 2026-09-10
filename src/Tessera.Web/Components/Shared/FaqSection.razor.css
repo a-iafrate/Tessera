@@ -1,0 +1,8 @@
+.faq-body {
+    margin: var(--space-6) auto 0;
+}
+
+.faq-question {
+    margin-bottom: var(--space-1);
+    font-size: var(--text-base);
+}

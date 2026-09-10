@@ -1,0 +1,4 @@
+/* Marks the "danger zone" card distinctly from the export card above it. */
+.danger-border {
+    border-color: var(--danger);
+}

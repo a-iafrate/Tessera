@@ -13,29 +13,29 @@
 <div class="container">
     <h1>@Localizer["Settings.Title"]</h1>
 
-    <div style="display: flex; gap: var(--space-4); flex-wrap: wrap; margin: var(--space-4) 0 var(--space-8);">
-        <a class="card" href="/account" style="flex: 1; min-width: 14rem; color: var(--ink);">
-            <h3 style="margin-bottom: var(--space-2);">@Localizer["Settings.ProfileCardTitle"]</h3>
-            <p class="text-soft" style="margin: 0;">@Localizer["Settings.ProfileCardBody"]</p>
+    <div class="card-grid mt-4 mb-8">
+        <a class="card grid-item card-link" href="/account">
+            <h3 class="mb-2">@Localizer["Settings.ProfileCardTitle"]</h3>
+            <p class="text-soft m-0">@Localizer["Settings.ProfileCardBody"]</p>
         </a>
-        <a class="card" href="/account/change-password" style="flex: 1; min-width: 14rem; color: var(--ink);">
-            <h3 style="margin-bottom: var(--space-2);">@Localizer["Settings.ChangePasswordCardTitle"]</h3>
-            <p class="text-soft" style="margin: 0;">@Localizer["Settings.ChangePasswordCardBody"]</p>
+        <a class="card grid-item card-link" href="/account/change-password">
+            <h3 class="mb-2">@Localizer["Settings.ChangePasswordCardTitle"]</h3>
+            <p class="text-soft m-0">@Localizer["Settings.ChangePasswordCardBody"]</p>
         </a>
-        <a class="card" href="/calendars" style="flex: 1; min-width: 14rem; color: var(--ink);">
-            <h3 style="margin-bottom: var(--space-2);">@Localizer["Settings.CalendarsCardTitle"]</h3>
-            <p class="text-soft" style="margin: 0;">@Localizer["Settings.CalendarsCardBody"]</p>
+        <a class="card grid-item card-link" href="/calendars">
+            <h3 class="mb-2">@Localizer["Settings.CalendarsCardTitle"]</h3>
+            <p class="text-soft m-0">@Localizer["Settings.CalendarsCardBody"]</p>
         </a>
-        <a class="card" href="/link/telegram" style="flex: 1; min-width: 14rem; color: var(--ink);">
-            <h3 style="margin-bottom: var(--space-2);">@Localizer["Settings.TelegramCardTitle"]</h3>
-            <p class="text-soft" style="margin: 0;">@Localizer["Settings.TelegramCardBody"]</p>
+        <a class="card grid-item card-link" href="/link/telegram">
+            <h3 class="mb-2">@Localizer["Settings.TelegramCardTitle"]</h3>
+            <p class="text-soft m-0">@Localizer["Settings.TelegramCardBody"]</p>
         </a>
     </div>
 
-    <div class="card" style="max-width: 32rem; margin-bottom: var(--space-8);">
-        <h3 style="margin-bottom: var(--space-2);">@Localizer["Settings.ThemeTitle"]</h3>
-        <p class="text-soft" style="margin: 0 0 var(--space-3);">@Localizer["Settings.ThemeBody"]</p>
-        <div style="display: flex; gap: var(--space-2);">
+    <div class="card max-w-32 mb-8">
+        <h3 class="mb-2">@Localizer["Settings.ThemeTitle"]</h3>
+        <p class="text-soft theme-body">@Localizer["Settings.ThemeBody"]</p>
+        <div class="inline-row">
             <button type="button" class="@ThemeButtonClass("auto")" @onclick='() => SetThemeAsync("auto")'>@Localizer["Settings.ThemeAuto"]</button>
             <button type="button" class="@ThemeButtonClass("light")" @onclick='() => SetThemeAsync("light")'>@Localizer["Settings.ThemeLight"]</button>
             <button type="button" class="@ThemeButtonClass("dark")" @onclick='() => SetThemeAsync("dark")'>@Localizer["Settings.ThemeDark"]</button>
@@ -46,7 +46,7 @@
         <span></span><span></span><span></span>
     </div>
 
-    <a class="btn btn-danger" href="/account/delete" style="margin-top: var(--space-4);">@Localizer["Profile.DeleteAccountLink"]</a>
+    <a class="btn btn-danger mt-4" href="/account/delete">@Localizer["Profile.DeleteAccountLink"]</a>
 </div>
 
 @code {

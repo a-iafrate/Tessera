@@ -1,0 +1,41 @@
+.calendar-actions-row {
+    display: flex;
+    gap: var(--space-3);
+}
+
+.provider-card {
+    flex: 1;
+    min-width: 22rem;
+}
+
+.calendar-row-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.calendar-row-label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex: 1;
+    cursor: pointer;
+}
+
+.calendar-share-section {
+    margin-top: var(--space-3);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--line);
+}
+
+.calendar-share-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+.calendar-space-name {
+    flex: 1;
+    min-width: 8rem;
+}

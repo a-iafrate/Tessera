@@ -1,0 +1,12 @@
+.pricing-container {
+    max-width: 60rem;
+}
+
+.plan-price {
+    font-size: 1.5rem;
+    margin: var(--space-2) 0;
+}
+
+.plan-price-suffix {
+    font-size: 1rem;
+}
