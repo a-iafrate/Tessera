@@ -491,12 +491,14 @@ distinti, uno stesso intervento.
   pagine Identity scaffolded. Gli `<input>`/`<textarea>` che duplicavano `.form-control` ad-hoc
   (`padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm)`)
   ora usano la classe condivisa; i `<select>` con lo stesso pattern sono rimasti fuori
-  deliberatamente (padding diverso, mai stati nel perimetro di B11) e usano `.select-compact`.
-  Ogni stile rimasto specifico di una pagina è finito nel `.razor.css` del componente, con nomi
-  semantici (non `.style-1`): nuovi file per `LevelPicker`, `AccountDelete`, `FaqSection`, `Chat`,
-  `Calendars`, `Notes`, `Settings`, `SpaceDetail`, `SpaceCalendars`, `Spaces`, `Profile`,
-  `Pricing`, `Home`, `Expenses`; `ShoppingList.razor.css` (già esistente) ha guadagnato una
-  regola in più. Le due eccezioni dichiarate sono rimaste intatte: il corpo HTML dell'email in
+  deliberatamente (padding diverso, mai stati nel perimetro di B11) e usano `.select-compact`,
+  condivisa fra `Calendars.razor`, `SpaceCalendars.razor` ed `Expenses.razor` — la prima stesura
+  aveva duplicato lo stesso pattern in `Expenses.razor.css` come `.expense-category-select`,
+  accorpata qui perché era un doppione esatto. Ogni stile rimasto specifico di una pagina è
+  finito nel `.razor.css` del componente, con nomi semantici (non `.style-1`): nuovi file per
+  `LevelPicker`, `AccountDelete`, `FaqSection`, `Chat`, `Calendars`, `Notes`, `Settings`,
+  `SpaceDetail`, `SpaceCalendars`, `Spaces`, `Profile`, `Pricing`, `Home`; `ShoppingList.razor.css`
+  (già esistente) ha guadagnato una regola in più. Le due eccezioni dichiarate sono rimaste intatte: il corpo HTML dell'email in
   `ForgotPassword.razor` (`BuildResetPasswordEmailHtml`, CSS inline richiesto dai client di
   posta) e lo `style="flex: 1; font-family: var(--font-mono);"` sull'input del link d'invito in
   `InviteMember.razor` (eccezione già decisa in B12). Gli unici `style` rimasti nell'intero
