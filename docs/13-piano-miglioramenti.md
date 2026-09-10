@@ -651,9 +651,9 @@ in regime forfettario senza iscrizione al registro imprese — vedi *Decisioni a
 - **Fatto quando**: un promemoria arriva come notifica di sistema sulla PWA installata a scheda
   chiusa.
 
-### C3 — Aggregazione delle notifiche
+### C3 — Aggregazione delle notifiche ✅
 
-- [ ] **Dove**: `Services/NotificationService.cs`
+- [x] **Dove**: `Services/NotificationService.cs`
 - **Perché**: dieci voci aggiunte alla lista producono dieci messaggi a ciascun altro membro.
   [04-costi.md](04-costi.md#mitigazioni-obbligatorie-prima-di-aprire-whatsapp) lo tratta come
   mitigazione obbligatoria per WhatsApp; senza WhatsApp resta buona igiene su Telegram e diventa
@@ -663,6 +663,37 @@ in regime forfettario senza iscrizione al registro imprese — vedi *Decisioni a
   finestra più lunga.
 - **Fatto quando**: dieci aggiunte in un minuto producono una notifica per destinatario.
 - **Dipende da**: conviene farlo prima o insieme a **C1**.
+- **Fatto**: `NotificationService` non invia più subito — bufferizza ogni evento in
+  `NotificationAggregationBuffer<TEvent>` (nuovo, `Tessera.Core/Notifications/`, puro e senza
+  DB: la decisione di finestra è testabile senza database, per-CLAUDE.md), chiave
+  `NotificationWindowKey(SpaceId, RecipientUserId, EventType)`. La durata si decide una volta,
+  all'apertura della finestra: 60 s se il destinatario ha almeno un canale con
+  `SupportsProactiveFree && SupportsInlineKeyboard`, altrimenti 5 minuti. Un nuovo
+  `IScheduledJob` (`Jobs/NotificationAggregationFlushJob.cs`, ogni 30 s — il tick di
+  `SchedulerWorker` è comunque il vero limite) scola le finestre pronte, risolve
+  cultura/canali del destinatario al momento dell'invio (mai prima, per la stessa ragione per
+  cui gli eventi restano solo fatti — [09-localizzazione.md](09-localizzazione.md)) e compone
+  un unico messaggio: con un solo evento nella finestra il testo è identico a prima
+  (`Notification.ShoppingItemAdded` ecc.); con più eventi dello stesso attore usa le nuove
+  chiavi `Notification.ShoppingItems{Added,Checked}`/`Notification.ExpensesRecorded` (elenco
+  articoli troncato a 5 con "e altri N"; spese aggregate come totale, senza categoria); con
+  attori diversi nella stessa finestra usa le varianti `*MultipleActors`, senza nominare
+  nessuno. `SchedulerWorker` è ora ospitato incondizionatamente (prima lo era solo con
+  Telegram o un calendario configurati) perché `NotificationService` può bufferizzare anche da
+  un'azione fatta solo sul canale web (`/chat`), senza Telegram — altrimenti le finestre non
+  sarebbero mai state scolate in quella configurazione.
+  Verificato dal vivo con due account reali in uno spazio condiviso: A ha inviato tre `add` di
+  fila in `/chat`, B (con `/chat` aperta) ha ricevuto **un solo** messaggio aggregato
+  ("… added 3 items: milk, eggs, bread") invece di tre. Lo stesso test ha anche fatto emergere
+  un bug preesistente e indipendente da questa modifica — confermato riproducendolo anche su
+  `main` prima di C3 (`git stash`): navigazioni Blazor Server ravvicinate fra pagine diverse
+  possono far condividere lo stesso `DbContext` scoped a due render concorrenti
+  (`InviteMember.OnInitializedAsync` contro il proprio layout), con errori intermittenti
+  "Invalid operation. The connection is closed." o "A second operation was started on this
+  context instance". Non risolto qui — è un problema di concorrenza sul `DbContext` scoped che
+  attraversa più pagine, non specifico a C3; da riprendere come voce a sé.
+  `NotificationAggregationBuffer<TEvent>` ha 7 test unitari nuovi
+  (`tests/Tessera.Core.Tests/Notifications/`), senza database.
 
 ---
 

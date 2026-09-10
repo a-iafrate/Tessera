@@ -199,6 +199,7 @@ builder.Services.AddScoped<RecurringExpenseService>();
 builder.Services.AddScoped<BudgetService>();
 builder.Services.AddScoped<UsageService>();
 builder.Services.AddScoped<DigestService>();
+builder.Services.AddSingleton<NotificationAggregator>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<SpaceResolver>();
 builder.Services.AddScoped<SpaceService>();
@@ -342,6 +343,14 @@ builder.Services.AddSingleton<WebChannel>();
 builder.Services.AddSingleton<IChannel>(sp => sp.GetRequiredService<WebChannel>());
 builder.Services.AddSingleton<IChannelRegistry, ChannelRegistry>();
 
+// Drains NotificationService's aggregation windows (docs/13-piano-miglioramenti.md, C3).
+// Registered unconditionally, like the web chat channel above: NotificationService can buffer
+// a notification from a /chat-only action even with no Telegram/calendar integration
+// configured at all, so SchedulerWorker below has to be hosted unconditionally too, or
+// buffered windows would never flush in that configuration.
+builder.Services.AddSingleton<IScheduledJob, NotificationAggregationFlushJob>();
+builder.Services.AddHostedService<SchedulerWorker>();
+
 // The bot pipeline is only wired up once a bot token is configured, so the console works
 // standalone during development before a Telegram bot exists (dotnet user-secrets set
 // "Telegram:BotToken" ... / "Telegram:WebhookSecret" ..., see docs/08-setup-sviluppo.md).
@@ -392,14 +401,11 @@ if (calendarIntegrationEnabled)
 
 if (telegramEnabled || calendarIntegrationEnabled)
 {
-    // Bounds ProcessedMessages' growth (no natural cap otherwise) — registered here rather
-    // than unconditionally at top level because it, like every IScheduledJob, only ever runs
-    // if SchedulerWorker is actually hosted. The PayPal webhook writes to the same table
-    // regardless of whether Telegram itself is configured, so this stays outside the
-    // telegramEnabled block above.
+    // Bounds ProcessedMessages' growth (no natural cap otherwise). The PayPal webhook writes
+    // to the same table regardless of whether Telegram itself is configured, so this stays
+    // outside the telegramEnabled block above; SchedulerWorker is hosted unconditionally now
+    // (see NotificationAggregationFlushJob above), so this only needs its own gate.
     builder.Services.AddSingleton<IScheduledJob, ProcessedMessagePurgeJob>();
-
-    builder.Services.AddHostedService<SchedulerWorker>();
 }
 
 var app = builder.Build();

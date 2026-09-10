@@ -1,105 +1,83 @@
-using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Tessera.Core.Abstractions;
 using Tessera.Core.Channels;
-using Tessera.Core.Expenses;
 using Tessera.Core.Notifications;
 using Tessera.Core.Resources;
 using Tessera.Data;
 
 namespace Tessera.Web.Services;
 
-// Renders structured domain events per recipient, in the recipient's own culture — never a
+// Buffers structured domain events into the recipient's aggregation window instead of sending
+// immediately (docs/13-piano-miglioramenti.md, C3) — NotificationAggregationFlushJob renders
+// and sends once a window closes, per recipient, in the recipient's own culture, never a
 // pre-composed string (docs/09-localizzazione.md, hard rule 8). The actor is excluded from
-// their own notification; a recipient whose own chat is the one the action happened in
-// (OriginChatId) is skipped there too — they already saw it happen live.
+// their own notification.
 public sealed class NotificationService(
     TesseraDbContext db,
     IChannelIdentityRepository identities,
     ActorNameResolver actorNames,
     IChannelRegistry channelRegistry,
-    IStringLocalizer<Messages> localizer,
-    ILogger<NotificationService> logger)
+    NotificationAggregator aggregator,
+    IStringLocalizer<Messages> localizer)
 {
+    // Channels without both (free proactive sends, an inline keyboard) get a longer window —
+    // they're the ones where ten separate messages actually cost something or read as spam
+    // (docs/04-costi.md, docs/13 C3), so batching harder there is worth the extra delay.
+    private static readonly TimeSpan ShortWindow = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan LongWindow = TimeSpan.FromMinutes(5);
+
     public async Task NotifyAsync(ShoppingItemAdded evt, CancellationToken ct)
     {
         var actorName = await ResolveActorNameAsync(evt.SpaceId, evt.ActorUserId, ct);
-        await NotifyOtherMembersAsync(evt.SpaceId, evt.ActorUserId, evt.OriginChatId,
-            () => localizer["Notification.ShoppingItemAdded", actorName, evt.ItemText], ct);
+        var fact = new ShoppingItemFact(evt.ActorUserId, actorName, evt.ItemText, evt.OriginChatId);
+        await BufferForOtherMembersAsync(evt.SpaceId, evt.ActorUserId, nameof(ShoppingItemAdded),
+            aggregator.ShoppingItemAdded, fact, ct);
     }
 
     public async Task NotifyAsync(ShoppingItemChecked evt, CancellationToken ct)
     {
         var actorName = await ResolveActorNameAsync(evt.SpaceId, evt.ActorUserId, ct);
-        await NotifyOtherMembersAsync(evt.SpaceId, evt.ActorUserId, evt.OriginChatId,
-            () => localizer["Notification.ShoppingItemChecked", actorName, evt.ItemText], ct);
+        var fact = new ShoppingItemFact(evt.ActorUserId, actorName, evt.ItemText, evt.OriginChatId);
+        await BufferForOtherMembersAsync(evt.SpaceId, evt.ActorUserId, nameof(ShoppingItemChecked),
+            aggregator.ShoppingItemChecked, fact, ct);
     }
 
     public async Task NotifyAsync(ExpenseRecorded evt, CancellationToken ct)
     {
         var actorName = await ResolveActorNameAsync(evt.SpaceId, evt.ActorUserId, ct);
-        var category = evt.CategoryId is { } categoryId
-            ? await db.Categories.AsNoTracking().FirstOrDefaultAsync(c => c.Id == categoryId, ct)
-            : null;
-
-        await NotifyOtherMembersAsync(evt.SpaceId, evt.ActorUserId, evt.OriginChatId, () =>
-        {
-            var formatted = MoneyFormatter.Format(evt.Amount, evt.Currency, CultureInfo.CurrentUICulture.Name);
-            return category is null
-                ? localizer["Notification.ExpenseRecorded", actorName, formatted]
-                : localizer["Notification.ExpenseRecordedWithCategory",
-                    actorName, formatted, MessageProcessor.GetCategoryDisplayName(category, localizer)];
-        }, ct);
+        var fact = new ExpenseFact(evt.ActorUserId, actorName, evt.Amount, evt.Currency, evt.CategoryId, evt.OriginChatId);
+        await BufferForOtherMembersAsync(evt.SpaceId, evt.ActorUserId, nameof(ExpenseRecorded),
+            aggregator.ExpenseRecorded, fact, ct);
     }
 
     private async Task<string> ResolveActorNameAsync(Guid spaceId, Guid actorUserId, CancellationToken ct) =>
         await actorNames.ResolveAsync(spaceId, actorUserId, ct) ?? localizer["Space.FormerMember"];
 
-    private async Task NotifyOtherMembersAsync(
-        Guid spaceId, Guid actorUserId, string? originChatId, Func<string> composeText, CancellationToken ct)
+    private async Task BufferForOtherMembersAsync<TFact>(
+        Guid spaceId, Guid actorUserId, string eventType,
+        NotificationAggregationBuffer<TFact> buffer, TFact fact, CancellationToken ct)
     {
-        var recipients = await db.Memberships
+        var recipientIds = await db.Memberships
             .Where(m => m.SpaceId == spaceId && m.UserId != actorUserId)
-            .Join(db.DomainUsers, m => m.UserId, u => u.Id, (m, u) => u)
-            .AsNoTracking()
+            .Select(m => m.UserId)
             .ToListAsync(ct);
 
-        foreach (var recipient in recipients)
+        var now = DateTimeOffset.UtcNow;
+        foreach (var recipientId in recipientIds)
         {
-            var culture = new CultureInfo(recipient.PreferredCulture);
-            CultureInfo.CurrentCulture = culture;
-            CultureInfo.CurrentUICulture = culture;
-
-            var text = composeText();
-
-            var recipientIdentities = await identities.GetForUserAsync(recipient.Id, ct);
-            foreach (var identity in recipientIdentities)
-            {
-                if (channelRegistry.TryGet(identity.ChannelName) is not { } identityChannel
-                    || identity.ExternalChatId is not { } chatId)
-                {
-                    continue;
-                }
-
-                // The action is already visible in this exact chat (e.g. a shared group both
-                // the actor and this recipient are in) — a notification there would just be
-                // an echo of what they already saw happen live.
-                if (originChatId is not null && chatId == originChatId)
-                {
-                    continue;
-                }
-
-                try
-                {
-                    await identityChannel.SendTextAsync(new ChannelAddress(identity.ChannelName, chatId), text, ct);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex, "Failed to notify {UserId} via {ChannelName}/{ChatId}",
-                        recipient.Id, identity.ChannelName, chatId);
-                }
-            }
+            var duration = await WindowDurationForAsync(recipientId, ct);
+            buffer.Add(new NotificationWindowKey(spaceId, recipientId, eventType), fact, duration, now);
         }
+    }
+
+    private async Task<TimeSpan> WindowDurationForAsync(Guid recipientId, CancellationToken ct)
+    {
+        var recipientIdentities = await identities.GetForUserAsync(recipientId, ct);
+        var hasFastChannel = recipientIdentities.Any(identity =>
+            channelRegistry.TryGet(identity.ChannelName) is
+            { Capabilities.SupportsProactiveFree: true, Capabilities.SupportsInlineKeyboard: true });
+
+        return hasFastChannel ? ShortWindow : LongWindow;
     }
 }

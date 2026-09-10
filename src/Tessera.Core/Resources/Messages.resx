@@ -412,6 +412,27 @@
   <data name="Notification.ExpenseRecordedWithCategory" xml:space="preserve">
     <value>{0} recorded {1} for {2}</value>
   </data>
+  <data name="Notification.ShoppingItemsAdded" xml:space="preserve">
+    <value>{0} added {1} items: {2}</value>
+  </data>
+  <data name="Notification.ShoppingItemsAddedMultipleActors" xml:space="preserve">
+    <value>{0} items were added: {1}</value>
+  </data>
+  <data name="Notification.ShoppingItemsChecked" xml:space="preserve">
+    <value>{0} checked off {1} items: {2}</value>
+  </data>
+  <data name="Notification.ShoppingItemsCheckedMultipleActors" xml:space="preserve">
+    <value>{0} items were checked off: {1}</value>
+  </data>
+  <data name="Notification.ExpensesRecorded" xml:space="preserve">
+    <value>{0} recorded {1} expenses totalling {2}</value>
+  </data>
+  <data name="Notification.ExpensesRecordedMultipleActors" xml:space="preserve">
+    <value>{0} expenses totalling {1} were recorded</value>
+  </data>
+  <data name="Notification.AndMore" xml:space="preserve">
+    <value> and {0} more</value>
+  </data>
   <data name="Space.FormerMember" xml:space="preserve">
     <value>a former member</value>
   </data>
