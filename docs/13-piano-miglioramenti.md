@@ -1064,7 +1064,7 @@ eseguirli.
 | 4 | **B1, B2, B3, B4, B6, B7** ✅ | Sei interventi visibili e circoscritti. B3 è il più importante: è la pagina a uso quotidiano |
 | 5 | **B5, B8, B9, B10, B11, B14** ✅ | Accessibilità, riscontro, tono. B8 è solo riscrittura di risorse. Scoperte due questioni non previste: B5's skip link è oscurato da `FocusOnNavigate` pre-esistente; il 404 reale (`UseStatusCodePagesWithReExecute`) è rotto da prima di questa sessione |
 | 6 | **F2** ✅ | I permessi, prima di aggiungere superficie che li usa — fatto fuori ordine, su richiesta esplicita, prima dei passi 4-5 (lotto B) |
-| 7 | **C3, C1** | Aggregazione e poi email: il canale che sostituisce WhatsApp |
+| 7 | **C3, C1** ✅ | Aggregazione e poi email: il canale che sostituisce WhatsApp |
 | 8 | **D3**, poi decisioni aperte 2 e 3, poi **D1, D4, D2, D5** | La telemetria prima del riassetto: si decide su dati, non a memoria |
 | 9 | **E3, E2, E4, E1** | Export e garanzie sono quasi gratis; la voce merita di stare dopo perché tocca la pipeline |
 | 10 | **B12, B13, B15**, **F3**, **F4** | Manutenibilità e rifiniture, quando i pattern si sono consolidati |
