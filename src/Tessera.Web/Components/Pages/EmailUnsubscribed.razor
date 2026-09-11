@@ -1,0 +1,22 @@
+@page "/email/unsubscribed"
+@using Microsoft.Extensions.Localization
+@using Tessera.Core.Resources
+
+@inject IStringLocalizer<Messages> Localizer
+
+<PageTitle>@Localizer["EmailUnsubscribed.Title"]</PageTitle>
+
+<div class="container">
+    <h1>@Localizer["EmailUnsubscribed.Title"]</h1>
+    <p class="text-soft">
+        @(Success
+            ? Localizer["EmailUnsubscribed.SuccessBody"]
+            : Localizer["EmailUnsubscribed.InvalidBody"])
+        <a href="/">@Localizer["Common.BackToDashboard"]</a>
+    </p>
+</div>
+
+@code {
+    [SupplyParameterFromQuery]
+    private bool Success { get; set; }
+}

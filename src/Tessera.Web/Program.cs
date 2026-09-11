@@ -330,7 +330,13 @@ var emailEnabled = !string.IsNullOrWhiteSpace(emailConnectionString) && !string.
 if (emailEnabled)
 {
     builder.Services.AddSingleton<IEmailSender>(new AzureEmailClient(emailConnectionString!, emailSenderAddress!));
+
+    // The third IChannel (docs/13-piano-miglioramenti.md, C1) — same "opt-in, degrades
+    // gracefully without it" shape as the email sender itself above.
+    builder.Services.AddSingleton<IChannel, EmailChannel>();
 }
+
+builder.Services.AddSingleton<EmailUnsubscribeTokenService>();
 
 // The web chat channel (docs/06-roadmap.md) needs no external configuration — it's the
 // console's own /chat page — so the message pipeline itself is always wired up, unlike the
@@ -559,6 +565,7 @@ app.MapRazorComponents<App>()
 // Additional endpoints required by the Identity /Account Razor components.
 app.MapAdditionalIdentityEndpoints();
 app.MapCultureEndpoints();
+app.MapEmailUnsubscribeEndpoints();
 
 app.MapHealthChecks("/health").AllowAnonymous();
 

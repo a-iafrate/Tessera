@@ -337,6 +337,12 @@
   <data name="Digest.AllEmpty" xml:space="preserve">
     <value>Niente da segnalare oggi — nessun promemoria, appuntamento, voce mancante o avviso di budget.</value>
   </data>
+  <data name="Email.Digest.Subject" xml:space="preserve">
+    <value>Il tuo riepilogo Tessera</value>
+  </data>
+  <data name="Email.Digest.UnsubscribeLinkText" xml:space="preserve">
+    <value>Disiscriviti da questa email</value>
+  </data>
   <data name="Digest.BudgetLineOverall" xml:space="preserve">
     <value>Complessivo: {0} di {1}</value>
   </data>
@@ -697,6 +703,15 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   </data>
   <data name="NotFound.Body" xml:space="preserve">
     <value>La pagina che cerchi non esiste.</value>
+  </data>
+  <data name="EmailUnsubscribed.Title" xml:space="preserve">
+    <value>Disiscrizione completata</value>
+  </data>
+  <data name="EmailUnsubscribed.SuccessBody" xml:space="preserve">
+    <value>Non riceverai più il riepilogo quotidiano via email. Puoi riattivarlo in qualsiasi momento dal tuo profilo.</value>
+  </data>
+  <data name="EmailUnsubscribed.InvalidBody" xml:space="preserve">
+    <value>Questo link non è valido o è scaduto. Puoi gestire questa impostazione dal tuo profilo.</value>
   </data>
   <data name="Support.Title" xml:space="preserve">
     <value>Assistenza</value>
@@ -1168,6 +1183,15 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   </data>
   <data name="Profile.DefaultSpaceBody" xml:space="preserve">
     <value>Usato quando un messaggio non specifica a quale spazio si riferisce e c'è più di una scelta plausibile.</value>
+  </data>
+  <data name="Profile.EmailDigestHeading" xml:space="preserve">
+    <value>Riepilogo via email</value>
+  </data>
+  <data name="Profile.EmailDigestLabel" xml:space="preserve">
+    <value>Inviami il riepilogo quotidiano via email</value>
+  </data>
+  <data name="Profile.EmailDigestBody" xml:space="preserve">
+    <value>Lo stesso riepilogo quotidiano di Telegram — promemoria, appuntamenti, voci mancanti, avvisi di budget — inviato una volta al giorno all'email del tuo account. Disattivato di default; puoi disiscriverti direttamente dall'email in qualsiasi momento, senza fare login.</value>
   </data>
   <data name="Profile.DeleteAccountLink" xml:space="preserve">
     <value>Elimina il mio account</value>

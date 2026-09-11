@@ -12,6 +12,19 @@ public static class DigestFormatter
 {
     public static string Format(
         DailyDigest daily, IReadOnlyList<Category> categories, string currency,
+        TimeZoneInfo timeZone, CultureInfo culture, IStringLocalizer<Messages> localizer) =>
+        Format(BuildSections(daily, categories, currency, timeZone, culture, localizer), localizer);
+
+    // Joins BuildSections' output into the single plain-text rendering every channel except
+    // email uses as-is. Exposed separately so DailyDigestJob can build the sections once and
+    // still get email's own HTML rendering from the same data (docs/13-piano-miglioramenti.md, C1).
+    public static string Format(IReadOnlyList<(string Header, string Body)> sections, IStringLocalizer<Messages> localizer) =>
+        sections.Count == 0
+            ? localizer["Digest.AllEmpty"]
+            : string.Join("\n\n", sections.Select(s => $"{s.Header}\n{s.Body}"));
+
+    public static IReadOnlyList<(string Header, string Body)> BuildSections(
+        DailyDigest daily, IReadOnlyList<Category> categories, string currency,
         TimeZoneInfo timeZone, CultureInfo culture, IStringLocalizer<Messages> localizer)
     {
         // Empty sections are dropped entirely, header included — unlike the web dashboard
@@ -57,11 +70,6 @@ public static class DigestFormatter
             sections.Add((localizer["Digest.BudgetHeader"].Value, body));
         }
 
-        if (sections.Count == 0)
-        {
-            return localizer["Digest.AllEmpty"];
-        }
-
-        return string.Join("\n\n", sections.Select(s => $"{s.Header}\n{s.Body}"));
+        return sections;
     }
 }

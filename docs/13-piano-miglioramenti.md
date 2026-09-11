@@ -619,9 +619,9 @@ Sostituisce la Fase 3 (WhatsApp) come strada per raggiungere chi non usa Telegra
 non è il costo dei template ma la Business Verification di Meta, impraticabile per un professionista
 in regime forfettario senza iscrizione al registro imprese — vedi *Decisioni aperte*.
 
-### C1 — `EmailChannel` e digest via email
+### C1 — `EmailChannel` e digest via email ✅
 
-- [ ] **Dove**: nuovo `Tessera.Channels/EmailChannel.cs`, `Jobs/DailyDigestJob.cs`,
+- [x] **Dove**: nuovo `Tessera.Channels/EmailChannel.cs`, `Jobs/DailyDigestJob.cs`,
   `IEmailSender`/`AzureEmailClient` (già esistenti, oggi usati solo da `ForgotPassword.razor:58`)
 - **Perché**: è l'unico canale proattivo a zero burocrazia e costo trascurabile
   ([04-costi.md](04-costi.md) — ACS fattura per email inviata, cifre irrilevanti a questi volumi),
@@ -637,6 +637,36 @@ in regime forfettario senza iscrizione al registro imprese — vedi *Decisioni a
 - **Fatto quando**: un utente senza Telegram collegato riceve il digest quotidiano per email e può
   disiscriversi senza fare login.
 - **Dipende da**: nessuno. Il digest per più spazi (**E4**) è indipendente e può venire dopo.
+- **Fatto**: `EmailChannel` (`Tessera.Channels`) è il terzo `IChannel`, registrato solo se
+  `Email:ConnectionString`/`Email:SenderAddress` sono configurati (stesso pattern opzionale di
+  `IEmailSender`). Aggiunta una quinta capability, `SupportsRealTimeNotifications` (default
+  `true`, `false` solo per email) — così `NotificationAggregationFlushJob` (C3) esclude email dal
+  fan-out in tempo reale: l'unico messaggio che riceve è il digest schedulato, non le notifiche
+  aggregate delle azioni altrui (che per un canale senza tastiera inline userebbero comunque la
+  finestra lunga da 5 minuti di C3, non "una volta al giorno" — vedi la nota aggiunta in
+  `03-integrazioni.md`). `DigestFormatter` è stato scomposto in `BuildSections` (i dati
+  strutturati) e `Format` (l'unione in testo semplice usata da Telegram/web, invariata bit per
+  bit); `EmailChannel.SendDigestAsync` — chiamato direttamente da `DailyDigestJob`, non tramite
+  `IChannel.SendTextAsync`, perché un'email ha bisogno di un oggetto, di sezioni impaginate e di
+  un link di disiscrizione che l'interfaccia generica non prevede — usa `BuildSections` per
+  produrre un'email HTML in tabelle con gli stessi valori esadecimali di `tokens.css` copiati a
+  mano dello stesso `ForgotPassword.razor`. `User.EmailDigestEnabled` (nuova colonna, migrazione
+  `AddEmailDigestEnabled`, applicata al DB condiviso) più un nuovo riquadro in `Profile.razor`
+  ("Email digest") che, al primo opt-in, provisiona l'identità `ChannelIdentity` "email" tramite
+  `LinkService.EnsureEmailIdentityAsync` (stesso schema di `EnsureWebIdentityAsync`, cercata per
+  `UserId` non per indirizzo — l'email può cambiare). Link di disiscrizione firmato con l'API
+  Data Protection di ASP.NET Core (`EmailUnsubscribeTokenService`, già disponibile senza
+  configurazione aggiuntiva) — non scade mai di proposito: un link rimasto in una casella di
+  posta per mesi deve funzionare comunque; il fallback in caso di rotazione delle chiavi è il
+  riquadro in Profile, sempre disponibile. Nuovo endpoint anonimo `GET /email/unsubscribe` (stesso
+  schema di `/set-culture`, `CultureEndpoints`) più una pagina di conferma `EmailUnsubscribed.razor`.
+  Verificato dal vivo: toggle su Profile (persiste al reload, crea l'identità email), link di
+  disiscrizione valido (spegne il flag, mostra conferma) e non valido (messaggio d'errore, nessun
+  crash) — tutti con account e token reali generati tramite un endpoint diagnostico temporaneo
+  poi rimosso. L'HTML dell'email è stato verificato visivamente rendendolo in un browser tramite
+  lo stesso endpoint temporaneo. **Non verificato dal vivo**: la consegna reale di un'email, perché
+  Azure Communication Services non è configurato in questo ambiente di sviluppo — nessun
+  `Email:ConnectionString` disponibile per un invio reale.
 
 ### C2 — Web push sulla PWA
 

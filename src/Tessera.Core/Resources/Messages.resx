@@ -337,6 +337,12 @@
   <data name="Digest.AllEmpty" xml:space="preserve">
     <value>Nothing to report today — no reminders, appointments, missing items, or budget alerts.</value>
   </data>
+  <data name="Email.Digest.Subject" xml:space="preserve">
+    <value>Your Tessera digest</value>
+  </data>
+  <data name="Email.Digest.UnsubscribeLinkText" xml:space="preserve">
+    <value>Unsubscribe from this email</value>
+  </data>
   <data name="Digest.BudgetLineOverall" xml:space="preserve">
     <value>Overall: {0} of {1}</value>
   </data>
@@ -697,6 +703,15 @@ Note: I only read messages that start with / or mention me.</value>
   </data>
   <data name="NotFound.Body" xml:space="preserve">
     <value>Sorry, the page you're looking for doesn't exist.</value>
+  </data>
+  <data name="EmailUnsubscribed.Title" xml:space="preserve">
+    <value>Unsubscribed</value>
+  </data>
+  <data name="EmailUnsubscribed.SuccessBody" xml:space="preserve">
+    <value>You won't receive the daily digest by email anymore. You can turn it back on anytime from your profile.</value>
+  </data>
+  <data name="EmailUnsubscribed.InvalidBody" xml:space="preserve">
+    <value>This link is invalid or has expired. You can manage this from your profile instead.</value>
   </data>
   <data name="Support.Title" xml:space="preserve">
     <value>Support</value>
@@ -1168,6 +1183,15 @@ Note: I only read messages that start with / or mention me.</value>
   </data>
   <data name="Profile.DefaultSpaceBody" xml:space="preserve">
     <value>Used when a message doesn't say which space it's about and there's more than one reasonable choice.</value>
+  </data>
+  <data name="Profile.EmailDigestHeading" xml:space="preserve">
+    <value>Email digest</value>
+  </data>
+  <data name="Profile.EmailDigestLabel" xml:space="preserve">
+    <value>Send me the daily digest by email</value>
+  </data>
+  <data name="Profile.EmailDigestBody" xml:space="preserve">
+    <value>The same daily summary as Telegram — reminders, events, missing items, budget alerts — sent to your account email once a day. Off by default; you can unsubscribe from the email itself at any time, no login needed.</value>
   </data>
   <data name="Profile.DeleteAccountLink" xml:space="preserve">
     <value>Delete my account</value>

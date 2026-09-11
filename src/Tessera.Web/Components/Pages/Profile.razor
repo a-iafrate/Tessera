@@ -12,6 +12,7 @@
 
 @inject UserProvisioningService UserProvisioningService
 @inject SpaceService SpaceService
+@inject LinkService LinkService
 @inject IStringLocalizer<Messages> Localizer
 
 <PageTitle>@Localizer["Profile.Title"]</PageTitle>
@@ -96,6 +97,15 @@
                     <p class="text-soft">@Localizer["Profile.DefaultSpaceBody"]</p>
                 </div>
             }
+
+            <div class="card profile-card">
+                <h2>@Localizer["Profile.EmailDigestHeading"]</h2>
+                <label class="checkbox-label">
+                    <input type="checkbox" checked="@emailDigestEnabled" disabled="@isBusy" @onchange="OnEmailDigestChangedAsync" />
+                    <span>@Localizer["Profile.EmailDigestLabel"]</span>
+                </label>
+                <p class="text-soft">@Localizer["Profile.EmailDigestBody"]</p>
+            </div>
         </div>
 
         <div class="seam" aria-hidden="true">
@@ -118,6 +128,8 @@
     private string culture = "en";
     private string? timeZoneId;
     private Guid? defaultSpaceId;
+    private bool emailDigestEnabled;
+    private string userEmail = "";
     private IReadOnlyList<Space> spaces = [];
     private string? statusMessage;
 
@@ -132,6 +144,8 @@
         culture = user.PreferredCulture;
         timeZoneId = user.TimeZoneId;
         defaultSpaceId = user.DefaultSpaceId;
+        emailDigestEnabled = user.EmailDigestEnabled;
+        userEmail = user.Email;
 
         spaces = await SpaceService.GetForUserAsync(userId, CancellationToken.None);
         loaded = true;
@@ -241,6 +255,34 @@
             {
                 isBusy = false;
             }
+        }
+    }
+
+    private async Task OnEmailDigestChangedAsync(ChangeEventArgs e)
+    {
+        if (isBusy)
+        {
+            return;
+        }
+
+        isBusy = true;
+        try
+        {
+            emailDigestEnabled = (bool)e.Value!;
+            await UserProvisioningService.SetEmailDigestEnabledAsync(userId, emailDigestEnabled, CancellationToken.None);
+            if (emailDigestEnabled)
+            {
+                // Provisioned lazily, on first opt-in, rather than for every account up front —
+                // mirrors EnsureWebIdentityAsync's own reasoning (no linking flow needed, the
+                // email address is already known and verified by owning the account).
+                await LinkService.EnsureEmailIdentityAsync(userId, userEmail, CancellationToken.None);
+            }
+
+            statusMessage = Localizer["Profile.Saved"];
+        }
+        finally
+        {
+            isBusy = false;
         }
     }
 }

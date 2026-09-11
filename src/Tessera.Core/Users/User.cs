@@ -24,6 +24,12 @@ public class User
     public int DigestHourLocal { get; set; } = 8;
     public DateOnly? LastDigestSentFor { get; set; }
 
+    // Explicit opt-in, default off (docs/13-piano-miglioramenti.md, C1) — a proactive email
+    // without consent is processing without a legal basis, not a mere notification
+    // (docs/07-compliance.md), unlike Telegram/web where the user already took an action
+    // (linking the bot, opening the console) that implies wanting replies there.
+    public bool EmailDigestEnabled { get; set; }
+
     // Onboarding progression (docs/10-conversazione.md): counts content-creating actions
     // (shopping.add, expense record, reminder create) to drive the one-hint-at-a-time
     // discovery sequence and the one-time sharing prompt after the third action.

@@ -105,4 +105,11 @@ public sealed class UserProvisioningService(TesseraDbContext db)
         user.DefaultSpaceId = spaceId;
         await db.SaveChangesAsync(ct);
     }
+
+    public async Task SetEmailDigestEnabledAsync(Guid userId, bool enabled, CancellationToken ct)
+    {
+        var user = await db.DomainUsers.FirstAsync(x => x.Id == userId, ct);
+        user.EmailDigestEnabled = enabled;
+        await db.SaveChangesAsync(ct);
+    }
 }

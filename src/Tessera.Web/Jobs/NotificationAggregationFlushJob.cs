@@ -165,6 +165,13 @@ public sealed class NotificationAggregationFlushJob(
                 continue;
             }
 
+            // Email only ever gets the scheduled daily digest (DailyDigestJob), never this
+            // real-time fan-out — see ChannelCapabilities.SupportsRealTimeNotifications.
+            if (!identityChannel.Capabilities.SupportsRealTimeNotifications)
+            {
+                continue;
+            }
+
             // The most recent buffered action already happened live in this exact chat (e.g. a
             // shared group both the actor and this recipient are in) — sending it here again
             // would just be an echo.

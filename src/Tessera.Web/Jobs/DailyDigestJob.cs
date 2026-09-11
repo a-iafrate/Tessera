@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Tessera.Channels;
 using Tessera.Core.Abstractions;
 using Tessera.Core.Channels;
 using Tessera.Core.Resources;
@@ -15,6 +16,8 @@ namespace Tessera.Web.Jobs;
 public sealed class DailyDigestJob(
     IServiceScopeFactory scopeFactory,
     IChannelRegistry channelRegistry,
+    IConfiguration configuration,
+    EmailUnsubscribeTokenService unsubscribeTokens,
     IStringLocalizer<Messages> localizer,
     ILogger<DailyDigestJob> logger) : IScheduledJob
 {
@@ -54,7 +57,8 @@ public sealed class DailyDigestJob(
             var daily = await digest.BuildAsync(spaceId, user.Id, timeZone, today, ct);
             var currency = await expenses.GetSpaceCurrencyAsync(spaceId, ct);
             var categories = await expenses.GetCategoriesAsync(spaceId, ct);
-            var text = DigestFormatter.Format(daily, categories, currency, timeZone, culture, localizer);
+            var sections = DigestFormatter.BuildSections(daily, categories, currency, timeZone, culture, localizer);
+            var text = DigestFormatter.Format(sections, localizer);
 
             var userIdentities = await identities.GetForUserAsync(user.Id, ct);
             foreach (var identity in userIdentities)
@@ -67,7 +71,27 @@ public sealed class DailyDigestJob(
 
                 try
                 {
-                    await identityChannel.SendTextAsync(new ChannelAddress(identity.ChannelName, chatId), text, ct);
+                    // Email needs a subject, styled sections and an unsubscribe link — none of
+                    // which fit IChannel's generic "send this text" contract — so it's handled
+                    // directly rather than through SendTextAsync (docs/13-piano-miglioramenti.md,
+                    // C1). Gated on the explicit opt-in even though the identity, once
+                    // provisioned, doesn't go away when the user turns it back off from Profile.
+                    if (identityChannel is EmailChannel emailChannel)
+                    {
+                        if (!user.EmailDigestEnabled)
+                        {
+                            continue;
+                        }
+
+                        var unsubscribeUrl = $"{BaseUrl}/email/unsubscribe?token={Uri.EscapeDataString(unsubscribeTokens.CreateToken(user.Id))}";
+                        await emailChannel.SendDigestAsync(
+                            chatId, localizer["Email.Digest.Subject"], sections, unsubscribeUrl,
+                            localizer["Email.Digest.UnsubscribeLinkText"], culture.TwoLetterISOLanguageName, ct);
+                    }
+                    else
+                    {
+                        await identityChannel.SendTextAsync(new ChannelAddress(identity.ChannelName, chatId), text, ct);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -80,4 +104,7 @@ public sealed class DailyDigestJob(
 
         await db.SaveChangesAsync(ct);
     }
+
+    private string BaseUrl => configuration["App:BaseUrl"]?.TrimEnd('/')
+        ?? throw new InvalidOperationException("Configuration key 'App:BaseUrl' is required to build unsubscribe links.");
 }

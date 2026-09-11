@@ -120,6 +120,37 @@ public sealed class LinkService(TesseraDbContext db)
         return identity;
     }
 
+    // Same idea as EnsureWebIdentityAsync — no linking flow, provisioned the moment the user
+    // opts into the email digest from Profile (docs/13-piano-miglioramenti.md, C1). Looked up by
+    // UserId, not by email: unlike Telegram's ExternalUserId, a user's email can change, and
+    // there's only ever one email identity per user, so this both finds the existing row and
+    // keeps it in sync if the address changed since it was created.
+    public async Task<ChannelIdentity> EnsureEmailIdentityAsync(Guid userId, string email, CancellationToken ct)
+    {
+        var existing = await db.ChannelIdentities
+            .FirstOrDefaultAsync(x => x.ChannelName == "email" && x.UserId == userId, ct);
+        if (existing is not null)
+        {
+            existing.ExternalUserId = email;
+            existing.ExternalChatId = email;
+            await db.SaveChangesAsync(ct);
+            return existing;
+        }
+
+        var identity = new ChannelIdentity
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            ChannelName = "email",
+            ExternalUserId = email,
+            ExternalChatId = email,
+            LinkedAt = DateTimeOffset.UtcNow,
+        };
+        db.ChannelIdentities.Add(identity);
+        await db.SaveChangesAsync(ct);
+        return identity;
+    }
+
     private static string GenerateToken() =>
         Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
             .TrimEnd('=')

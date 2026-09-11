@@ -342,9 +342,9 @@ Testato in sandbox — entrambi i casi (con e senza riapprovazione richiesta da 
 
 App separata su [developer.paypal.com](https://developer.paypal.com) con le proprie credenziali (`api-m.sandbox.paypal.com` invece di `api-m.paypal.com`) e conti sandbox buyer/merchant finti — permette di testare l'intero ciclo (sottoscrizione, rinnovo, cancellazione, webhook) senza soldi reali. Da configurare come coppia di variabili separate (`PayPal:Environment` = `sandbox`/`live`), stesso principio del profilo `http`/`https` già in `launchSettings.json`.
 
-## Azure Communication Services — email di reset password
+## Azure Communication Services — email di reset password e digest
 
-Prima integrazione email dell'app: fino ad ora non esisteva alcuna infrastruttura di invio (`Program.cs` lo documentava esplicitamente come rimandato). Scope volutamente stretto — **solo il recupero password** (`/Account/ForgotPassword`, `/Account/ResetPassword`); `RequireConfirmedAccount` resta `false`, nessun'altra email transazionale (inviti, digest restano solo Telegram).
+Prima integrazione email dell'app: fino ad ora non esisteva alcuna infrastruttura di invio (`Program.cs` lo documentava esplicitamente come rimandato). Scope iniziale volutamente stretto — solo il recupero password (`/Account/ForgotPassword`, `/Account/ResetPassword`); `RequireConfirmedAccount` resta `false`. Esteso in un secondo momento (docs/13-piano-miglioramenti.md, C1) al secondo consumatore: `EmailChannel` (`Tessera.Channels`), che rende `DailyDigestJob` raggiungibile anche da chi non ha Telegram collegato — opt-in esplicito (`User.EmailDigestEnabled`, default `false`) e link di disiscrizione a un click, senza login, con token firmato tramite Data Protection (`EmailUnsubscribeTokenService`). Nessun'altra email transazionale oltre a queste due (niente inviti via email, ad esempio).
 
 ### Perché ACS e non SendGrid/SMTP
 
@@ -368,7 +368,11 @@ Prima di comporre oggetto e corpo, `ForgotPassword.razor` imposta `CultureInfo.C
 
 ### Configurazione
 
-`Email:ConnectionString` + `Email:SenderAddress` — se assenti, il servizio semplicemente non viene registrato (stesso pattern di ogni altra integrazione opzionale in `Program.cs`): la pagina `/Account/ForgotPassword` resta visibile ma non invia nulla. Passi di provisioning manuale (risorsa ACS, dominio, connection string) in `docs/08-setup-sviluppo.md`.
+`Email:ConnectionString` + `Email:SenderAddress` — se assenti, né `IEmailSender` né `EmailChannel` vengono registrati (stesso pattern di ogni altra integrazione opzionale in `Program.cs`): `/Account/ForgotPassword` resta visibile ma non invia nulla, e il digest semplicemente non raggiunge nessuno via email (Telegram/web restano invariati). Passi di provisioning manuale (risorsa ACS, dominio, connection string) in `docs/08-setup-sviluppo.md`.
+
+### Perché il digest via email non passa dal fan-out in tempo reale
+
+`NotificationService`/`NotificationAggregationFlushJob` (docs/13-piano-miglioramenti.md, C3) notificano ogni membro di uno spazio in tempo reale (aggregato su una finestra di 60 s o più); `EmailChannel.Capabilities.SupportsRealTimeNotifications` è l'unico canale a valere `false`, quindi quel fan-out lo salta sempre. L'unico messaggio che email riceve è il digest quotidiano schedulato — dieci email al minuto per un pomeriggio di spesa attiva sarebbero esattamente lo spam che le mitigazioni di `04-costi.md` vogliono evitare, anche con l'aggregazione di C3 (che per email userebbe comunque la finestra lunga da 5 minuti, non "una volta al giorno").
 
 ## Alexa — non praticabile, decisione presa
 
