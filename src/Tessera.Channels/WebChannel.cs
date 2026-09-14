@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using System.Threading.Channels;
+using Microsoft.Extensions.DependencyInjection;
+using Tessera.Core.Abstractions;
 using Tessera.Core.Channels;
 
 namespace Tessera.Channels;
@@ -23,7 +25,14 @@ public sealed record WebChatEvent(
 // in-memory mailbox that the Blazor page reads from live while it's open. ExternalChatId is
 // the user's own Guid (LinkService.EnsureWebIdentityAsync) — one mailbox per logged-in user,
 // not per browser tab.
-public sealed class WebChannel : IChannel
+//
+// Web push (docs/13-piano-miglioramenti.md, C2) is additive to that mailbox, not a replacement
+// for it: when nobody has the page open to read from the mailbox, Post falls back to any
+// browser/device push subscriptions the user has registered instead of silently dropping the
+// message. IServiceScopeFactory is needed because this class is a singleton (the mailboxes have
+// to outlive any single request) but IPushSubscriptionRepository is backed by the per-request
+// scoped DbContext — same "open a scope on demand" shape as every scheduled job.
+public sealed class WebChannel(IServiceScopeFactory scopeFactory, IPushSender? pushSender = null) : IChannel
 {
     private readonly ConcurrentDictionary<string, Channel<WebChatEvent>> mailboxes = new();
 
@@ -47,7 +56,7 @@ public sealed class WebChannel : IChannel
     // Opens (or replaces) the mailbox for this chat and streams events from it — called once
     // per page load. Replacing rather than reusing means only the most recently opened tab for
     // a given user receives live updates; several simultaneous tabs on the same account is a
-    // known v1 limitation, not a goal.
+    // known v1 limitation, not a goal (docs/06-roadmap.md).
     public IAsyncEnumerable<WebChatEvent> Subscribe(string chatId, CancellationToken ct)
     {
         var mailbox = Channel.CreateUnbounded<WebChatEvent>();
@@ -64,22 +73,22 @@ public sealed class WebChannel : IChannel
     }
 
     public Task SendTextAsync(ChannelAddress to, string text, CancellationToken ct) =>
-        Post(to, new WebChatEvent(NewId(), IsEdit: false, text, [], null, null, null));
+        Post(to, new WebChatEvent(NewId(), IsEdit: false, text, [], null, null, null), ct);
 
     public Task SendChoicesAsync(ChannelAddress to, string text, IReadOnlyList<Choice> choices, CancellationToken ct) =>
-        Post(to, new WebChatEvent(NewId(), IsEdit: false, text, [choices], null, null, null));
+        Post(to, new WebChatEvent(NewId(), IsEdit: false, text, [choices], null, null, null), ct);
 
     public Task SendGroupedChoicesAsync(ChannelAddress to, string text, IReadOnlyList<IReadOnlyList<Choice>> rows, CancellationToken ct) =>
-        Post(to, new WebChatEvent(NewId(), IsEdit: false, text, rows, null, null, null));
+        Post(to, new WebChatEvent(NewId(), IsEdit: false, text, rows, null, null, null), ct);
 
     public Task EditListMessageAsync(ChannelAddress to, string messageId, string text, IReadOnlyList<IReadOnlyList<Choice>> rows, CancellationToken ct) =>
-        Post(to, new WebChatEvent(messageId, IsEdit: true, text, rows, null, null, null));
+        Post(to, new WebChatEvent(messageId, IsEdit: true, text, rows, null, null, null), ct);
 
     public Task SendPhotoAsync(ChannelAddress to, string photoUrl, string? caption, CancellationToken ct) =>
-        Post(to, new WebChatEvent(NewId(), IsEdit: false, caption, [], photoUrl, null, null));
+        Post(to, new WebChatEvent(NewId(), IsEdit: false, caption, [], photoUrl, null, null), ct);
 
     public Task SendDocumentAsync(ChannelAddress to, string fileUrl, string fileName, string? caption, CancellationToken ct) =>
-        Post(to, new WebChatEvent(NewId(), IsEdit: false, caption, [], null, fileUrl, fileName));
+        Post(to, new WebChatEvent(NewId(), IsEdit: false, caption, [], null, fileUrl, fileName), ct);
 
     // Called once per staged upload — see StageUpload below.
     public Task<Stream> DownloadMediaAsync(string fileId, CancellationToken ct)
@@ -101,16 +110,44 @@ public sealed class WebChannel : IChannel
         return fileId;
     }
 
-    // Best-effort, like Telegram's own swallowed edit failures: if nobody has the page open
-    // there's no one to deliver to — not an error, the same as a phone that's turned off.
-    private Task Post(ChannelAddress to, WebChatEvent evt)
+    private async Task Post(ChannelAddress to, WebChatEvent evt, CancellationToken ct)
     {
         if (mailboxes.TryGetValue(to.ExternalChatId, out var mailbox))
         {
             mailbox.Writer.TryWrite(evt);
+            return;
         }
 
-        return Task.CompletedTask;
+        // No open tab to deliver to live — fall back to push. Skipped for edits: there's no
+        // bubble on screen to refresh if nobody had the page open when it was first sent, so a
+        // push notification about an edit would reference something the user never saw.
+        if (pushSender is null || evt.IsEdit || !Guid.TryParse(to.ExternalChatId, out var userId))
+        {
+            return;
+        }
+
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var subscriptions = scope.ServiceProvider.GetRequiredService<IPushSubscriptionRepository>();
+        var body = BuildPushBody(evt);
+
+        foreach (var subscription in await subscriptions.GetForUserAsync(userId, ct))
+        {
+            try
+            {
+                await pushSender.SendAsync(subscription.Endpoint, subscription.P256dh, subscription.Auth, "Tessera", body, "/chat", ct);
+            }
+            catch (PushSubscriptionGoneException)
+            {
+                await subscriptions.RemoveAsync(subscription.Endpoint, ct);
+            }
+        }
+    }
+
+    private static string BuildPushBody(WebChatEvent evt)
+    {
+        var text = evt.Text ?? (evt.PhotoUrl is not null ? "📎" : evt.DocumentUrl is not null ? $"📎 {evt.DocumentFileName}" : "");
+        const int maxLength = 300;
+        return text.Length > maxLength ? string.Concat(text.AsSpan(0, maxLength), "…") : text;
     }
 
     private static string NewId() => Guid.NewGuid().ToString("N");

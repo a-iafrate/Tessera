@@ -105,13 +105,18 @@ dotnet user-secrets set "PayPal:Environment"  "sandbox"
 dotnet user-secrets set "Email:ConnectionString" \
   "endpoint=https://<risorsa>.communication.azure.com/;accesskey=..."
 dotnet user-secrets set "Email:SenderAddress"    "noreply@<tuo-dominio>"
+dotnet user-secrets set "WebPush:VapidPublicKey"  "..."
+dotnet user-secrets set "WebPush:VapidPrivateKey" "..."
+dotnet user-secrets set "WebPush:Subject"         "mailto:<tua-email>"
 ```
 
 `BlobStorage:ConnectionString` è opzionale: se assente, la registrazione di `IBlobStorage`/`AttachmentService` viene saltata e gli allegati restano disabilitati (nessun errore, solo un warning di avvio). Il container `attachments` deve esistere già sullo Storage Account — l'app non lo crea.
 
 `PayPal:*` è opzionale allo stesso modo (docs/03-integrazioni.md, docs/04-costi.md) — senza le tre chiavi, i piani a pagamento restano semplicemente non acquistabili. `PayPal:Environment` vale `sandbox` (default se omesso) o `live`; il `WebhookId` si ottiene creando un webhook sulla app sandbox/live in [developer.paypal.com](https://developer.paypal.com), puntato su `/hooks/paypal`. Da testare in locale con lo stesso ngrok usato per Telegram sotto — l'URL ngrok cambia a ogni riavvio, quindi va aggiornato anche lato configurazione webhook PayPal, non solo `setWebhook`.
 
-`Email:*` è opzionale allo stesso modo (docs/03-integrazioni.md) — senza, `/Account/ForgotPassword` resta visibile ma non invia nulla. `Email:ConnectionString` si trova sulla risorsa ACS, blade **Keys** — stesso trattamento di `BlobStorage:ConnectionString` sopra: mai nel repository, solo user-secrets in locale / application settings su App Service in produzione, **non** Key Vault (riservato ai refresh token OAuth per-utente, hard rule 4).
+`Email:*` è opzionale allo stesso modo (docs/03-integrazioni.md) — senza, `/Account/ForgotPassword` resta visibile ma non invia nulla, e il digest non raggiunge nessuno via email. `Email:ConnectionString` si trova sulla risorsa ACS, blade **Keys** — stesso trattamento di `BlobStorage:ConnectionString` sopra: mai nel repository, solo user-secrets in locale / application settings su App Service in produzione, **non** Key Vault (riservato ai refresh token OAuth per-utente, hard rule 4).
+
+`WebPush:*` è opzionale allo stesso modo (docs/13-piano-miglioramenti.md, C2) — senza, il riquadro "Notifiche push" in `/settings` resta nascosto e `WebChannel` si comporta come prima (solo mailbox). La coppia di chiavi VAPID si genera una volta sola, non su una risorsa Azure: `WebPush.VapidHelper.GenerateVapidKeys()` (pacchetto NuGet `WebPush`) restituisce `PublicKey`/`PrivateKey` pronte per `user-secrets`/application settings — la chiave privata va trattata come ogni altro segreto qui sopra, mai nel repository. `WebPush:Subject` è un `mailto:` o URL che identifica chi manda le notifiche, richiesto dal protocollo VAPID (RFC 8292), non un endpoint da chiamare.
 
 In produzione le stesse chiavi arrivano da Key Vault via Managed Identity. Configurazione in `Program.cs`:
 

@@ -15,6 +15,7 @@ using DomainUser = Tessera.Core.Users.User;
 using ChannelIdentity = Tessera.Core.Users.ChannelIdentity;
 using LinkedAccount = Tessera.Core.Users.LinkedAccount;
 using LinkToken = Tessera.Core.Users.LinkToken;
+using PushSubscription = Tessera.Core.Users.PushSubscription;
 
 namespace Tessera.Data;
 
@@ -24,6 +25,8 @@ public sealed class TesseraDbContext(DbContextOptions<TesseraDbContext> options)
     public DbSet<DomainUser> DomainUsers => Set<DomainUser>();
 
     public DbSet<ChannelIdentity> ChannelIdentities => Set<ChannelIdentity>();
+
+    public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
 
     public DbSet<Space> Spaces => Set<Space>();
 

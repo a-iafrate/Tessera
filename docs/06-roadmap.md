@@ -204,8 +204,12 @@ Non prevista nella pianificazione originale — aggiunta su richiesta esplicita,
 
 - [x] **v1 — chat testuale autenticata**: `WebChannel : IChannel`, pagina `/chat`, `IChannelRegistry` per risolvere il canale giusto per messaggio (prerequisito riusato anche da `NotificationService` e dai job proattivi, non solo dal canale web). Identità auto-provisionata (`LinkService.EnsureWebIdentityAsync`), nessun flusso di collegamento a token. Manifest + service worker minimale per l'installabilità (nessuna cache offline: è un'app Blazor Server, non ha senso funzionare offline).
 - [x] **v2 — allegati**: upload di foto/PDF dalla pagina (`InputFile`), `WebChannel.StageUpload`/`DownloadMediaAsync` per farli fluire nella stessa pipeline di scontrini e note-con-foto già usata da Telegram, zero rami speciali in `MessageProcessor`.
+- [x] **v3 — web push** (docs/13-piano-miglioramenti.md, C2): promemoria e digest proattivi
+  raggiungono anche chi ha la console/PWA chiusa, tramite sottoscrizione VAPID persistita per
+  dispositivo (`Tessera.Core.Users.PushSubscription`) — `WebChannel.Post` prova il push quando
+  non trova una mailbox aperta, invece di scartare il messaggio. Non risolve la voce successiva
+  (più schede aperte in contemporanea): resta un problema distinto, non affrontato qui.
 - [ ] **Non fatto**: uso anonimo/di prova senza login — rimandato deliberatamente, richiede una decisione a parte su chi paga le chiamate LLM di un visitatore non autenticato (quota/sandboxing dedicati).
-- [ ] **Non fatto**: promemoria/digest proattivi recapitati anche sul canale web — restano solo su Telegram per ora, non è stato esteso in questa iterazione.
 - [ ] **Non fatto**: più schede/dispositivi aperti in contemporanea sullo stesso account — `WebChannel.Subscribe` sostituisce la mailbox precedente, non la affianca.
 
 ## Login social e profilo utente

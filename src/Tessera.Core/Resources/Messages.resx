@@ -698,6 +698,24 @@ Note: I only read messages that start with / or mention me.</value>
   <data name="Settings.ThemeDark" xml:space="preserve">
     <value>Dark</value>
   </data>
+  <data name="Settings.NotificationsTitle" xml:space="preserve">
+    <value>Push notifications</value>
+  </data>
+  <data name="Settings.NotificationsBody" xml:space="preserve">
+    <value>Get reminders and the daily digest as a system notification, even with the console closed.</value>
+  </data>
+  <data name="Settings.NotificationsEnableButton" xml:space="preserve">
+    <value>Enable on this device</value>
+  </data>
+  <data name="Settings.NotificationsDisableButton" xml:space="preserve">
+    <value>Disable on this device</value>
+  </data>
+  <data name="Settings.NotificationsDenied" xml:space="preserve">
+    <value>Blocked in your browser's site settings — allow notifications for this site to turn it back on.</value>
+  </data>
+  <data name="Settings.NotificationsUnsupported" xml:space="preserve">
+    <value>Not supported in this browser.</value>
+  </data>
   <data name="NotFound.Title" xml:space="preserve">
     <value>Page not found</value>
   </data>

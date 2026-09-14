@@ -698,6 +698,24 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   <data name="Settings.ThemeDark" xml:space="preserve">
     <value>Scuro</value>
   </data>
+  <data name="Settings.NotificationsTitle" xml:space="preserve">
+    <value>Notifiche push</value>
+  </data>
+  <data name="Settings.NotificationsBody" xml:space="preserve">
+    <value>Ricevi promemoria e il riepilogo quotidiano come notifica di sistema, anche a console chiusa.</value>
+  </data>
+  <data name="Settings.NotificationsEnableButton" xml:space="preserve">
+    <value>Attiva su questo dispositivo</value>
+  </data>
+  <data name="Settings.NotificationsDisableButton" xml:space="preserve">
+    <value>Disattiva su questo dispositivo</value>
+  </data>
+  <data name="Settings.NotificationsDenied" xml:space="preserve">
+    <value>Bloccate nelle impostazioni del sito nel browser — consenti le notifiche per questo sito per riattivarle.</value>
+  </data>
+  <data name="Settings.NotificationsUnsupported" xml:space="preserve">
+    <value>Non supportate in questo browser.</value>
+  </data>
   <data name="NotFound.Title" xml:space="preserve">
     <value>Pagina non trovata</value>
   </data>

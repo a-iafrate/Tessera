@@ -188,6 +188,7 @@ builder.Services.AddHealthChecks()
 
 builder.Services.AddScoped<UserProvisioningService>();
 builder.Services.AddScoped<IChannelIdentityRepository, ChannelIdentityRepository>();
+builder.Services.AddScoped<IPushSubscriptionRepository, PushSubscriptionRepository>();
 builder.Services.AddScoped<IMembershipRepository, MembershipRepository>();
 builder.Services.AddScoped<IAccessPolicy, AccessPolicy>();
 builder.Services.AddScoped<ShoppingListService>();
@@ -337,6 +338,19 @@ if (emailEnabled)
 }
 
 builder.Services.AddSingleton<EmailUnsubscribeTokenService>();
+
+// Web push (docs/13-piano-miglioramenti.md, C2) — VAPID key pair generated once
+// (WebPush.VapidHelper.GenerateVapidKeys(), docs/08-setup-sviluppo.md) and provisioned like any
+// other non-refresh-token secret. Optional like every other integration here: without it,
+// WebChannel just keeps its current mailbox-only behavior.
+var vapidPublicKey = builder.Configuration["WebPush:VapidPublicKey"];
+var vapidPrivateKey = builder.Configuration["WebPush:VapidPrivateKey"];
+var vapidSubject = builder.Configuration["WebPush:Subject"];
+var webPushEnabled = !string.IsNullOrWhiteSpace(vapidPublicKey) && !string.IsNullOrWhiteSpace(vapidPrivateKey) && !string.IsNullOrWhiteSpace(vapidSubject);
+if (webPushEnabled)
+{
+    builder.Services.AddSingleton<IPushSender>(new WebPushSender(vapidSubject!, vapidPublicKey!, vapidPrivateKey!));
+}
 
 // The web chat channel (docs/06-roadmap.md) needs no external configuration — it's the
 // console's own /chat page — so the message pipeline itself is always wired up, unlike the
@@ -566,6 +580,7 @@ app.MapRazorComponents<App>()
 app.MapAdditionalIdentityEndpoints();
 app.MapCultureEndpoints();
 app.MapEmailUnsubscribeEndpoints();
+app.MapPushEndpoints();
 
 app.MapHealthChecks("/health").AllowAnonymous();
 

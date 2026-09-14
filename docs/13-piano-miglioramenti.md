@@ -668,9 +668,9 @@ in regime forfettario senza iscrizione al registro imprese — vedi *Decisioni a
   Azure Communication Services non è configurato in questo ambiente di sviluppo — nessun
   `Email:ConnectionString` disponibile per un invio reale.
 
-### C2 — Web push sulla PWA
+### C2 — Web push sulla PWA ✅
 
-- [ ] **Dove**: `wwwroot/service-worker.js`, `wwwroot/manifest.webmanifest` (esistenti),
+- [x] **Dove**: `wwwroot/service-worker.js`, `wwwroot/manifest.webmanifest` (esistenti),
   `Tessera.Channels/WebChannel.cs`, `NotificationService`
 - **Perché**: [06-roadmap.md](06-roadmap.md#canale-web-console-e-pwa) elenca "promemoria/digest
   proattivi anche sul canale web" fra le cose non fatte, e `WebChannel.Subscribe` oggi sostituisce
@@ -680,6 +680,44 @@ in regime forfettario senza iscrizione al registro imprese — vedi *Decisioni a
   al push quando la mailbox non è connessa, e `Subscribe` che diventa additivo.
 - **Fatto quando**: un promemoria arriva come notifica di sistema sulla PWA installata a scheda
   chiusa.
+- **Fatto**: nuova entità `PushSubscription` (`Tessera.Core.Users`, migrazione
+  `AddPushSubscriptions`, applicata) dietro `IPushSubscriptionRepository`/`IPushSender`
+  (`Tessera.Core.Abstractions`) — stesso schema `interfaccia in Core, implementazione in
+  Data/Integrations` già usato per canali ed email, che evita a `Tessera.Channels` di dover
+  referenziare `Tessera.Data` direttamente. `WebPushSender` (`Tessera.Integrations`) usa il
+  pacchetto NuGet `WebPush` (porting ufficiale di web-push-libs, stessa scelta fatta per ACS
+  invece di reimplementare RFC 8291/8292 a mano) e traduce i 404/410 del servizio push (l'utente
+  ha disinstallato/revocato) in `PushSubscriptionGoneException`, così `WebChannel` può rimuovere
+  la sottoscrizione morta senza dipendere dal tipo di eccezione specifico della libreria.
+  `WebChannel.Post` ora è la lettura di "Subscribe diventa additivo": se non c'è una mailbox
+  aperta (nessuna scheda con `/chat` collegata) prova il push invece di scartare il messaggio,
+  usando `IServiceScopeFactory` per risolvere il repository scoped da una classe singleton —
+  interpretazione deliberatamente conservativa: non tenta di risolvere anche il problema, distinto,
+  delle schede multiple che si escludono a vicenda (quello resta l'altro "non fatto" di
+  `06-roadmap.md`, fuori perimetro qui). Nuovo riquadro "Notifiche push" in `Settings.razor`
+  (visibile solo se `WebPush:VapidPublicKey` è configurato, stesso pattern "degrada senza
+  configurazione" di ogni altra integrazione) con `wwwroot/js/push.js` (richiesta permesso,
+  `pushManager.subscribe`, POST a `/push/subscribe`) e gli endpoint corrispondenti
+  (`RequireAuthorization().DisableAntiforgery()` — l'autenticazione via cookie `SameSite=Lax`
+  basta da sola contro il CSRF su un `fetch()` che non può comunque presentare un token
+  antiforgery, stesso ragionamento adottato altrove in questa sessione). Il service worker
+  gestisce `push`/`notificationclick`. `AccountDeletionService` ripulisce anche
+  `PushSubscriptions` alla cancellazione account (dimenticato nella prima stesura, corretto
+  prima del commit).
+  Verificato dal vivo end-to-end tranne un solo passo: con un account B senza mailbox aperta
+  (visita `/chat` una volta per creare l'identità "web", poi se ne va) e una sottoscrizione
+  push sintetica (endpoint/chiavi non reali) registrata tramite l'endpoint autenticato reale,
+  l'invio di A ha fatto scattare correttamente il ramo di fallback push: il log server mostra
+  `WebChannel.Post` risolvere la sottoscrizione e arrivare fino al passo di cifratura reale
+  (`WebPush.Model.InvalidEncryptionDetailsException`, fallito solo perché la chiave P256DH finta
+  non è una chiave EC valida — prova che il percorso codice/crittografia/VAPID viene eseguito
+  correttamente fino in fondo). L'endpoint richiede davvero l'autenticazione (una richiesta senza
+  cookie viene rediretta al login). **Non verificato dal vivo**: la sottoscrizione reale da un
+  browser vero — Chromium headless in questo ambiente riporta il permesso "notifications" come
+  concesso sia da `Notification.requestPermission()` sia da `navigator.permissions.query(...)`,
+  ma `pushManager.subscribe()` fallisce comunque con "permission denied": una limitazione nota di
+  Playwright/Chromium headless per questa combinazione di API, non del codice — non risolvibile
+  in questa sessione senza un browser reale non headless con una vera sessione desktop.
 
 ### C3 — Aggregazione delle notifiche ✅
 

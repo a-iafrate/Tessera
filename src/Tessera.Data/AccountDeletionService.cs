@@ -131,6 +131,7 @@ public sealed class AccountDeletionService(TesseraDbContext db, SpaceService spa
 
         db.ChannelIdentities.RemoveRange(await db.ChannelIdentities.Where(c => c.UserId == userId).ToListAsync(ct));
         db.LinkTokens.RemoveRange(await db.LinkTokens.Where(l => l.UserId == userId).ToListAsync(ct));
+        db.PushSubscriptions.RemoveRange(await db.PushSubscriptions.Where(p => p.UserId == userId).ToListAsync(ct));
 
         var conversationState = await db.ConversationStates.FirstOrDefaultAsync(s => s.UserId == userId, ct);
         if (conversationState is not null)

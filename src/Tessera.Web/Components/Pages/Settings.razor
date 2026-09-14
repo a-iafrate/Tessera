@@ -7,6 +7,7 @@
 
 @inject IStringLocalizer<Messages> Localizer
 @inject IJSRuntime JsRuntime
+@inject IConfiguration Configuration
 
 <PageTitle>@Localizer["Settings.Title"]</PageTitle>
 
@@ -42,6 +43,29 @@
         </div>
     </div>
 
+    @if (VapidPublicKey is not null)
+    {
+        <div class="card max-w-32 mb-8">
+            <h3 class="mb-2">@Localizer["Settings.NotificationsTitle"]</h3>
+            <p class="text-soft">@Localizer["Settings.NotificationsBody"]</p>
+            @switch (pushStatus)
+            {
+                case "subscribed":
+                    <button type="button" class="btn btn-secondary" disabled="@pushBusy" @onclick="DisablePushAsync">@Localizer["Settings.NotificationsDisableButton"]</button>
+                    break;
+                case "denied":
+                    <p class="text-soft">@Localizer["Settings.NotificationsDenied"]</p>
+                    break;
+                case "unsupported":
+                    <p class="text-soft">@Localizer["Settings.NotificationsUnsupported"]</p>
+                    break;
+                default:
+                    <button type="button" class="btn btn-primary" disabled="@pushBusy" @onclick="EnablePushAsync">@Localizer["Settings.NotificationsEnableButton"]</button>
+                    break;
+            }
+        </div>
+    }
+
     <div class="seam" aria-hidden="true">
         <span></span><span></span><span></span>
     </div>
@@ -56,12 +80,63 @@
     // until OnAfterRenderAsync's first pass can actually reach the JS runtime.
     private string currentTheme = "auto";
 
+    // Null hides the whole card — same "opt-in integration, degrades gracefully" shape as every
+    // other optional integration in Program.cs (docs/13-piano-miglioramenti.md, C2): without a
+    // configured VAPID key, there's nothing push.js could subscribe to anyway.
+    private string? VapidPublicKey => Configuration["WebPush:VapidPublicKey"];
+
+    // "unsubscribed" until OnAfterRenderAsync's first pass can ask the browser — this is
+    // per-device state (a service worker subscription), never server state.
+    private string pushStatus = "unsubscribed";
+    private bool pushBusy;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             currentTheme = await JsRuntime.InvokeAsync<string>("tesseraTheme.get");
+            if (VapidPublicKey is not null)
+            {
+                pushStatus = await JsRuntime.InvokeAsync<string>("tesseraPush.getStatus");
+            }
+
             StateHasChanged();
+        }
+    }
+
+    private async Task EnablePushAsync()
+    {
+        if (pushBusy || VapidPublicKey is null)
+        {
+            return;
+        }
+
+        pushBusy = true;
+        try
+        {
+            pushStatus = await JsRuntime.InvokeAsync<string>("tesseraPush.subscribe", VapidPublicKey);
+        }
+        finally
+        {
+            pushBusy = false;
+        }
+    }
+
+    private async Task DisablePushAsync()
+    {
+        if (pushBusy)
+        {
+            return;
+        }
+
+        pushBusy = true;
+        try
+        {
+            pushStatus = await JsRuntime.InvokeAsync<string>("tesseraPush.unsubscribe");
+        }
+        finally
+        {
+            pushBusy = false;
         }
     }
 
