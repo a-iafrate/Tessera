@@ -1106,7 +1106,7 @@ eseguirli.
 | 8 | **D3**, poi decisioni aperte 2 e 3, poi **D1, D4, D2, D5** | La telemetria prima del riassetto: si decide su dati, non a memoria |
 | 9 | **E3, E2, E4, E1** | Export e garanzie sono quasi gratis; la voce merita di stare dopo perché tocca la pipeline |
 | 10 | **B12, B13, B15**, **F3**, **F4** | Manutenibilità e rifiniture, quando i pattern si sono consolidati |
-| 11 | **C2**, **E5, E6, E7** | Il resto, senza urgenza |
+| 11 | **C2** ✅ (fatto fuori ordine insieme a C1/C3, su richiesta esplicita — chiude tutto il lotto C), **E5, E6, E7** | Il resto, senza urgenza |
 
 **G1-G5 vanno fatti subito**, fuori da questa scaletta: sono divergenze già accertate fra
 documentazione e realtà, e finché restano aperte ogni rilettura di `docs/` riparte da premesse
