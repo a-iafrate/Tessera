@@ -915,9 +915,9 @@ Lo schema e il flusso di pagamento sono completi e testati in sandbox
   giustificati per una singola riga di codice che replica esattamente un pattern già in
   produzione). Spazio e account di prova ripuliti a fine verifica.
 
-### D4 — Riscrivere la pagina prezzi
+### D4 — Riscrivere la pagina prezzi ✅
 
-- [ ] **Dove**: `Components/Pages/Pricing.razor`
+- [x] **Dove**: `Components/Pages/Pricing.razor`
 - **Perché**: oggi rende meccanicamente le righe di `SubscriptionPlan` — un elenco di numeri
   interni. Non dice cosa si ottiene.
 - **Cosa**: descrizione per beneficio, confronto a due colonne, la domanda "cosa succede se
@@ -928,6 +928,22 @@ Lo schema e il flusso di pagamento sono completi e testati in sandbox
   sottoscrivendo.
 - **Fatto quando**: la pagina si legge senza conoscere il modello dati.
 - **Dipende da**: **D1**.
+- **Fatto**: il confronto a due colonne era già il `.card-grid` esistente (due piani, non serviva
+  una tabella nuova). Aggiunto: una riga di sintesi per beneficio per piano (`Pricing.FreeTagline`
+  / `Pricing.PlusTagline`, selezionata per `SystemPlanIds`, non per `Name` — un admin può
+  rinominare un piano senza far sparire la tagline), una sezione domande in fondo alla pagina
+  nello stesso idioma statico di `FaqSection.razor` (`h3.faq-question` + `p.text-soft`, non
+  riusato il componente perché il contenuto è specifico di questa pagina) con due domande: cosa
+  succede se smetto di pagare (nessuna perdita di dati, si torna alle soglie Free — stesso testo
+  già vero in [02-modello-dati.md](02-modello-dati.md#abbonamento-paypal-per-spazio)) e se
+  sottoscrivere uno spazio ne aggiorna anche altri. La seconda risposta è scritta con attenzione a
+  **non promettere più di quanto implementato**: la Decisione aperta #2 propaga solo il tetto di
+  `MaxSpacesOwned` (quanti spazi puoi possedere), non gli altri assi — un altro spazio posseduto
+  resta sul proprio piano per scontrini/calendari/storico/export, non eredita quelli dello spazio
+  pagante. Aggiunto anche `.plan-price`/`.plan-price-suffix` a `base.css` (font mono, `--text-3xl`)
+  perché la cifra mensile non aveva mai avuto uno stile proprio, nonostante la classe fosse già
+  referenziata da `Pricing.razor` da prima di questo intervento. Verificato dal vivo (fetch diretto
+  della pagina renderizzata, `it`/`en`) in assenza di un tool Playwright in questa sessione.
 
 ### D5 — Verificare il checkout con carta senza conto PayPal
 
@@ -1218,7 +1234,7 @@ eseguirli.
 | 5 | **B5, B8, B9, B10, B11, B14** ✅ | Accessibilità, riscontro, tono. B8 è solo riscrittura di risorse. Scoperte due questioni non previste: B5's skip link è oscurato da `FocusOnNavigate` pre-esistente; il 404 reale (`UseStatusCodePagesWithReExecute`) è rotto da prima di questa sessione |
 | 6 | **F2** ✅ | I permessi, prima di aggiungere superficie che li usa — fatto fuori ordine, su richiesta esplicita, prima dei passi 4-5 (lotto B) |
 | 7 | **C3, C1** ✅ | Aggregazione e poi email: il canale che sostituisce WhatsApp |
-| 8 | **D3** ✅, decisioni aperte 2 ✅ e 3, **D1** ✅, poi **D4, D2, D5** | La telemetria prima del riassetto: si decide su dati, non a memoria |
+| 8 | **D3** ✅, decisioni aperte 2 ✅ e 3, **D1** ✅, **D4** ✅, poi **D2, D5** | La telemetria prima del riassetto: si decide su dati, non a memoria |
 | 9 | **E3** ✅**, E2, E4, E1** | Export e garanzie sono quasi gratis; la voce merita di stare dopo perché tocca la pipeline |
 | 10 | **B12, B13, B15**, **F3**, **F4** | Manutenibilità e rifiniture, quando i pattern si sono consolidati |
 | 11 | **C2** ✅ (fatto fuori ordine insieme a C1/C3, su richiesta esplicita — chiude tutto il lotto C), **E5, E6, E7** | Il resto, senza urgenza |

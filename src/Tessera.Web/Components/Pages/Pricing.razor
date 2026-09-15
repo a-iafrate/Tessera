@@ -44,6 +44,7 @@
                             <span class="text-soft plan-price-suffix">@Localizer["Pricing.PerMonth"]</span>
                         }
                     </p>
+                    <p class="text-soft">@Localizer[TaglineKey(plan)]</p>
                     <ul>
                         <li>@(IsUnlimited(plan.MaxReceiptsPerMonth) ? Localizer["Pricing.ReceiptsUnlimited"] : Localizer["Pricing.ReceiptsPerMonth", plan.MaxReceiptsPerMonth])</li>
                         <li>@(IsUnlimited(plan.MaxLinkedCalendars) ? Localizer["Pricing.CalendarsUnlimited"] : Localizer["Pricing.LinkedCalendars", plan.MaxLinkedCalendars])</li>
@@ -53,6 +54,22 @@
                     </ul>
                 </div>
             }
+        </div>
+
+        <div class="seam" aria-hidden="true">
+            <span></span><span></span><span></span>
+        </div>
+
+        <h2>@Localizer["Pricing.FaqHeading"]</h2>
+        <div class="faq-body max-w-40">
+            <div class="mb-6">
+                <h3 class="faq-question">@Localizer["Pricing.FaqStopPayingQuestion"]</h3>
+                <p class="text-soft m-0">@Localizer["Pricing.FaqStopPayingAnswer"]</p>
+            </div>
+            <div>
+                <h3 class="faq-question">@Localizer["Pricing.FaqPropagationQuestion"]</h3>
+                <p class="text-soft m-0">@Localizer["Pricing.FaqPropagationAnswer"]</p>
+            </div>
         </div>
 
         @if (isAuthenticated)
@@ -101,6 +118,11 @@
     // 999 is the sentinel the seed data uses for "no practical cap" on these count axes
     // (Configurations/SubscriptionPlanConfiguration.cs) — HistoryMonths uses 0 instead, checked separately.
     private static bool IsUnlimited(int value) => value >= 999;
+
+    // Plan-specific marketing copy keyed by id rather than by SubscriptionPlan.Name, since Name
+    // is seed data an admin could rename without expecting the tagline to silently disappear.
+    private static string TaglineKey(SubscriptionPlan plan) =>
+        plan.Id == SystemPlanIds.Plus ? "Pricing.PlusTagline" : "Pricing.FreeTagline";
 
     protected override async Task OnInitializedAsync()
     {

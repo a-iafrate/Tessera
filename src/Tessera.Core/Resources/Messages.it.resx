@@ -1483,6 +1483,12 @@ Provami subito:</value>
   <data name="Pricing.PerMonth" xml:space="preserve">
     <value>/mese</value>
   </data>
+  <data name="Pricing.FreeTagline" xml:space="preserve">
+    <value>Tutto ciò che serve a una famiglia per organizzarsi, con soglie mensili leggere.</value>
+  </data>
+  <data name="Pricing.PlusTagline" xml:space="preserve">
+    <value>Nessuna soglia mensile — scontrini, calendari, storico ed export illimitati.</value>
+  </data>
   <data name="Pricing.ReceiptsPerMonth" xml:space="preserve">
     <value>📷 {0} scontrini/mese</value>
   </data>
@@ -1512,6 +1518,21 @@ Provami subito:</value>
   </data>
   <data name="Pricing.SpacesUnlimited" xml:space="preserve">
     <value>Spazi di proprietà illimitati</value>
+  </data>
+  <data name="Pricing.FaqHeading" xml:space="preserve">
+    <value>Domande sui piani</value>
+  </data>
+  <data name="Pricing.FaqStopPayingQuestion" xml:space="preserve">
+    <value>Cosa succede se smetto di pagare?</value>
+  </data>
+  <data name="Pricing.FaqStopPayingAnswer" xml:space="preserve">
+    <value>Non viene cancellato nulla. Liste, spese, promemoria e calendari restano esattamente come sono — lo spazio torna semplicemente alle soglie mensili del piano Free finché non sottoscrivi di nuovo.</value>
+  </data>
+  <data name="Pricing.FaqPropagationQuestion" xml:space="preserve">
+    <value>Se sottoscrivo uno spazio, gli altri miei spazi si aggiornano anche loro?</value>
+  </data>
+  <data name="Pricing.FaqPropagationAnswer" xml:space="preserve">
+    <value>Non automaticamente — ogni spazio mantiene i propri scontrini, calendari, storico ed export in base al proprio piano. Ciò che sottoscrivere cambia è quanti spazi puoi possedere in totale: pagarne anche solo uno alza quel tetto su tutti gli spazi di cui sei proprietario, così non sei mai bloccato nel crearne un secondo o un terzo.</value>
   </data>
   <data name="Pricing.SubscribeHeading" xml:space="preserve">
     <value>Aggiorna uno spazio</value>

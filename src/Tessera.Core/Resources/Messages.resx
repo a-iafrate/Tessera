@@ -1483,6 +1483,12 @@ Try it now:</value>
   <data name="Pricing.PerMonth" xml:space="preserve">
     <value>/month</value>
   </data>
+  <data name="Pricing.FreeTagline" xml:space="preserve">
+    <value>Everything a family needs to get organized, with light monthly caps.</value>
+  </data>
+  <data name="Pricing.PlusTagline" xml:space="preserve">
+    <value>No monthly caps — unlimited scans, calendars, history and export.</value>
+  </data>
   <data name="Pricing.ReceiptsPerMonth" xml:space="preserve">
     <value>📷 {0} receipt scans/month</value>
   </data>
@@ -1512,6 +1518,21 @@ Try it now:</value>
   </data>
   <data name="Pricing.SpacesUnlimited" xml:space="preserve">
     <value>Own unlimited spaces</value>
+  </data>
+  <data name="Pricing.FaqHeading" xml:space="preserve">
+    <value>Questions about plans</value>
+  </data>
+  <data name="Pricing.FaqStopPayingQuestion" xml:space="preserve">
+    <value>What happens if I stop paying?</value>
+  </data>
+  <data name="Pricing.FaqStopPayingAnswer" xml:space="preserve">
+    <value>Nothing is deleted. Lists, expenses, reminders and calendars stay exactly as they are — the space just drops back to the Free plan's monthly caps until you subscribe again.</value>
+  </data>
+  <data name="Pricing.FaqPropagationQuestion" xml:space="preserve">
+    <value>If I subscribe one space, do my other spaces get upgraded too?</value>
+  </data>
+  <data name="Pricing.FaqPropagationAnswer" xml:space="preserve">
+    <value>Not automatically — each space keeps its own scans, calendars, history and export based on its own plan. What subscribing does change is how many spaces you're allowed to own in total: paying for even one raises that cap across every space you own, so you're never blocked from creating a second or third.</value>
   </data>
   <data name="Pricing.SubscribeHeading" xml:space="preserve">
     <value>Upgrade a space</value>
