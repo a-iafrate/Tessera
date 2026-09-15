@@ -45,9 +45,11 @@
                         }
                     </p>
                     <ul>
-                        <li>@Localizer["Pricing.CallsPerDay", plan.MaxCallsPerDay]</li>
-                        <li>@Localizer["Pricing.LinkedBots", plan.MaxLinkedBots]</li>
-                        <li>@(plan.AllowsReceiptScanning ? Localizer["Pricing.ReceiptScanningIncluded"] : Localizer["Pricing.ReceiptScanningNotIncluded"])</li>
+                        <li>@(IsUnlimited(plan.MaxReceiptsPerMonth) ? Localizer["Pricing.ReceiptsUnlimited"] : Localizer["Pricing.ReceiptsPerMonth", plan.MaxReceiptsPerMonth])</li>
+                        <li>@(IsUnlimited(plan.MaxLinkedCalendars) ? Localizer["Pricing.CalendarsUnlimited"] : Localizer["Pricing.LinkedCalendars", plan.MaxLinkedCalendars])</li>
+                        <li>@(plan.HistoryMonths <= 0 ? Localizer["Pricing.HistoryUnlimited"] : Localizer["Pricing.HistoryMonths", plan.HistoryMonths])</li>
+                        <li>@(plan.AllowsExport ? Localizer["Pricing.ExportIncluded"] : Localizer["Pricing.ExportNotIncluded"])</li>
+                        <li>@(IsUnlimited(plan.MaxSpacesOwned) ? Localizer["Pricing.SpacesUnlimited"] : Localizer["Pricing.SpacesOwned", plan.MaxSpacesOwned])</li>
                     </ul>
                 </div>
             }
@@ -95,6 +97,10 @@
     // goes through IServiceProvider like every other optional service in a page (e.g. Notes.razor's
     // AttachmentServiceOrNull).
     private TelemetryClient? TelemetryOrNull => ServiceProvider.GetService<TelemetryClient>();
+
+    // 999 is the sentinel the seed data uses for "no practical cap" on these count axes
+    // (Configurations/SubscriptionPlanConfiguration.cs) — HistoryMonths uses 0 instead, checked separately.
+    private static bool IsUnlimited(int value) => value >= 999;
 
     protected override async Task OnInitializedAsync()
     {

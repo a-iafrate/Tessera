@@ -2698,11 +2698,12 @@ public sealed class MessageProcessor(
         }
 
         // Checked before spending anything on the vision call, not after — a real per-scan
-        // cost (docs/04-costi.md) only makes sense to pay for a paying space.
-        var (_, _, plan) = await usage.GetTodayUsageAsync(spaceId, ct);
-        if (!plan.AllowsReceiptScanning)
+        // cost (docs/04-costi.md) only makes sense to pay for once the free monthly allowance
+        // is used up (docs/13-piano-miglioramenti.md, D1 — replaces the old all-or-nothing
+        // AllowsReceiptScanning bool).
+        if (!await usage.TryRecordReceiptScanAsync(spaceId, ct))
         {
-            return localizer["Expenses.ReceiptRequiresPaidPlan"];
+            return localizer["Expenses.ReceiptLimitExceeded"];
         }
 
         if (!await usage.TryRecordL3CallAsync(spaceId, ct))

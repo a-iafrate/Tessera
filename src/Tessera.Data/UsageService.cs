@@ -4,10 +4,12 @@ using Tessera.Core.Spaces;
 
 namespace Tessera.Data;
 
-// The only economic protection tied to SubscriptionPlan today (docs/04-costi.md) — everything
-// else about plans (linked-bot limits, payment, upgrade flow) is still deliberately
-// unenforced. Only L3/LLM calls count: L1/L2 native commands and matchers cost nothing and
-// stay available even once a space has used up its daily allowance.
+// The counting-based economic guards tied to SubscriptionPlan (docs/04-costi.md,
+// docs/13-piano-miglioramenti.md D1) — L3/LLM calls per day and receipt scans per month. Linked-
+// bot limits, spaces-owned limits, and calendar limits are enforced elsewhere (LinkService,
+// SpaceService, CalendarSpaceService) since they're not "how many times", just "how many at
+// once". L1/L2 native commands and matchers never touch this: they cost nothing and stay
+// available even once a space has used up its daily L3 allowance.
 //
 // TelemetryClient optional, defaulting to null when Application Insights isn't configured
 // (Program.cs) — same shape MessageProcessor/LlmFallbackClient already use, extended here to
@@ -26,7 +28,8 @@ public sealed class UsageService(TesseraDbContext db, TelemetryClient? telemetry
         var plan = await db.SubscriptionPlans.AsNoTracking().FirstAsync(x => x.Id == space.PlanId, ct);
 
         var todayStart = StartOfTodayUtc();
-        var usedToday = await db.UsageEvents.CountAsync(x => x.SpaceId == spaceId && x.OccurredAt >= todayStart, ct);
+        var usedToday = await db.UsageEvents.CountAsync(
+            x => x.SpaceId == spaceId && x.Kind == UsageEventKind.L3Call && x.OccurredAt >= todayStart, ct);
         if (usedToday >= plan.MaxCallsPerDay)
         {
             telemetry?.TrackEvent("UsageLimitReached", new Dictionary<string, string>
@@ -38,7 +41,36 @@ public sealed class UsageService(TesseraDbContext db, TelemetryClient? telemetry
             return false;
         }
 
-        db.UsageEvents.Add(new UsageEvent { Id = Guid.NewGuid(), SpaceId = spaceId, OccurredAt = DateTimeOffset.UtcNow });
+        db.UsageEvents.Add(new UsageEvent { Id = Guid.NewGuid(), SpaceId = spaceId, OccurredAt = DateTimeOffset.UtcNow, Kind = UsageEventKind.L3Call });
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
+
+    // Same check-and-record shape as TryRecordL3CallAsync, but per calendar month instead of
+    // per day — a receipt scan is a real per-call vision API cost (docs/04-costi.md), so a free
+    // space gets a handful a month rather than the all-or-nothing AllowsReceiptScanning this
+    // replaces (docs/13-piano-miglioramenti.md, D1).
+    public async Task<bool> TryRecordReceiptScanAsync(Guid spaceId, CancellationToken ct)
+    {
+        var space = await db.Spaces.AsNoTracking().FirstAsync(x => x.Id == spaceId, ct);
+        var plan = await db.SubscriptionPlans.AsNoTracking().FirstAsync(x => x.Id == space.PlanId, ct);
+
+        var monthStart = StartOfMonthUtc();
+        var usedThisMonth = await db.UsageEvents.CountAsync(
+            x => x.SpaceId == spaceId && x.Kind == UsageEventKind.ReceiptScan && x.OccurredAt >= monthStart, ct);
+        if (usedThisMonth >= plan.MaxReceiptsPerMonth)
+        {
+            telemetry?.TrackEvent("UsageLimitReached", new Dictionary<string, string>
+            {
+                ["SpaceId"] = spaceId.ToString(),
+                ["PlanName"] = plan.Name,
+                ["Limit"] = plan.MaxReceiptsPerMonth.ToString(),
+                ["Kind"] = "ReceiptScan",
+            });
+            return false;
+        }
+
+        db.UsageEvents.Add(new UsageEvent { Id = Guid.NewGuid(), SpaceId = spaceId, OccurredAt = DateTimeOffset.UtcNow, Kind = UsageEventKind.ReceiptScan });
         await db.SaveChangesAsync(ct);
         return true;
     }
@@ -50,8 +82,21 @@ public sealed class UsageService(TesseraDbContext db, TelemetryClient? telemetry
         var plan = await db.SubscriptionPlans.AsNoTracking().FirstAsync(x => x.Id == space.PlanId, ct);
 
         var todayStart = StartOfTodayUtc();
-        var usedToday = await db.UsageEvents.CountAsync(x => x.SpaceId == spaceId && x.OccurredAt >= todayStart, ct);
+        var usedToday = await db.UsageEvents.CountAsync(
+            x => x.SpaceId == spaceId && x.Kind == UsageEventKind.L3Call && x.OccurredAt >= todayStart, ct);
         return (usedToday, plan.MaxCallsPerDay, plan);
+    }
+
+    // Same shape as GetTodayUsageAsync, for the receipt-scan allowance instead.
+    public async Task<(int UsedThisMonth, int Limit)> GetReceiptUsageAsync(Guid spaceId, CancellationToken ct)
+    {
+        var space = await db.Spaces.AsNoTracking().FirstAsync(x => x.Id == spaceId, ct);
+        var plan = await db.SubscriptionPlans.AsNoTracking().FirstAsync(x => x.Id == space.PlanId, ct);
+
+        var monthStart = StartOfMonthUtc();
+        var usedThisMonth = await db.UsageEvents.CountAsync(
+            x => x.SpaceId == spaceId && x.Kind == UsageEventKind.ReceiptScan && x.OccurredAt >= monthStart, ct);
+        return (usedThisMonth, plan.MaxReceiptsPerMonth);
     }
 
     // For the public pricing page — the only other place a SubscriptionPlan row gets read.
@@ -66,5 +111,11 @@ public sealed class UsageService(TesseraDbContext db, TelemetryClient? telemetry
     {
         var now = DateTimeOffset.UtcNow;
         return new DateTimeOffset(now.Year, now.Month, now.Day, 0, 0, 0, TimeSpan.Zero);
+    }
+
+    private static DateTimeOffset StartOfMonthUtc()
+    {
+        var now = DateTimeOffset.UtcNow;
+        return new DateTimeOffset(now.Year, now.Month, 1, 0, 0, 0, TimeSpan.Zero);
     }
 }

@@ -12,11 +12,13 @@
 @using Tessera.Core.Spaces
 @using Tessera.Core.Users
 @using Tessera.Data
+@using Tessera.Web.Services
 
 @inject IServiceProvider ServiceProvider
 @inject SpaceService SpaceService
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JsRuntime
+@inject ToastService ToastService
 @inject IStringLocalizer<Messages> Localizer
 
 <PageTitle>@Localizer["Calendars.PageTitle"]</PageTitle>
@@ -290,6 +292,10 @@
         {
             await calendarSpace.SetMappingAsync(userId, spaceId, externalCalendarId, level, isDefaultWriteTarget: false, CancellationToken.None);
             await ReloadShareMappingsAsync();
+        }
+        catch (InvalidOperationException)
+        {
+            ToastService.ShowError(Localizer["Calendars.LinkLimitReached"]);
         }
         finally
         {

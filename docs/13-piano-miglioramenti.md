@@ -802,9 +802,9 @@ diagnosticare questo bug e servirà alla prossima occasione — senza, ASP.NET C
 Lo schema e il flusso di pagamento sono completi e testati in sandbox
 ([06-roadmap.md](06-roadmap.md#pagamenti)). Il problema è il listino sopra.
 
-### D1 — Spostare i piani dagli assi di costo a quelli di valore
+### D1 — Spostare i piani dagli assi di costo a quelli di valore ✅
 
-- [ ] **Dove**: `Tessera.Core/Spaces/SubscriptionPlan.cs`,
+- [x] **Dove**: `Tessera.Core/Spaces/SubscriptionPlan.cs`,
   `Configurations/SubscriptionPlanConfiguration.cs`, `UsageService`, `MessageProcessor`,
   `LinkService.CanLinkAnotherBotAsync`
 - **Perché**: tre problemi strutturali.
@@ -827,6 +827,31 @@ Lo schema e il flusso di pagamento sono completi e testati in sandbox
 - **Fatto quando**: la pagina prezzi non nomina né chiamate né bot, un utente Free può scansionare
   qualche scontrino al mese, e la condivisione non è limitata su nessun piano.
 - **Nota**: i prezzi effettivi sono una *Decisione aperta*, non parte di questo intervento.
+- **Fatto**: `SystemPlanIds` da 4 a 2 (`Free`, `Plus` — quest'ultimo riusa l'id del vecchio `Basic`
+  per minimizzare i cambi). Cinque campi nuovi su `SubscriptionPlan`: `MaxReceiptsPerMonth`,
+  `MaxLinkedCalendars`, `HistoryMonths` (`<= 0` = illimitato), `AllowsExport`, `MaxSpacesOwned` —
+  nessuno aveva enforcement prima (verificato con una ricerca dedicata nel codice). `MaxCallsPerDay`
+  e `MaxLinkedBots` restano, invariati nel meccanismo (`UsageService.TryRecordL3CallAsync`,
+  `LinkService.CanLinkAnotherBotAsync`), ma spariscono da `/pricing` e salgono a valori
+  anti-abuso (999 collegamenti, 1000 chiamate/giorno su Plus) invece che restare la metrica venduta.
+  `UsageEvent` guadagna un discriminatore `Kind` (`L3Call` | `ReceiptScan`) per tenere i due
+  contatori mensili nella stessa tabella senza duplicarla — una scansione riuscita consuma
+  comunque anche una chiamata L3 nello stesso gesto (due righe, `Kind` diverso), preservando il
+  comportamento preesistente.
+  Enforcement nuovo in quattro punti: `SpaceService.CanCreateAnotherSpaceAsync` (spazi — implementa
+  la regola di propagazione della Decisione aperta #2: il tetto è il massimo `MaxSpacesOwned` fra
+  tutti i piani degli spazi di cui l'utente è owner, non il piano dello spazio in creazione),
+  `CalendarSpaceService.SetMappingAsync` (calendari, solo quando se ne aggiunge uno nuovo, non al
+  cambio di livello di uno già collegato), `ExpenseService.QueryHistoryAsync` (ritaglio silenzioso
+  di `dateFrom`; `QueryPriceHistoryAsync` deliberatamente non ritagliato: la garanzia che lo
+  giustificherebbe è E2, non ancora fatta) ed `ExpenseService.GetForExportAsync` (eccezione se il
+  piano non include l'export; `Expenses.razor` nasconde la card invece di mostrarla e fallire al
+  click). `Pricing.razor` riscritta sui cinque nuovi assi, niente più chiamate/bot in lista.
+  Migrazione EF con una `Sql()` esplicita per spostare gli spazi ancora sui vecchi id Plus/Family
+  sul nuovo `Plus` unificato prima di cancellare le due righe ormai orfane (altrimenti la FK
+  `Restrict` da `Space.PlanId` avrebbe bloccato la `DeleteData`). `dotnet build`/`dotnet test`
+  puliti (232 test). Riscritta anche la sezione "Piano di abbonamento" di
+  [02-modello-dati.md](02-modello-dati.md), disallineata da prima di questo intervento.
 
 ### D2 — Ciclo annuale e periodo di prova
 
@@ -898,7 +923,9 @@ Lo schema e il flusso di pagamento sono completi e testati in sandbox
 - **Cosa**: descrizione per beneficio, confronto a due colonne, la domanda "cosa succede se
   smetto di pagare" con la risposta vera (nessuna perdita di dati, solo di funzioni oltre le
   soglie — [02-modello-dati.md](02-modello-dati.md#abbonamento-paypal-per-spazio)), e il
-  chiarimento che il piano è **per spazio**, non per persona.
+  chiarimento — coerente con la Decisione aperta #2 ✅ — che pagare per uno spazio alza il tetto
+  di spazi posseduti su **tutti** quelli di cui si è owner, non solo su quello che si sta
+  sottoscrivendo.
 - **Fatto quando**: la pagina si legge senza conoscere il modello dati.
 - **Dipende da**: **D1**.
 
@@ -1139,7 +1166,8 @@ I documenti sono la fonte di verità del progetto: le divergenze si scrivono lì
 - [ ] **G6** — [12-stile-sito.md](12-stile-sito.md): se il lotto B introduce toast e selettore di
   tema, vanno descritti come componenti, non lasciati impliciti
 - [ ] **G7** — [02-modello-dati.md](02-modello-dati.md): i nuovi campi di `SubscriptionPlan`
-  (**D1**) e `User.EmailDigestEnabled` (**C1**)
+  (**D1** ✅ fatto, sezione "Piano di abbonamento" riscritta) e `User.EmailDigestEnabled`
+  (**C1**, ancora da fare)
 
 ---
 
@@ -1152,14 +1180,17 @@ eseguirli.
    costo. Se un giorno dovesse tornare, va tentato tramite un BSP che accompagni la verification, e
    come **esperimento di distribuzione** — nessuna decisione di prodotto, di prezzo o di roadmap
    deve dipendere dal suo esito. Il display name andrà probabilmente allineato alla ragione sociale.
-2. **Il piano è per spazio o per chi paga?** ✅ **Deciso**: l'entitlement si propaga a tutti gli
-   spazi di chi paga (non confine esplicito in console). Da progettare in D1/D4: la regola esatta
-   di propagazione (a tutti gli spazi di cui l'acquirente è owner, non ai soli spazi in cui è
-   membro — coerente con "chi paga decide", non "chi partecipa eredita") e cosa succede se
-   possiede più abbonamenti su spazi diversi (il più alto vince, presumibilmente).
+2. **Il piano è per spazio o per chi paga?** ✅ **Deciso e implementato in D1**: l'entitlement si
+   propaga a tutti gli spazi di cui l'acquirente è owner (non ai soli spazi in cui è membro —
+   coerente con "chi paga decide", non "chi partecipa eredita"); se possiede più abbonamenti su
+   spazi diversi vince il più alto (`SpaceService.CanCreateAnotherSpaceAsync`, massimo
+   `MaxSpacesOwned` fra i piani posseduti). Resta da fare in D4: rendere questa regola leggibile
+   in console, non solo nel codice.
 3. **I prezzi effettivi.** €25/mese per un assistente familiare non ha comparabili nel mercato di
    riferimento, che sta nell'ordine di pochi euro al mese — da verificare sui listini attuali dei
-   concorrenti citati nel [README](../README.md) prima di fissare le cifre. Blocca **D1**.
+   concorrenti citati nel [README](../README.md) prima di fissare le cifre. Non blocca più **D1**
+   (fatto con un prezzo Plus placeholder di €5/mese, esplicitamente provvisorio nel codice) — resta
+   aperta per la cifra finale, che condiziona **D2** (ciclo annuale) e il testo di **D4**.
    **Ricerca fatta** (prezzi correnti, settembre 2026): Bring! Premium £1,79/mese (~£8,99/anno);
    Splitwise Pro $4,99/mese (~$39,99/anno); AnyList Complete $9,99/anno individuale, $14,99/anno
    per nucleo familiare intero; Cozi Gold $39/anno; Todoist Pro $5/utente/mese in fatturazione
@@ -1187,7 +1218,7 @@ eseguirli.
 | 5 | **B5, B8, B9, B10, B11, B14** ✅ | Accessibilità, riscontro, tono. B8 è solo riscrittura di risorse. Scoperte due questioni non previste: B5's skip link è oscurato da `FocusOnNavigate` pre-esistente; il 404 reale (`UseStatusCodePagesWithReExecute`) è rotto da prima di questa sessione |
 | 6 | **F2** ✅ | I permessi, prima di aggiungere superficie che li usa — fatto fuori ordine, su richiesta esplicita, prima dei passi 4-5 (lotto B) |
 | 7 | **C3, C1** ✅ | Aggregazione e poi email: il canale che sostituisce WhatsApp |
-| 8 | **D3** ✅, poi decisioni aperte 2 e 3, poi **D1, D4, D2, D5** | La telemetria prima del riassetto: si decide su dati, non a memoria |
+| 8 | **D3** ✅, decisioni aperte 2 ✅ e 3, **D1** ✅, poi **D4, D2, D5** | La telemetria prima del riassetto: si decide su dati, non a memoria |
 | 9 | **E3** ✅**, E2, E4, E1** | Export e garanzie sono quasi gratis; la voce merita di stare dopo perché tocca la pipeline |
 | 10 | **B12, B13, B15**, **F3**, **F4** | Manutenibilità e rifiniture, quando i pattern si sono consolidati |
 | 11 | **C2** ✅ (fatto fuori ordine insieme a C1/C3, su richiesta esplicita — chiude tutto il lotto C), **E5, E6, E7** | Il resto, senza urgenza |

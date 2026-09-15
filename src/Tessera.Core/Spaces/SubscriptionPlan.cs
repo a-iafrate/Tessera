@@ -1,27 +1,47 @@
 namespace Tessera.Core.Spaces;
 
-// One row per commercial tier (docs/04-costi.md), shared across every Space on that tier —
-// not a per-Space copy. A Space references one via SubscriptionPlanId.
+// Value axes, not cost axes (docs/13-piano-miglioramenti.md, D1) — every field here is
+// something a user can see the point of, unlike the LLM-call counter this plan used to sell
+// directly. MaxCallsPerDay stays only as an internal economic guard (docs/04-costi.md); nothing
+// here markets it. MaxLinkedBots stays too, but as an anti-abuse ceiling far above real family
+// usage on every plan — sharing across Telegram/web is the product's whole growth loop and was
+// never meant to be the thing Free paywalls.
 public class SubscriptionPlan
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = null!;
+
+    // Anti-abuse only from here on (docs/13, D1) — not a marketed limit on any plan.
     public int MaxLinkedBots { get; set; }
+
+    // Internal economic guard (docs/04-costi.md) — enforced in UsageService, never shown on
+    // Pricing.razor.
     public int MaxCallsPerDay { get; set; }
+
     public decimal MonthlyPrice { get; set; }
     public string Currency { get; set; } = "EUR";
-
-    // PayPal's billing plan id (v1/billing/plans, "P-XXXX") for this tier — separate columns
-    // per PayPal environment because the database is shared between test and production
-    // (docs/03-integrazioni.md): sandbox and live are different PayPal accounts with
-    // unrelated ids, and a single column would make going live silently reuse a sandbox plan
-    // id that doesn't exist there. Null until PayPalSubscriptionService.EnsurePlansProvisionedAsync
-    // creates the corresponding one, and always null for Free, which has no PayPal plan.
     public string? PayPalPlanIdSandbox { get; set; }
     public string? PayPalPlanIdLive { get; set; }
 
-    // Scontrini via vision (docs/06-roadmap.md Fase 4, docs/04-costi.md: ~€0,002-0,005 a
-    // scontrino) — a real per-scan cost on top of the daily call allowance, so it's its own
-    // flag rather than folded into MaxCallsPerDay. False only on Free.
-    public bool AllowsReceiptScanning { get; set; }
+    // Replaces the old all-or-nothing AllowsReceiptScanning bool — a free space can still try
+    // the thing the README calls out as the product's actual differentiator, just not without
+    // limit (docs/13, D1: "un utente Free può scansionare qualche scontrino al mese").
+    public int MaxReceiptsPerMonth { get; set; }
+
+    // Per space, not per user — how many external calendars can be mapped into one space
+    // (CalendarSpaceService.SetMappingAsync) before the plan's limit kicks in.
+    public int MaxLinkedCalendars { get; set; }
+
+    // How many months back ExpenseService.QueryHistoryAsync will search on this plan.
+    // <= 0 means unlimited — deliberately not 0-means-zero-months, since "no history at all"
+    // was never a state a plan is supposed to produce.
+    public int HistoryMonths { get; set; }
+
+    public bool AllowsExport { get; set; }
+
+    // How many Spaces a single user may own at once (decision 2, docs/13: entitlement
+    // propagates to *every* space the payer owns, which is what makes "own more than one"
+    // possible to sell in the first place — the highest MaxSpacesOwned across a user's
+    // currently-owned spaces' plans governs, per SpaceService.CanCreateAnotherSpaceAsync).
+    public int MaxSpacesOwned { get; set; }
 }

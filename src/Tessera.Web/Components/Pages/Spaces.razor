@@ -8,8 +8,10 @@
 @using Tessera.Core.Resources
 @using Tessera.Core.Spaces
 @using Tessera.Data
+@using Tessera.Web.Services
 
 @inject SpaceService SpaceService
+@inject ToastService ToastService
 @inject IStringLocalizer<Messages> Localizer
 
 <PageTitle>@Localizer["Spaces.Title"]</PageTitle>
@@ -93,6 +95,10 @@
             await SpaceService.CreateAsync(userId, newSpaceName.Trim(), CancellationToken.None);
             newSpaceName = "";
             spaces = await SpaceService.GetForUserWithOwnerNameAsync(userId, CancellationToken.None);
+        }
+        catch (InvalidOperationException)
+        {
+            ToastService.ShowError(Localizer["Spaces.CreateLimitReached"]);
         }
         finally
         {

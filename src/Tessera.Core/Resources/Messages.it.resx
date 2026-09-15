@@ -169,8 +169,8 @@
   <data name="Expenses.ReceiptNotConfigured" xml:space="preserve">
     <value>La lettura degli scontrini dalle foto non è ancora configurata — puoi comunque registrare la spesa come testo.</value>
   </data>
-  <data name="Expenses.ReceiptRequiresPaidPlan" xml:space="preserve">
-    <value>La lettura degli scontrini dalle foto è disponibile sui piani a pagamento — trovi i piani nella pagina prezzi del sito. Puoi comunque registrare la spesa come testo.</value>
+  <data name="Expenses.ReceiptLimitExceeded" xml:space="preserve">
+    <value>Hai esaurito le scansioni scontrino gratuite di questo spazio per questo mese — trovi di più nella pagina prezzi del sito. Puoi comunque registrare la spesa come testo.</value>
   </data>
   <data name="Expenses.ReceiptNotRecognized" xml:space="preserve">
     <value>Non sono riuscito a leggere un totale da quello scontrino — prova con una foto più chiara, o invia l'importo come testo.</value>
@@ -796,6 +796,9 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   </data>
   <data name="Spaces.CreateButton" xml:space="preserve">
     <value>Crea</value>
+  </data>
+  <data name="Spaces.CreateLimitReached" xml:space="preserve">
+    <value>Hai raggiunto il numero di spazi che il tuo piano ti permette di possedere — trovi di più nella pagina prezzi.</value>
   </data>
   <data name="SpaceDetail.Title" xml:space="preserve">
     <value>Spazio</value>
@@ -1469,10 +1472,10 @@ Provami subito:</value>
     <value>Prezzi</value>
   </data>
   <data name="Pricing.Intro" xml:space="preserve">
-    <value>Ogni spazio parte con il piano Free. Le risposte intelligenti (quelle basate sull'LLM) hanno un limite giornaliero; i comandi nativi come /list, /remind ed /expense non hanno mai limiti.</value>
+    <value>Ogni spazio parte con il piano Free. Invita quante persone e canali vuoi — la condivisione non è mai limitata dal piano.</value>
   </data>
   <data name="Pricing.ReceiptScanningExplainer" xml:space="preserve">
-    <value>Invia la foto di uno scontrino con la didascalia "/expense" e Tessera legge direttamente merchant e totale — disponibile sui piani a pagamento, perché ogni lettura ha un costo reale oltre al limite giornaliero delle risposte intelligenti.</value>
+    <value>Invia la foto di uno scontrino con la didascalia "/expense" e Tessera legge direttamente merchant e totale — ogni piano include una soglia mensile, indicata qui sotto.</value>
   </data>
   <data name="Pricing.Free" xml:space="preserve">
     <value>Gratis</value>
@@ -1480,17 +1483,35 @@ Provami subito:</value>
   <data name="Pricing.PerMonth" xml:space="preserve">
     <value>/mese</value>
   </data>
-  <data name="Pricing.CallsPerDay" xml:space="preserve">
-    <value>{0} risposte intelligenti/giorno</value>
+  <data name="Pricing.ReceiptsPerMonth" xml:space="preserve">
+    <value>📷 {0} scontrini/mese</value>
   </data>
-  <data name="Pricing.LinkedBots" xml:space="preserve">
-    <value>{0} canale/i collegabile/i</value>
+  <data name="Pricing.ReceiptsUnlimited" xml:space="preserve">
+    <value>📷 Scontrini illimitati</value>
   </data>
-  <data name="Pricing.ReceiptScanningIncluded" xml:space="preserve">
-    <value>📷 Lettura scontrini incluso</value>
+  <data name="Pricing.LinkedCalendars" xml:space="preserve">
+    <value>{0} calendari collegabili</value>
   </data>
-  <data name="Pricing.ReceiptScanningNotIncluded" xml:space="preserve">
-    <value>Lettura scontrini non incluso</value>
+  <data name="Pricing.CalendarsUnlimited" xml:space="preserve">
+    <value>Calendari collegabili illimitati</value>
+  </data>
+  <data name="Pricing.HistoryMonths" xml:space="preserve">
+    <value>{0} mesi di storico spese</value>
+  </data>
+  <data name="Pricing.HistoryUnlimited" xml:space="preserve">
+    <value>Storico spese illimitato</value>
+  </data>
+  <data name="Pricing.ExportIncluded" xml:space="preserve">
+    <value>Esportazione CSV inclusa</value>
+  </data>
+  <data name="Pricing.ExportNotIncluded" xml:space="preserve">
+    <value>Esportazione CSV non inclusa</value>
+  </data>
+  <data name="Pricing.SpacesOwned" xml:space="preserve">
+    <value>Fino a {0} spazi di proprietà</value>
+  </data>
+  <data name="Pricing.SpacesUnlimited" xml:space="preserve">
+    <value>Spazi di proprietà illimitati</value>
   </data>
   <data name="Pricing.SubscribeHeading" xml:space="preserve">
     <value>Aggiorna uno spazio</value>
@@ -1813,6 +1834,9 @@ Provami subito:</value>
   <data name="Expenses.ExpenseRecorded" xml:space="preserve">
     <value>Registrata: {0}</value>
   </data>
+  <data name="Expenses.Export.RequiresPaidPlan" xml:space="preserve">
+    <value>L'esportazione CSV non è inclusa nel piano attuale di questo spazio — trovi di più nella pagina prezzi.</value>
+  </data>
   <data name="Expenses.Export.Heading" xml:space="preserve">
     <value>Esporta</value>
   </data>
@@ -1935,6 +1959,9 @@ Provami subito:</value>
   </data>
   <data name="Calendars.Empty" xml:space="preserve">
     <value>Nessun calendario trovato su questo account.</value>
+  </data>
+  <data name="Calendars.LinkLimitReached" xml:space="preserve">
+    <value>Questo spazio ha raggiunto il numero di calendari collegabili previsto dal suo piano — trovi di più nella pagina prezzi.</value>
   </data>
   <data name="Calendars.PrimaryBadge" xml:space="preserve">
     <value>Principale</value>

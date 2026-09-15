@@ -14,8 +14,33 @@ namespace Tessera.Data;
 // up to 5 minutes.
 public sealed class SpaceService(TesseraDbContext db, IMemoryCache cache)
 {
+    // How many Spaces this user may still own — the highest MaxSpacesOwned across the plans of
+    // the spaces they already own, since decision 2 (docs/13-piano-miglioramenti.md) has the
+    // entitlement from paying for any one of them propagate to all: owning a second space at
+    // all is itself one of the paid axes now, so whichever plan is most generous governs. No
+    // owned spaces yet only happens mid-registration, before the personal space exists —
+    // treated the same as Free.
+    public async Task<bool> CanCreateAnotherSpaceAsync(Guid userId, CancellationToken ct)
+    {
+        var ownedPlanLimits = await db.Spaces
+            .Where(x => x.OwnerId == userId)
+            .Join(db.SubscriptionPlans, s => s.PlanId, p => p.Id, (s, p) => p.MaxSpacesOwned)
+            .ToListAsync(ct);
+
+        var maxAllowed = ownedPlanLimits.Count == 0
+            ? (await db.SubscriptionPlans.AsNoTracking().FirstAsync(p => p.Id == SystemPlanIds.Free, ct)).MaxSpacesOwned
+            : ownedPlanLimits.Max();
+
+        return ownedPlanLimits.Count < maxAllowed;
+    }
+
     public async Task<Space> CreateAsync(Guid ownerUserId, string name, CancellationToken ct)
     {
+        if (!await CanCreateAnotherSpaceAsync(ownerUserId, ct))
+        {
+            throw new InvalidOperationException($"User {ownerUserId} has reached the number of spaces their plan allows.");
+        }
+
         var now = DateTimeOffset.UtcNow;
         var space = new Space
         {

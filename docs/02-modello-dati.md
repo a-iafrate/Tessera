@@ -112,26 +112,40 @@ Ogni utente ha almeno uno spazio personale creato alla registrazione. Uno spazio
 public class SubscriptionPlan
 {
     public Guid Id { get; set; }
-    public string Name { get; set; } = null!;          // "Free", "Basic", "Plus", "Family"
-    public int MaxLinkedBots { get; set; }             // canali/identità collegabili allo spazio
-    public int MaxCallsPerDay { get; set; }
+    public string Name { get; set; } = null!;          // "Free", "Plus"
+    public int MaxLinkedBots { get; set; }             // anti-abuso, non più in vendita (vedi sotto)
+    public int MaxCallsPerDay { get; set; }             // anti-abuso, non più in vendita (vedi sotto)
     public decimal MonthlyPrice { get; set; }
     public string Currency { get; set; } = "EUR";
+    public string? PayPalPlanIdSandbox { get; set; }
+    public string? PayPalPlanIdLive { get; set; }
+    public int MaxReceiptsPerMonth { get; set; }
+    public int MaxLinkedCalendars { get; set; }
+    public int HistoryMonths { get; set; }              // <= 0 = illimitato
+    public bool AllowsExport { get; set; }
+    public int MaxSpacesOwned { get; set; }
 }
 ```
 
 Il piano è **per spazio**, non per utente: una famiglia con più membri in uno spazio condiviso paga un piano unico, non uno a testa. `Space.PlanId` non è mai null — ogni spazio nasce sul piano `Free` (`SystemPlanIds.Free`), assegnato da `UserProvisioningService` alla creazione, esattamente come le categorie di sistema in "Categorie di spesa" più sotto.
 
-I piani sono righe seedate (`SubscriptionPlanConfiguration.HasData`), condivise fra tutti gli spazi che le referenziano — non una copia per spazio. Valori attuali (placeholder, modificabili senza toccare lo schema):
+I piani sono righe seedate (`SubscriptionPlanConfiguration.HasData`), condivise fra tutti gli spazi che le referenziano — non una copia per spazio. Due piani, non quattro: i vecchi Basic/Plus/Family sono stati unificati in un solo `Plus` (`docs/13-piano-miglioramenti.md`, D1) — vendere assi di costo (chiamate/giorno, bot collegabili) confondeva la metrica di fatturazione di Azure OpenAI con il valore percepito dall'utente. Valori attuali (i prezzi restano una *Decisione aperta*, non parte dello schema):
 
-| Piano | Bot collegabili | Chiamate/giorno | Prezzo/mese |
-|---|---|---|---|
-| Free | 1 | 20 | 0 € |
-| Basic | 1 | 200 | 5 € |
-| Plus | 3 | 1000 | 12 € |
-| Family | 10 | 5000 | 25 € |
+| Piano | Scontrini/mese | Calendari collegabili | Storico | Export CSV | Spazi di proprietà | Prezzo/mese |
+|---|---|---|---|---|---|---|
+| Free | 3 | 1 | 3 mesi | No | 1 | 0 € |
+| Plus | illimitato | illimitato | illimitato | Sì | illimitato | 5 € (placeholder) |
 
-**Enforcement**: `MaxCallsPerDay` (`UsageService.TryRecordL3CallAsync`) e `AllowsReceiptScanning` (`MessageProcessor`) sono applicati. `MaxLinkedBots` è applicato solo al collegamento di un **gruppo Telegram** a uno spazio (`LinkService.CanLinkAnotherBotAsync`, controllato nei due punti di `MessageProcessor` dove `Space.GroupChatId` viene impostato) — non al collegamento dell'account Telegram privato di un singolo membro, perché quell'azione non è scopabile a un singolo spazio: `ChannelIdentity` è per-utente, non per-spazio, e un utente può appartenere a più spazi contemporaneamente. Il conteggio (`LinkService.GetLinkedBotCountAsync`) è quindi derivato: membri dello spazio con almeno un'identità collegata (esclusa la chat web, che non conta) più uno se lo spazio ha un gruppo Telegram collegato. Il rate limiting fisso da 60 messaggi/ora per identità (vedi [07-compliance.md](07-compliance.md)) resta comunque attivo in parallelo, indipendente dal piano.
+`MaxCallsPerDay` e `MaxLinkedBots` restano nel modello e nel codice come soglie anti-abuso — applicate (`UsageService.TryRecordL3CallAsync`, `LinkService.CanLinkAnotherBotAsync`) ma non più mostrate in `/pricing`, e impostate ben oltre l'uso reale di una famiglia (999 collegamenti, 1000 chiamate/giorno su Plus) perché la condivisione ha costo marginale nullo ed è l'unico canale di crescita del prodotto.
+
+**Enforcement dei nuovi assi**:
+- `MaxReceiptsPerMonth` — `UsageService.TryRecordReceiptScanAsync`. `UsageEvent` guadagna un discriminatore `Kind` (`L3Call` | `ReceiptScan`) per tenere i due contatori mensili separati nella stessa tabella invece di duplicarla; una scansione riuscita consuma comunque anche una chiamata L3 nello stesso gesto (due righe, `Kind` diverso).
+- `MaxLinkedCalendars` — `CalendarSpaceService.SetMappingAsync`, controllato solo quando si aggiunge un *nuovo* calendario allo spazio, non quando si cambia il livello di condivisione di uno già collegato.
+- `HistoryMonths` — `ExpenseService.QueryHistoryAsync` ritaglia silenziosamente `dateFrom` alla soglia consentita (`<= 0` = nessun limite); `QueryPriceHistoryAsync` (il "prezzo più recente" per merchant) resta deliberatamente non ritagliato finché non esiste una vera funzione di garanzia che lo giustifichi (E2).
+- `AllowsExport` — `ExpenseService.GetForExportAsync` lancia `UnauthorizedAccessException` se il piano non lo consente; `Expenses.razor` nasconde la card di export invece di mostrarla e fallire al click.
+- `MaxSpacesOwned` — `SpaceService.CanCreateAnotherSpaceAsync`. **La regola di propagazione** (Decisione aperta #2, risolta): l'entitlement non è per-spazio ma per-chi-paga — il limite che conta è il **massimo `MaxSpacesOwned` fra tutti i piani degli spazi di cui l'utente è owner**, non il piano del singolo spazio che si sta creando. Un utente con anche un solo spazio su Plus può quindi possederne altri fino al tetto di Plus, non solo di quello Free.
+
+Il rate limiting fisso da 60 messaggi/ora per identità (vedi [07-compliance.md](07-compliance.md)) resta comunque attivo in parallelo, indipendente dal piano.
 
 ### Abbonamento PayPal per spazio
 
@@ -159,7 +173,7 @@ public string? PayPalPlanIdLive { get; set; }      // null per Free, che non ha 
 
 Due colonne, non una: il database è condiviso fra test e produzione (docs/03-integrazioni.md), e sandbox/live sono account PayPal diversi con id incompatibili fra loro. Una sola colonna avrebbe fatto sì che il primo avvio in `live` trovasse la colonna già valorizzata dal sandbox e non creasse i piani veri — bug scoperto e corretto prima di andare in produzione, non dopo.
 
-`Space.PlanId` resta la fonte di verità per l'enforcement (`MaxLinkedBots`/`MaxCallsPerDay`) — `SpaceSubscription` è lo stato del pagamento che lo tiene aggiornato, aggiornato dagli eventi webhook (`BILLING.SUBSCRIPTION.ACTIVATED` → aggiorna `Space.PlanId` al piano acquistato, `BILLING.SUBSCRIPTION.CANCELLED`/`EXPIRED` → retrocede a `Free`). Dettagli del flusso OAuth/webhook in [03-integrazioni.md](03-integrazioni.md#paypal-subscriptions--pagamenti).
+`Space.PlanId` resta la fonte di verità per l'enforcement di tutti gli assi del piano — `SpaceSubscription` è lo stato del pagamento che lo tiene aggiornato, aggiornato dagli eventi webhook (`BILLING.SUBSCRIPTION.ACTIVATED` → aggiorna `Space.PlanId` al piano acquistato, `BILLING.SUBSCRIPTION.CANCELLED`/`EXPIRED` → retrocede a `Free`). Dettagli del flusso OAuth/webhook in [03-integrazioni.md](03-integrazioni.md#paypal-subscriptions--pagamenti).
 
 **Deciso**: su `BILLING.SUBSCRIPTION.SUSPENDED`, retrocessione immediata a `Free` — nessun periodo di grazia. Il downgrade non perde dati (liste, spese, promemoria restano intatti), limita solo le funzioni oltre le soglie del piano gratuito, quindi non serve ammortizzare l'effetto con un avviso preventivo.
 

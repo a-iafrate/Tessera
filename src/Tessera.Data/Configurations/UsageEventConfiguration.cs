@@ -10,8 +10,8 @@ public sealed class UsageEventConfiguration : IEntityTypeConfiguration<UsageEven
     {
         builder.HasKey(x => x.Id);
 
-        // The exact lookup UsageService does on every L3 call: count of today's rows for one
-        // space.
-        builder.HasIndex(x => new { x.SpaceId, x.OccurredAt });
+        // The exact lookup UsageService does on every L3 call / receipt scan: count of this
+        // kind's rows in a date range, for one space.
+        builder.HasIndex(x => new { x.SpaceId, x.Kind, x.OccurredAt });
     }
 }

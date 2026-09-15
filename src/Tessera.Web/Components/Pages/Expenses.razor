@@ -17,6 +17,7 @@
 
 @inject SpaceService SpaceService
 @inject ExpenseService ExpenseService
+@inject UsageService UsageService
 @inject IAccessPolicy AccessPolicy
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JsRuntime
@@ -64,32 +65,40 @@
 
         <div class="card max-w-32 mb-6">
             <h2 class="mb-2">@Localizer["Expenses.Export.Heading"]</h2>
-            <div class="stack stack-sm">
-                <label class="form-label" for="exportDateFrom">@Localizer["Expenses.Export.DateFromLabel"]</label>
-                <input type="date" id="exportDateFrom" @bind="exportDateFrom" class="form-control" />
-                <label class="form-label" for="exportDateTo">@Localizer["Expenses.Export.DateToLabel"]</label>
-                <input type="date" id="exportDateTo" @bind="exportDateTo" class="form-control" />
-                <label class="form-label" for="exportCategory">@Localizer["Expenses.Export.CategoryLabel"]</label>
-                <select id="exportCategory" @bind="exportCategoryId" class="select-compact">
-                    <option value="">@Localizer["Expenses.Export.AllCategories"]</option>
-                    @foreach (var category in categories)
+            @if (allowsExport)
+            {
+                <div class="stack stack-sm">
+                    <label class="form-label" for="exportDateFrom">@Localizer["Expenses.Export.DateFromLabel"]</label>
+                    <input type="date" id="exportDateFrom" @bind="exportDateFrom" class="form-control" />
+                    <label class="form-label" for="exportDateTo">@Localizer["Expenses.Export.DateToLabel"]</label>
+                    <input type="date" id="exportDateTo" @bind="exportDateTo" class="form-control" />
+                    <label class="form-label" for="exportCategory">@Localizer["Expenses.Export.CategoryLabel"]</label>
+                    <select id="exportCategory" @bind="exportCategoryId" class="select-compact">
+                        <option value="">@Localizer["Expenses.Export.AllCategories"]</option>
+                        @foreach (var category in categories)
+                        {
+                            <option value="@category.Id">@MessageProcessor.GetCategoryDisplayName(category, Localizer)</option>
+                        }
+                    </select>
+                    <button type="button" class="btn btn-secondary" disabled="@isExporting" @onclick="GenerateExportAsync">
+                        @if (isExporting) { <span class="spinner" aria-hidden="true"></span> }
+                        @Localizer["Expenses.Export.GenerateButton"]
+                    </button>
+                    @if (exportDataUri is not null)
                     {
-                        <option value="@category.Id">@MessageProcessor.GetCategoryDisplayName(category, Localizer)</option>
+                        <a class="btn btn-primary" download="expenses.csv" href="@exportDataUri">@Localizer["Expenses.Export.DownloadButton"]</a>
                     }
-                </select>
-                <button type="button" class="btn btn-secondary" disabled="@isExporting" @onclick="GenerateExportAsync">
-                    @if (isExporting) { <span class="spinner" aria-hidden="true"></span> }
-                    @Localizer["Expenses.Export.GenerateButton"]
-                </button>
-                @if (exportDataUri is not null)
-                {
-                    <a class="btn btn-primary" download="expenses.csv" href="@exportDataUri">@Localizer["Expenses.Export.DownloadButton"]</a>
-                }
-                else if (exportIsEmpty)
-                {
-                    <p class="text-soft">@Localizer["Expenses.Export.NoResults"]</p>
-                }
-            </div>
+                    else if (exportIsEmpty)
+                    {
+                        <p class="text-soft">@Localizer["Expenses.Export.NoResults"]</p>
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="text-soft">@Localizer["Expenses.Export.RequiresPaidPlan"]</p>
+                <a class="btn btn-secondary" href="/pricing">@Localizer["SpaceUsage.SeePlansButton"]</a>
+            }
         </div>
 
         <div class="seam" aria-hidden="true">
@@ -149,6 +158,7 @@
     private bool isExporting;
     private string? exportDataUri;
     private bool exportIsEmpty;
+    private bool allowsExport;
 
     // Attachments are conditionally registered (Program.cs — only when BlobStorage:ConnectionString
     // is configured), same pattern as Notes.razor.
@@ -168,6 +178,8 @@
 
         canWrite = await AccessPolicy.CanAsync(userId, SpaceId, ResourceKind.Expenses, AccessLevel.Write, CancellationToken.None);
         categories = await ExpenseService.GetCategoriesAsync(SpaceId, CancellationToken.None);
+        var (_, _, plan) = await UsageService.GetTodayUsageAsync(SpaceId, CancellationToken.None);
+        allowsExport = plan.AllowsExport;
         await ReloadAsync();
     }
 
@@ -258,6 +270,10 @@
             var categoriesById = categories.ToDictionary(c => c.Id);
             var csv = ExpenseCsvExporter.Build(expenses, categoriesById, CultureInfo.CurrentUICulture, Localizer);
             exportDataUri = $"data:text/csv;base64,{Convert.ToBase64String(Encoding.UTF8.GetBytes(csv))}";
+        }
+        catch (UnauthorizedAccessException)
+        {
+            ToastService.ShowError(Localizer["Expenses.GenericError"]);
         }
         finally
         {

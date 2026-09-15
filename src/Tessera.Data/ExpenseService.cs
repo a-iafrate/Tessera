@@ -239,6 +239,13 @@ public sealed class ExpenseService(TesseraDbContext db, IAccessPolicy accessPoli
     {
         await EnsureAccessAsync(spaceId, userId, AccessLevel.Read, ct);
 
+        var space = await db.Spaces.AsNoTracking().FirstAsync(x => x.Id == spaceId, ct);
+        var plan = await db.SubscriptionPlans.AsNoTracking().FirstAsync(x => x.Id == space.PlanId, ct);
+        if (!plan.AllowsExport)
+        {
+            throw new UnauthorizedAccessException($"Space {spaceId}'s plan does not include CSV export.");
+        }
+
         var query = db.Expenses.Where(x => x.SpaceId == spaceId);
         if (dateFrom is { } from)
         {
@@ -295,6 +302,17 @@ public sealed class ExpenseService(TesseraDbContext db, IAccessPolicy accessPoli
     {
         await EnsureAccessAsync(spaceId, userId, AccessLevel.Read, ct);
         var space = await db.Spaces.AsNoTracking().FirstAsync(x => x.Id == spaceId, ct);
+        var plan = await db.SubscriptionPlans.AsNoTracking().FirstAsync(x => x.Id == space.PlanId, ct);
+
+        // Narrows the effective range rather than rejecting the query outright
+        // (docs/13-piano-miglioramenti.md, D1) — the L3 tool this feeds still answers
+        // *something*, just for however much history the plan allows, instead of an error the
+        // conversation has no good way to explain mid-flow. HistoryMonths <= 0 means unlimited.
+        if (plan.HistoryMonths > 0)
+        {
+            var earliestAllowed = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-plan.HistoryMonths));
+            dateFrom = dateFrom is null || dateFrom < earliestAllowed ? earliestAllowed : dateFrom;
+        }
 
         var query = db.Expenses.Where(x => x.SpaceId == spaceId);
         if (searchText is { Length: > 0 })

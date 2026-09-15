@@ -169,8 +169,8 @@
   <data name="Expenses.ReceiptNotConfigured" xml:space="preserve">
     <value>Reading receipts from photos isn't set up yet — you can still record the expense as text.</value>
   </data>
-  <data name="Expenses.ReceiptRequiresPaidPlan" xml:space="preserve">
-    <value>Reading receipts from photos is available on paid plans — see the pricing page in the console to upgrade. You can still record the expense as text.</value>
+  <data name="Expenses.ReceiptLimitExceeded" xml:space="preserve">
+    <value>You've used this space's free receipt scans for this month — see the pricing page in the console for more. You can still record the expense as text.</value>
   </data>
   <data name="Expenses.ReceiptNotRecognized" xml:space="preserve">
     <value>I couldn't read a total off that receipt — try a clearer photo, or send the amount as text.</value>
@@ -796,6 +796,9 @@ Note: I only read messages that start with / or mention me.</value>
   </data>
   <data name="Spaces.CreateButton" xml:space="preserve">
     <value>Create</value>
+  </data>
+  <data name="Spaces.CreateLimitReached" xml:space="preserve">
+    <value>You've reached the number of spaces your plan allows you to own — see the pricing page for more.</value>
   </data>
   <data name="SpaceDetail.Title" xml:space="preserve">
     <value>Space</value>
@@ -1469,10 +1472,10 @@ Try it now:</value>
     <value>Pricing</value>
   </data>
   <data name="Pricing.Intro" xml:space="preserve">
-    <value>Every space starts on the Free plan. Smart replies (the LLM-powered ones) are limited per day; native commands like /list, /remind and /expense are never limited.</value>
+    <value>Every space starts on the Free plan. Invite as many people and channels as you like — sharing is never limited by plan.</value>
   </data>
   <data name="Pricing.ReceiptScanningExplainer" xml:space="preserve">
-    <value>Send a photo of a receipt captioned "/expense" and Tessera reads the merchant and total straight off it — available on paid plans, since each scan has a real cost beyond the daily smart-reply allowance.</value>
+    <value>Send a photo of a receipt captioned "/expense" and Tessera reads the merchant and total straight off it — every plan includes a monthly allowance, shown below.</value>
   </data>
   <data name="Pricing.Free" xml:space="preserve">
     <value>Free</value>
@@ -1480,17 +1483,35 @@ Try it now:</value>
   <data name="Pricing.PerMonth" xml:space="preserve">
     <value>/month</value>
   </data>
-  <data name="Pricing.CallsPerDay" xml:space="preserve">
-    <value>{0} smart replies/day</value>
+  <data name="Pricing.ReceiptsPerMonth" xml:space="preserve">
+    <value>📷 {0} receipt scans/month</value>
   </data>
-  <data name="Pricing.LinkedBots" xml:space="preserve">
-    <value>{0} linked channel(s)</value>
+  <data name="Pricing.ReceiptsUnlimited" xml:space="preserve">
+    <value>📷 Unlimited receipt scans</value>
   </data>
-  <data name="Pricing.ReceiptScanningIncluded" xml:space="preserve">
-    <value>📷 Receipt scanning included</value>
+  <data name="Pricing.LinkedCalendars" xml:space="preserve">
+    <value>{0} linked calendar(s)</value>
   </data>
-  <data name="Pricing.ReceiptScanningNotIncluded" xml:space="preserve">
-    <value>Receipt scanning not included</value>
+  <data name="Pricing.CalendarsUnlimited" xml:space="preserve">
+    <value>Unlimited linked calendars</value>
+  </data>
+  <data name="Pricing.HistoryMonths" xml:space="preserve">
+    <value>{0} months of expense history</value>
+  </data>
+  <data name="Pricing.HistoryUnlimited" xml:space="preserve">
+    <value>Unlimited expense history</value>
+  </data>
+  <data name="Pricing.ExportIncluded" xml:space="preserve">
+    <value>CSV export included</value>
+  </data>
+  <data name="Pricing.ExportNotIncluded" xml:space="preserve">
+    <value>CSV export not included</value>
+  </data>
+  <data name="Pricing.SpacesOwned" xml:space="preserve">
+    <value>Own up to {0} space(s)</value>
+  </data>
+  <data name="Pricing.SpacesUnlimited" xml:space="preserve">
+    <value>Own unlimited spaces</value>
   </data>
   <data name="Pricing.SubscribeHeading" xml:space="preserve">
     <value>Upgrade a space</value>
@@ -1813,6 +1834,9 @@ Try it now:</value>
   <data name="Expenses.ExpenseRecorded" xml:space="preserve">
     <value>Recorded: {0}</value>
   </data>
+  <data name="Expenses.Export.RequiresPaidPlan" xml:space="preserve">
+    <value>CSV export isn't included in this space's current plan — see the pricing page for more.</value>
+  </data>
   <data name="Expenses.Export.Heading" xml:space="preserve">
     <value>Export</value>
   </data>
@@ -1935,6 +1959,9 @@ Try it now:</value>
   </data>
   <data name="Calendars.Empty" xml:space="preserve">
     <value>No calendars found on this account.</value>
+  </data>
+  <data name="Calendars.LinkLimitReached" xml:space="preserve">
+    <value>This space has reached the number of linked calendars its plan allows — see the pricing page for more.</value>
   </data>
   <data name="Calendars.PrimaryBadge" xml:space="preserve">
     <value>Primary</value>

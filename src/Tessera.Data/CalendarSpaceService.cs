@@ -56,6 +56,16 @@ public sealed class CalendarSpaceService(TesseraDbContext db)
 
         if (mapping is null)
         {
+            // Only checked when actually adding a new calendar to the space — changing an
+            // existing mapping's level doesn't grow the count (docs/13-piano-miglioramenti.md, D1).
+            var space = await db.Spaces.AsNoTracking().FirstAsync(x => x.Id == spaceId, ct);
+            var plan = await db.SubscriptionPlans.AsNoTracking().FirstAsync(x => x.Id == space.PlanId, ct);
+            var currentCount = await db.CalendarSpaceMappings.CountAsync(x => x.SpaceId == spaceId, ct);
+            if (currentCount >= plan.MaxLinkedCalendars)
+            {
+                throw new InvalidOperationException($"Space {spaceId} has reached the number of linked calendars its plan allows.");
+            }
+
             mapping = new CalendarSpaceMapping { ExternalCalendarId = externalCalendarId, SpaceId = spaceId };
             db.CalendarSpaceMappings.Add(mapping);
         }
