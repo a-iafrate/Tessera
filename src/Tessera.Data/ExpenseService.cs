@@ -45,22 +45,42 @@ public sealed class ExpenseService(TesseraDbContext db, IAccessPolicy accessPoli
 
     // Persists the per-product lines extracted from a receipt (docs/06-roadmap.md "Storico
     // prezzi") — a best-effort addendum to RecordAsync, not access-checked on its own since
-    // it only ever runs immediately after RecordAsync succeeded for the same expense.
-    public async Task AddLinesAsync(Guid expenseId, IEnumerable<(string Name, decimal Price)> items, CancellationToken ct)
+    // it only ever runs immediately after RecordAsync succeeded for the same expense. Returns
+    // the created rows so the caller can check them against the warranty-reminder threshold
+    // (docs/13-piano-miglioramenti.md, E2) without a second round trip.
+    public async Task<IReadOnlyList<ExpenseLine>> AddLinesAsync(Guid expenseId, IEnumerable<(string Name, decimal Price)> items, CancellationToken ct)
     {
-        foreach (var (name, price) in items)
+        var lines = items.Select(item => new ExpenseLine
         {
-            db.ExpenseLines.Add(new ExpenseLine
-            {
-                Id = Guid.NewGuid(),
-                ExpenseId = expenseId,
-                RawText = name,
-                NormalizedName = ProductNameNormalizer.Normalize(name),
-                Price = price,
-            });
+            Id = Guid.NewGuid(),
+            ExpenseId = expenseId,
+            RawText = item.Name,
+            NormalizedName = ProductNameNormalizer.Normalize(item.Name),
+            Price = item.Price,
+        }).ToList();
+
+        db.ExpenseLines.AddRange(lines);
+        await db.SaveChangesAsync(ct);
+        return lines;
+    }
+
+    // Scoped by spaceId, not access-checked here — same convention as SetCategoryAsync: the
+    // caller (MessageProcessor's callback dispatch) already gated on ResourceForCallback before
+    // reaching this, and the spaceId filter is what turns a stale/foreign line id into a clean
+    // null instead of leaking another space's data.
+    public async Task<(ExpenseLine Line, Expense Expense)?> GetLineWithExpenseAsync(Guid spaceId, Guid lineId, CancellationToken ct)
+    {
+        var result = await db.ExpenseLines
+            .Where(l => l.Id == lineId)
+            .Join(db.Expenses, l => l.ExpenseId, e => e.Id, (l, e) => new { Line = l, Expense = e })
+            .AsNoTracking()
+            .FirstOrDefaultAsync(ct);
+        if (result is null || result.Expense.SpaceId != spaceId)
+        {
+            return null;
         }
 
-        await db.SaveChangesAsync(ct);
+        return (result.Line, result.Expense);
     }
 
     // "Does coffee cost more than it used to" (docs/06-roadmap.md "Storico prezzi") — compares

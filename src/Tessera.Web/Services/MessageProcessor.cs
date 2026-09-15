@@ -1532,7 +1532,7 @@ public sealed class MessageProcessor(
     {
         "shopping.check" => (ResourceKind.ShoppingList, AccessLevel.Write),
         "expcat" or "expconfirm" => (ResourceKind.Expenses, AccessLevel.Write),
-        "remind.complete" => (ResourceKind.Reminders, AccessLevel.Write),
+        "remind.complete" or "warranty" => (ResourceKind.Reminders, AccessLevel.Write),
         _ => (ResourceKind.ShoppingList, AccessLevel.Read),
     };
 
@@ -1751,6 +1751,12 @@ public sealed class MessageProcessor(
         if (parts.Length == 2 && parts[0] == "remind.complete" && Guid.TryParse(parts[1], out var reminderId))
         {
             await HandleReminderCompleteCallbackAsync(reminders, address, spaceId, user.Id, reminderId, ct);
+            return;
+        }
+
+        if (parts.Length == 3 && parts[0] == "warranty" && Guid.TryParse(parts[1], out var warrantyLineId))
+        {
+            await HandleWarrantyReminderCallbackAsync(expenses, reminders, address, spaceId, user, culture, warrantyLineId, parts[2], ct);
         }
     }
 
@@ -1765,6 +1771,35 @@ public sealed class MessageProcessor(
         }
 
         await channel.SendTextAsync(address, localizer["Reminders.Completed", reminder.Text], ct);
+    }
+
+    private async Task HandleWarrantyReminderCallbackAsync(
+        ExpenseService expenses, ReminderService reminders, ChannelAddress address, Guid spaceId, User user, CultureInfo culture,
+        Guid lineId, string choice, CancellationToken ct)
+    {
+        if (choice != "yes")
+        {
+            await channel.SendTextAsync(address, localizer["Expenses.WarrantyReminderDismissed"], ct);
+            return;
+        }
+
+        var found = await expenses.GetLineWithExpenseAsync(spaceId, lineId, ct);
+        if (found is null)
+        {
+            // Wrong space, or the expense/line is gone — the button is stale.
+            return;
+        }
+
+        var (line, expense) = found.Value;
+        var timeZoneId = user.TimeZoneId ?? "UTC";
+        var timeZone = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+        var dueDate = expense.Date.AddMonths(WarrantyReminderDefaults.MonthsAhead);
+        var localDateTime = dueDate.ToDateTime(new TimeOnly(9, 0));
+        var dueAt = new DateTimeOffset(localDateTime, timeZone.GetUtcOffset(localDateTime));
+
+        var reminder = await reminders.CreateOnceAsync(
+            spaceId, user.Id, localizer["Expenses.WarrantyReminderText", line.RawText].Value, dueAt, timeZoneId, ct);
+        await channel.SendTextAsync(address, localizer["Expenses.WarrantyReminderConfirmed", FormatDueAt(reminder.DueAt, timeZone, culture)], ct);
     }
 
     private async Task HandleShoppingCheckCallbackAsync(
@@ -2251,6 +2286,30 @@ public sealed class MessageProcessor(
             .ToList();
 
         await channel.SendChoicesAsync(address, localizer["Expenses.AskCategoryForMerchant", merchant], choices, ct);
+    }
+
+    // Proposed once, right when the qualifying line is recorded (docs/13-piano-miglioramenti.md,
+    // E2) — there's no separate "already asked" state to track, since this only ever runs once
+    // per receipt scan, synchronously, not on a recurring scan like CalendarToListSuggestionJob.
+    // Picks the single highest-priced qualifying line if several clear the threshold, rather
+    // than proposing a reminder per line.
+    private async Task ProposeWarrantyReminderAsync(ChannelAddress address, IReadOnlyList<ExpenseLine> lines, CancellationToken ct)
+    {
+        var candidate = lines
+            .Where(l => l.Price >= WarrantyReminderDefaults.ThresholdAmount)
+            .OrderByDescending(l => l.Price)
+            .FirstOrDefault();
+        if (candidate is null)
+        {
+            return;
+        }
+
+        var choices = new[]
+        {
+            new Choice(localizer["Expenses.WarrantyReminderYes"].Value, $"warranty:{candidate.Id}:yes"),
+            new Choice(localizer["Expenses.WarrantyReminderNo"].Value, $"warranty:{candidate.Id}:no"),
+        };
+        await channel.SendChoicesAsync(address, localizer["Expenses.WarrantyReminderPrompt", candidate.RawText], choices, ct);
     }
 
     private async Task<string> HandleExpensesQueryAsync(
@@ -2793,9 +2852,10 @@ public sealed class MessageProcessor(
             .Where(i => i.Price is > 0)
             .Select(i => (i.Name, Price: i.Price!.Value))
             .ToList();
+        IReadOnlyList<ExpenseLine> lines = [];
         if (pricedItems.Count > 0)
         {
-            await expenses.AddLinesAsync(expense.Id, pricedItems, ct);
+            lines = await expenses.AddLinesAsync(expense.Id, pricedItems, ct);
         }
 
         if (checkedItemNames.Count > 0)
@@ -2806,6 +2866,11 @@ public sealed class MessageProcessor(
         await undo.RecordExpenseAsync(user.Id, spaceId, expense.Id, ct);
         var replyWithAlerts = await AppendBudgetAlertsAsync(expenses, budgets, spaceId, user.Id, culture, expense, reply, ct);
         await FinalizeUsefulActionReplyAsync(onboarding, address, user.Id, "expenses", replyWithAlerts, ct);
+
+        // Sent after the recorded-expense confirmation, not before — one novelty at a time
+        // (docs/10-conversazione.md): the primary result lands first, the optional follow-up
+        // proposal comes after.
+        await ProposeWarrantyReminderAsync(address, lines, ct);
         return null;
     }
 

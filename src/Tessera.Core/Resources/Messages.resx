@@ -199,6 +199,24 @@
   <data name="Expenses.AskCategoryForMerchant" xml:space="preserve">
     <value>What category is {0} in?</value>
   </data>
+  <data name="Expenses.WarrantyReminderPrompt" xml:space="preserve">
+    <value>That receipt included {0} — want a reminder near the end of its warranty?</value>
+  </data>
+  <data name="Expenses.WarrantyReminderYes" xml:space="preserve">
+    <value>Yes, remind me</value>
+  </data>
+  <data name="Expenses.WarrantyReminderNo" xml:space="preserve">
+    <value>No thanks</value>
+  </data>
+  <data name="Expenses.WarrantyReminderText" xml:space="preserve">
+    <value>Check the warranty on {0}</value>
+  </data>
+  <data name="Expenses.WarrantyReminderConfirmed" xml:space="preserve">
+    <value>Done — I'll remind you on {0}.</value>
+  </data>
+  <data name="Expenses.WarrantyReminderDismissed" xml:space="preserve">
+    <value>No problem — you can always set your own reminder later.</value>
+  </data>
   <data name="Expenses.CategorySaved" xml:space="preserve">
     <value>Got it — {0} will be categorized as {1} from now on</value>
   </data>

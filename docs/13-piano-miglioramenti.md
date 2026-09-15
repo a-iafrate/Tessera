@@ -1001,9 +1001,9 @@ dichiarati (divisione delle spese, meal planning, turni di casa, sync Alexa) res
 - **Fatto quando**: un vocale con due voci da aggiungere le aggiunge entrambe e le rilegge in
   conferma.
 
-### E2 — Promemoria di garanzia dallo scontrino
+### E2 — Promemoria di garanzia dallo scontrino ✅
 
-- [ ] **Connette**: scontrini ↔ promemoria. **Dove**: `MessageProcessor.HandleReceiptAsync`,
+- [x] **Connette**: scontrini ↔ promemoria. **Dove**: `MessageProcessor.HandleReceiptAsync`,
   `ReminderService`
 - **Perché**: [06-roadmap.md](06-roadmap.md#fase-4--estensioni) segna l'archivio garanzie come già
   ottenuto "letteralmente gratis" dalla ricerca sullo storico. Manca il passo attivo: la garanzia
@@ -1011,6 +1011,26 @@ dichiarati (divisione delle spese, meal planning, turni di casa, sync Alexa) res
 - **Cosa**: alla registrazione di uno scontrino con una riga sopra una soglia, proporre — con
   bottone, non creare d'autorità — un promemoria a 23 mesi.
 - **Fatto quando**: uno scontrino con un elettrodomestico propone il promemoria una volta sola.
+- **Fatto**: `WarrantyReminderDefaults` (`Tessera.Core.Expenses`) — soglia €100 e 23 mesi,
+  entrambi placeholder come `BillingDefaults.TrialDays`, non dati per piano/spazio.
+  `ExpenseService.AddLinesAsync` ora restituisce le righe create (prima `Task` senza risultato) —
+  serviva comunque il set di righe appena inserite per il controllo soglia, nessun giro in più
+  sul DB. Se più righe superano la soglia (es. lavatrice *e* asciugatrice sullo stesso scontrino)
+  si propone **un solo** promemoria, per la riga di prezzo più alto — "un promemoria", singolare,
+  come da "Cosa". Riusato l'idioma già in uso per `expcat`/`expconfirm`/`remind.complete`:
+  `Choice` + `channel.SendChoicesAsync`, dispatch a tre segmenti (`warranty:{lineId}:yes|no`) in
+  `HandleCallbackAsync`, gate di permesso `(Reminders, Write)` in `ResourceForCallback`. Nessuno
+  stato "già proposto" persistito: a differenza di `CalendarToListSuggestionJob` (un job che
+  riscansiona periodicamente gli stessi eventi) questa proposta parte una sola volta,
+  sincronicamente, dentro `HandleReceiptAsync` stesso — la deduplica dei messaggi in ingresso
+  (hard rule 6) già garantisce che quella singola scansione non riparta due volte. Il promemoria
+  viene creato solo al tap su "sì" (`HandleWarrantyReminderCallbackAsync`), rileggendo riga e
+  scontrino dal DB invece di fidarsi di un closure — stessa cautela di `HandleExpenseCategorizeCallbackAsync`
+  contro un bottone ormai stantio. Inviata **dopo** la conferma "Registrato €X" (non prima): un
+  solo elemento di novità alla volta ([10-conversazione.md](10-conversazione.md)). **Non
+  verificato dal vivo**: la scansione scontrini è solo bot (Telegram/WhatsApp), non raggiungibile
+  dalla console web né da un tool Playwright — nessuno dei due disponibili in questa sessione.
+  Solo `dotnet build`/`dotnet test` (232 test) confermano la correttezza statica.
 
 ### E3 — Export delle spese ✅
 
@@ -1258,7 +1278,7 @@ eseguirli.
 | 6 | **F2** ✅ | I permessi, prima di aggiungere superficie che li usa — fatto fuori ordine, su richiesta esplicita, prima dei passi 4-5 (lotto B) |
 | 7 | **C3, C1** ✅ | Aggregazione e poi email: il canale che sostituisce WhatsApp |
 | 8 | **D3** ✅, decisioni aperte 2 ✅ e 3, **D1** ✅, **D4** ✅, **D2** (codice fatto, click-through sandbox annuale da fare a mano), poi **D5** | La telemetria prima del riassetto: si decide su dati, non a memoria |
-| 9 | **E3** ✅**, E2, E4, E1** | Export e garanzie sono quasi gratis; la voce merita di stare dopo perché tocca la pipeline |
+| 9 | **E3** ✅**, E2** ✅**, E4, E1** | Export e garanzie sono quasi gratis; la voce merita di stare dopo perché tocca la pipeline |
 | 10 | **B12, B13, B15**, **F3**, **F4** | Manutenibilità e rifiniture, quando i pattern si sono consolidati |
 | 11 | **C2** ✅ (fatto fuori ordine insieme a C1/C3, su richiesta esplicita — chiude tutto il lotto C), **E5, E6, E7** | Il resto, senza urgenza |
 

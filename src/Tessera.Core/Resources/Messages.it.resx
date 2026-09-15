@@ -199,6 +199,24 @@
   <data name="Expenses.AskCategoryForMerchant" xml:space="preserve">
     <value>Che categoria è {0}?</value>
   </data>
+  <data name="Expenses.WarrantyReminderPrompt" xml:space="preserve">
+    <value>Quello scontrino includeva {0} — vuoi un promemoria verso la fine della garanzia?</value>
+  </data>
+  <data name="Expenses.WarrantyReminderYes" xml:space="preserve">
+    <value>Sì, ricordamelo</value>
+  </data>
+  <data name="Expenses.WarrantyReminderNo" xml:space="preserve">
+    <value>No grazie</value>
+  </data>
+  <data name="Expenses.WarrantyReminderText" xml:space="preserve">
+    <value>Controlla la garanzia di {0}</value>
+  </data>
+  <data name="Expenses.WarrantyReminderConfirmed" xml:space="preserve">
+    <value>Fatto — te lo ricorderò il {0}.</value>
+  </data>
+  <data name="Expenses.WarrantyReminderDismissed" xml:space="preserve">
+    <value>Nessun problema — puoi sempre impostare un promemoria in seguito.</value>
+  </data>
   <data name="Expenses.CategorySaved" xml:space="preserve">
     <value>Fatto — da ora {0} sarà categorizzato come {1}</value>
   </data>
