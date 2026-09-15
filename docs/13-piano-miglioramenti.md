@@ -874,15 +874,21 @@ Lo schema e il flusso di pagamento sono completi e testati in sandbox
   configurato, quindi si passa da `@inject IServiceProvider` con una proprietà calcolata
   (`TelemetryOrNull => ServiceProvider.GetService<TelemetryClient>()`), lo stesso schema già
   usato altrove per servizi opzionali (es. `Notes.razor`'s `AttachmentServiceOrNull`).
-  **Non verificato dal vivo**: Application Insights non è configurato in questo ambiente di
-  sviluppo, quindi il codice gira sempre nel ramo "assente" (`telemetry` sempre `null`); inoltre
-  il firewall di Azure SQL ha bloccato l'accesso al database condiviso da questa sessione proprio
-  mentre si tentava la verifica di `/pricing` (stesso IP già sbloccato in precedenza nella
-  sessione, poi ribloccato — non chiaro il motivo, forse una regola temporanea scaduta), quindi
-  nemmeno il ramo "assente" è stato controllato dal vivo end-to-end questa volta. Il pattern
-  riusato (`telemetry?.TrackEvent(...)`, parametro opzionale con default `null`) è però lo stesso,
-  identico, già in produzione per `MessageProcessed`/`NotUnderstood`/`RouterL1..3` in
-  `MessageProcessor.cs` — non un meccanismo nuovo da convalidare.
+  Verificato dal vivo una volta sbloccato l'accesso al database condiviso (inizialmente bloccato
+  dal firewall di Azure SQL per questa sessione, poi riaperto): `/pricing` caricata sia anonima
+  sia autenticata senza errori (percorso `PricingPageViewed`), creato uno spazio di prova e
+  cliccato "Subscribe with PayPal" su `/spaces/{id}/usage` (percorso `SubscribeClicked`) — il
+  click ha correttamente chiamato l'API sandbox reale di PayPal, ottenuto un `approveUrl` e
+  persistito la sottoscrizione come `APPROVAL_PENDING`, confermato ricaricando la pagina in una
+  sessione separata. Applicazione svolta in ambiente di sviluppo senza Application Insights
+  configurato, quindi in tutti questi casi `telemetry` è risultato `null` e `TrackEvent` non è
+  mai stato effettivamente chiamato — solo il ramo "assente" del pattern opzionale è stato
+  esercitato dal vivo, non l'invio reale a un ingestion endpoint. Non verificato: l'esito del
+  webhook PayPal (richiede una firma reale di un evento PayPal genuino, non riproducibile senza
+  un endpoint pubblico raggiungibile da PayPal) e il percorso `UsageLimitReached` (richiederebbe
+  20 chiamate L3 reali contro Azure OpenAI solo per esercitare la telemetria, costo/tempo non
+  giustificati per una singola riga di codice che replica esattamente un pattern già in
+  produzione). Spazio e account di prova ripuliti a fine verifica.
 
 ### D4 — Riscrivere la pagina prezzi
 
