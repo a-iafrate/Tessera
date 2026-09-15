@@ -1152,14 +1152,24 @@ eseguirli.
    costo. Se un giorno dovesse tornare, va tentato tramite un BSP che accompagni la verification, e
    come **esperimento di distribuzione** — nessuna decisione di prodotto, di prezzo o di roadmap
    deve dipendere dal suo esito. Il display name andrà probabilmente allineato alla ragione sociale.
-2. **Il piano è per spazio o per chi paga?** Oggi è per spazio ed è deliberato
-   ([02-modello-dati.md](02-modello-dati.md#piano-di-abbonamento)), ma chi paga per "Casa" ha il
-   proprio spazio Personale su Free e non capirà perché lo scontrino funziona in una chat e non
-   nell'altra. Da decidere: propagare l'entitlement agli spazi di chi paga, oppure rendere il
-   confine esplicito in console. Blocca **D1** e **D4**.
+2. **Il piano è per spazio o per chi paga?** ✅ **Deciso**: l'entitlement si propaga a tutti gli
+   spazi di chi paga (non confine esplicito in console). Da progettare in D1/D4: la regola esatta
+   di propagazione (a tutti gli spazi di cui l'acquirente è owner, non ai soli spazi in cui è
+   membro — coerente con "chi paga decide", non "chi partecipa eredita") e cosa succede se
+   possiede più abbonamenti su spazi diversi (il più alto vince, presumibilmente).
 3. **I prezzi effettivi.** €25/mese per un assistente familiare non ha comparabili nel mercato di
    riferimento, che sta nell'ordine di pochi euro al mese — da verificare sui listini attuali dei
    concorrenti citati nel [README](../README.md) prima di fissare le cifre. Blocca **D1**.
+   **Ricerca fatta** (prezzi correnti, settembre 2026): Bring! Premium £1,79/mese (~£8,99/anno);
+   Splitwise Pro $4,99/mese (~$39,99/anno); AnyList Complete $9,99/anno individuale, $14,99/anno
+   per nucleo familiare intero; Cozi Gold $39/anno; Todoist Pro $5/utente/mese in fatturazione
+   annuale (nessun piano famiglia). Il segmento converge su **€1-5/mese**, quasi sempre con sconto
+   sostanzioso per fatturazione annuale, e nessuno dei comparabili ha un costo di inferenza LLM da
+   coprire. Confrontato con [04-costi.md](04-costi.md#costo-per-chiamata-l3): a 50-100 utenti il
+   costo Azure OpenAI reale è **€0,30-0,40 per utente al mese** anche con L3 pieno (non gpt-4o
+   mini forfettario) — il margine per prezzi in linea col segmento c'è, il €25/mese attuale non è
+   giustificato né dal mercato né dal costo. Le cifre finali restano una decisione del titolare,
+   non tecnica.
 4. **Forfettario e soglia OSS**, già aperta in [04-costi.md](04-costi.md#piani-a-pagamento): da
    confermare con il commercialista. Non blocca nulla di tecnico, ma condiziona cosa mostrare in
    fattura.
