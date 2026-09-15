@@ -3,6 +3,7 @@
 
 @using System.Globalization
 @using System.Security.Claims
+@using Microsoft.ApplicationInsights
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.Extensions.Localization
@@ -113,7 +114,7 @@
                             }
                             else
                             {
-                                <button type="button" class="btn btn-primary" disabled="@isSubscribing" @onclick="() => SubscribeAsync(other.Id)">
+                                <button type="button" class="btn btn-primary" disabled="@isSubscribing" @onclick="() => SubscribeAsync(other.Id, other.Name)">
                                     @Localizer["SpaceUsage.SubscribeButton"]
                                 </button>
                             }
@@ -162,6 +163,8 @@
     // (SUSPENDED/CANCELLED/EXPIRED) has no live PayPal subscription left to cancel.
     private bool CanCancel => isOwner && currentSubscription is { Status: "ACTIVE" or "APPROVAL_PENDING" };
 
+    private TelemetryClient? TelemetryOrNull => ServiceProvider.GetService<TelemetryClient>();
+
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthenticationStateTask!;
@@ -200,12 +203,24 @@
         };
     }
 
-    private async Task SubscribeAsync(Guid planId)
+    private async Task SubscribeAsync(Guid planId, string planName)
     {
         if (isSubscribing || payPalSubscriptions is null)
         {
             return;
         }
+
+        // Tracked on click, before the PayPal call — this is "the funnel step where someone
+        // expressed intent", not "where it succeeded" (docs/13-piano-miglioramenti.md, D3);
+        // PayPalWebhookProcessed/Activated is the eventual success signal, once the webhook
+        // confirms it — this page's own ?paypal=success only means PayPal's approval UI was
+        // completed, not that the subscription is live yet.
+        TelemetryOrNull?.TrackEvent("SubscribeClicked", new Dictionary<string, string>
+        {
+            ["SpaceId"] = SpaceId.ToString(),
+            ["PlanId"] = planId.ToString(),
+            ["PlanName"] = planName,
+        });
 
         isSubscribing = true;
         subscribeError = null;

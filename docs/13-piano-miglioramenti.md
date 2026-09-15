@@ -843,9 +843,9 @@ Lo schema e il flusso di pagamento sono completi e testati in sandbox
   sull'annuale.
 - **Dipende da**: **D1**.
 
-### D3 — Telemetria di conversione
+### D3 — Telemetria di conversione ✅
 
-- [ ] **Dove**: `UsageService.TryRecordL3CallAsync`, `Pricing.razor`, `SpaceUsage.razor`
+- [x] **Dove**: `UsageService.TryRecordL3CallAsync`, `Pricing.razor`, `SpaceUsage.razor`
 - **Perché**: si traccia `NotUnderstood` e la distribuzione del router, ma non un solo evento del
   percorso commerciale. Senza, non si sa dove si perdono le conversioni e ogni scelta di prezzo è
   cieca.
@@ -853,6 +853,36 @@ Lo schema e il flusso di pagamento sono completi e testati in sandbox
   click su "sottoscrivi" — più l'esito del webhook.
 - **Fatto quando**: l'imbuto limite → prezzi → click → attivazione è leggibile in Application
   Insights.
+- **Fatto**: stesso schema già in uso per `NotUnderstood`/la distribuzione del router
+  (`TelemetryClient?` opzionale, default `null` quando `ApplicationInsights:ConnectionString` non
+  è configurato, Program.cs) — nessun nuovo meccanismo, solo quattro `TrackEvent` in più nei posti
+  giusti. `UsageLimitReached` vive dentro `UsageService.TryRecordL3CallAsync` stesso (non nei tre
+  punti di chiamata in `MessageProcessor.cs`): è l'unico posto che ha già piano, conteggio e
+  spazio a disposizione, ed evita di tracciare la stessa cosa tre volte con dati diversi a seconda
+  del chiamante. `PricingPageViewed` in `Pricing.razor.OnInitializedAsync` (una volta per
+  caricamento pagina). `SubscribeClicked` in `SpaceUsage.razor.SubscribeAsync`, tracciato **prima**
+  della chiamata a PayPal — è il punto in cui l'intento è espresso, non quello in cui l'esito è
+  noto. `PayPalWebhookProcessed` dentro `PayPalSubscriptionService.HandleWebhookEventAsync`, con
+  un `Outcome` per ramo (`Activated`/`Suspended`/`Cancelled`/`Expired`/`Updated`/`Renewed`/
+  `Unhandled`/`UnknownSubscription`) — non nell'endpoint (`PayPalWebhookEndpoints.cs`), che non ha
+  ancora risolto l'`eventType` in uno stato di dominio quando riceve la richiesta.
+  `Tessera.Data` non aveva mai referenziato `Microsoft.ApplicationInsights` prima d'ora
+  (`UsageService`/`PayPalSubscriptionService` sono le prime classi lì a prenderlo, stesso
+  pacchetto/versione già usato da `Tessera.Ai`); nei componenti Razor (`Pricing.razor`,
+  `SpaceUsage.razor`) `TelemetryClient` non è mai iniettato con `@inject` diretto — `@inject`
+  userebbe `GetRequiredService` e romperebbe l'avvio quando Application Insights non è
+  configurato, quindi si passa da `@inject IServiceProvider` con una proprietà calcolata
+  (`TelemetryOrNull => ServiceProvider.GetService<TelemetryClient>()`), lo stesso schema già
+  usato altrove per servizi opzionali (es. `Notes.razor`'s `AttachmentServiceOrNull`).
+  **Non verificato dal vivo**: Application Insights non è configurato in questo ambiente di
+  sviluppo, quindi il codice gira sempre nel ramo "assente" (`telemetry` sempre `null`); inoltre
+  il firewall di Azure SQL ha bloccato l'accesso al database condiviso da questa sessione proprio
+  mentre si tentava la verifica di `/pricing` (stesso IP già sbloccato in precedenza nella
+  sessione, poi ribloccato — non chiaro il motivo, forse una regola temporanea scaduta), quindi
+  nemmeno il ramo "assente" è stato controllato dal vivo end-to-end questa volta. Il pattern
+  riusato (`telemetry?.TrackEvent(...)`, parametro opzionale con default `null`) è però lo stesso,
+  identico, già in produzione per `MessageProcessed`/`NotUnderstood`/`RouterL1..3` in
+  `MessageProcessor.cs` — non un meccanismo nuovo da convalidare.
 
 ### D4 — Riscrivere la pagina prezzi
 
@@ -1103,7 +1133,7 @@ eseguirli.
 | 5 | **B5, B8, B9, B10, B11, B14** ✅ | Accessibilità, riscontro, tono. B8 è solo riscrittura di risorse. Scoperte due questioni non previste: B5's skip link è oscurato da `FocusOnNavigate` pre-esistente; il 404 reale (`UseStatusCodePagesWithReExecute`) è rotto da prima di questa sessione |
 | 6 | **F2** ✅ | I permessi, prima di aggiungere superficie che li usa — fatto fuori ordine, su richiesta esplicita, prima dei passi 4-5 (lotto B) |
 | 7 | **C3, C1** ✅ | Aggregazione e poi email: il canale che sostituisce WhatsApp |
-| 8 | **D3**, poi decisioni aperte 2 e 3, poi **D1, D4, D2, D5** | La telemetria prima del riassetto: si decide su dati, non a memoria |
+| 8 | **D3** ✅, poi decisioni aperte 2 e 3, poi **D1, D4, D2, D5** | La telemetria prima del riassetto: si decide su dati, non a memoria |
 | 9 | **E3, E2, E4, E1** | Export e garanzie sono quasi gratis; la voce merita di stare dopo perché tocca la pipeline |
 | 10 | **B12, B13, B15**, **F3**, **F4** | Manutenibilità e rifiniture, quando i pattern si sono consolidati |
 | 11 | **C2** ✅ (fatto fuori ordine insieme a C1/C3, su richiesta esplicita — chiude tutto il lotto C), **E5, E6, E7** | Il resto, senza urgenza |

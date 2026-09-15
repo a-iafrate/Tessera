@@ -1,3 +1,4 @@
+using Microsoft.ApplicationInsights;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Tessera.Core.Abstractions;
@@ -9,7 +10,8 @@ namespace Tessera.Data;
 // against SpaceSubscription/SubscriptionPlan/Space (docs/02-modello-dati.md,
 // docs/03-integrazioni.md). The provider knows nothing about Tessera's domain — this is where
 // "an ACTIVATED event for subscription I-XXXX" becomes "Space YYYY is now on the Plus plan".
-public sealed class PayPalSubscriptionService(TesseraDbContext db, IPaymentProvider paymentProvider, ILogger<PayPalSubscriptionService> logger)
+public sealed class PayPalSubscriptionService(
+    TesseraDbContext db, IPaymentProvider paymentProvider, ILogger<PayPalSubscriptionService> logger, TelemetryClient? telemetry = null)
 {
     // Idempotent — safe to call on every startup or repeatedly by hand. Only ever touches paid
     // plans (Free has no PayPal plan, docs/02-modello-dati.md) and only plans that don't
@@ -179,15 +181,18 @@ public sealed class PayPalSubscriptionService(TesseraDbContext db, IPaymentProvi
         if (subscription is null)
         {
             logger.LogWarning("PayPal webhook {EventType} for unknown subscription {SubscriptionId}", eventType, payPalSubscriptionId);
+            TrackWebhookOutcome(eventType, "UnknownSubscription", null, null);
             return;
         }
 
+        string outcome;
         switch (eventType)
         {
             case "BILLING.SUBSCRIPTION.ACTIVATED":
                 subscription.Status = "ACTIVE";
                 subscription.CurrentPeriodEnd = await paymentProvider.GetNextBillingTimeAsync(payPalSubscriptionId, ct);
                 await SetSpacePlanAsync(subscription.SpaceId, subscription.PlanId, ct);
+                outcome = "Activated";
                 break;
 
             case "BILLING.SUBSCRIPTION.SUSPENDED":
@@ -195,12 +200,14 @@ public sealed class PayPalSubscriptionService(TesseraDbContext db, IPaymentProvi
                 // oltre le soglie del piano gratuito (docs/02-modello-dati.md).
                 subscription.Status = "SUSPENDED";
                 await SetSpacePlanAsync(subscription.SpaceId, SystemPlanIds.Free, ct);
+                outcome = "Suspended";
                 break;
 
             case "BILLING.SUBSCRIPTION.CANCELLED":
             case "BILLING.SUBSCRIPTION.EXPIRED":
                 subscription.Status = eventType == "BILLING.SUBSCRIPTION.CANCELLED" ? "CANCELLED" : "EXPIRED";
                 await SetSpacePlanAsync(subscription.SpaceId, SystemPlanIds.Free, ct);
+                outcome = subscription.Status == "CANCELLED" ? "Cancelled" : "Expired";
                 break;
 
             case "BILLING.SUBSCRIPTION.UPDATED":
@@ -210,6 +217,7 @@ public sealed class PayPalSubscriptionService(TesseraDbContext db, IPaymentProvi
                 subscription.Status = "ACTIVE";
                 subscription.CurrentPeriodEnd = await paymentProvider.GetNextBillingTimeAsync(payPalSubscriptionId, ct);
                 await SetSpacePlanAsync(subscription.SpaceId, subscription.PlanId, ct);
+                outcome = "Updated";
                 break;
 
             case "PAYMENT.SALE.COMPLETED":
@@ -217,12 +225,32 @@ public sealed class PayPalSubscriptionService(TesseraDbContext db, IPaymentProvi
                 // one is due.
                 subscription.CurrentPeriodEnd = await paymentProvider.GetNextBillingTimeAsync(payPalSubscriptionId, ct);
                 await db.SaveChangesAsync(ct);
+                outcome = "Renewed";
                 break;
 
             default:
                 logger.LogInformation("Unhandled PayPal webhook event type {EventType} for subscription {SubscriptionId}", eventType, payPalSubscriptionId);
+                outcome = "Unhandled";
                 break;
         }
+
+        TrackWebhookOutcome(eventType, outcome, subscription.SpaceId, subscription.PlanId);
+    }
+
+    private void TrackWebhookOutcome(string eventType, string outcome, Guid? spaceId, Guid? planId)
+    {
+        var dimensions = new Dictionary<string, string> { ["EventType"] = eventType, ["Outcome"] = outcome };
+        if (spaceId is { } id)
+        {
+            dimensions["SpaceId"] = id.ToString();
+        }
+
+        if (planId is { } plan)
+        {
+            dimensions["PlanId"] = plan.ToString();
+        }
+
+        telemetry?.TrackEvent("PayPalWebhookProcessed", dimensions);
     }
 
     private async Task SetSpacePlanAsync(Guid spaceId, Guid planId, CancellationToken ct)

@@ -2,6 +2,7 @@
 
 @using System.Globalization
 @using System.Security.Claims
+@using Microsoft.ApplicationInsights
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.Extensions.Localization
 @using Tessera.Core.Resources
@@ -11,6 +12,7 @@
 
 @inject UsageService UsageService
 @inject SpaceService SpaceService
+@inject IServiceProvider ServiceProvider
 @inject IStringLocalizer<Messages> Localizer
 
 <PageTitle>@Localizer["Pricing.Title"]</PageTitle>
@@ -88,6 +90,12 @@
     private bool isAuthenticated;
     private IReadOnlyList<Space> ownedSpaces = [];
 
+    // Optional, same "degrades without Application Insights configured" shape as every other
+    // consumer (Program.cs) — @inject would throw if nothing registered TelemetryClient, so this
+    // goes through IServiceProvider like every other optional service in a page (e.g. Notes.razor's
+    // AttachmentServiceOrNull).
+    private TelemetryClient? TelemetryOrNull => ServiceProvider.GetService<TelemetryClient>();
+
     protected override async Task OnInitializedAsync()
     {
         plans = await UsageService.GetAllPlansAsync(CancellationToken.None);
@@ -103,5 +111,12 @@
             // — a member with no ownership has nowhere to click through to yet.
             ownedSpaces = spaces.Where(x => x.OwnerId == userId).ToList();
         }
+
+        // Once per page load, not per plan/render (docs/13-piano-miglioramenti.md, D3) — the
+        // conversion funnel's first step: how many people ever see this page.
+        TelemetryOrNull?.TrackEvent("PricingPageViewed", new Dictionary<string, string>
+        {
+            ["IsAuthenticated"] = isAuthenticated.ToString(),
+        });
     }
 }

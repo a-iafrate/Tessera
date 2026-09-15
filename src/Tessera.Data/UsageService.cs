@@ -1,3 +1,4 @@
+using Microsoft.ApplicationInsights;
 using Microsoft.EntityFrameworkCore;
 using Tessera.Core.Spaces;
 
@@ -7,7 +8,13 @@ namespace Tessera.Data;
 // else about plans (linked-bot limits, payment, upgrade flow) is still deliberately
 // unenforced. Only L3/LLM calls count: L1/L2 native commands and matchers cost nothing and
 // stay available even once a space has used up its daily allowance.
-public sealed class UsageService(TesseraDbContext db)
+//
+// TelemetryClient optional, defaulting to null when Application Insights isn't configured
+// (Program.cs) — same shape MessageProcessor/LlmFallbackClient already use, extended here to
+// Tessera.Data because this is the one place that actually knows the plan and the count, so a
+// single TrackEvent here covers all three call sites in MessageProcessor instead of tracking
+// the same thing three times with whatever's in scope at each one (docs/13-piano-miglioramenti.md, D3).
+public sealed class UsageService(TesseraDbContext db, TelemetryClient? telemetry = null)
 {
     // Single method that checks-and-records in one round trip, since a caller only ever wants
     // "was I allowed to make this call" — a separate check-then-record pair would just be two
@@ -22,6 +29,12 @@ public sealed class UsageService(TesseraDbContext db)
         var usedToday = await db.UsageEvents.CountAsync(x => x.SpaceId == spaceId && x.OccurredAt >= todayStart, ct);
         if (usedToday >= plan.MaxCallsPerDay)
         {
+            telemetry?.TrackEvent("UsageLimitReached", new Dictionary<string, string>
+            {
+                ["SpaceId"] = spaceId.ToString(),
+                ["PlanName"] = plan.Name,
+                ["Limit"] = plan.MaxCallsPerDay.ToString(),
+            });
             return false;
         }
 
