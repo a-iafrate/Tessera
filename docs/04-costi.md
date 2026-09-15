@@ -66,6 +66,7 @@ Stessa colonna con **gpt-4o** pieno (~$2.50/1M input): moltiplicare per circa 16
 | "che ho in lista?" via query SQL | 0 | **€0** |
 | "sposta la riunione con Marco e avvisalo" | 4-6k | ~€0,001 |
 | Scontrino via vision | 1-2k + immagine | ~€0,002-0,005 |
+| Vocale via trascrizione (E1) | audio, non token testuali | ~€0,001-0,003 (millesimi al minuto) |
 
 **Il fast path conta più per la latenza che per il costo.** Una chiamata a gpt-4o-mini con prompt corto per aggiungere una voce costa nell'ordine dei centesimi ogni mille messaggi: irrilevante. Il router serve perché una risposta in 50 ms è un'esperienza diversa da una in 2 secondi, e perché le funzioni banali non devono dipendere dalla disponibilità del servizio LLM.
 

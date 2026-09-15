@@ -98,6 +98,13 @@ internal static class UpdateExtensions
         {
             media = [new InboundMedia("document", document.FileId, document.FileName, document.MimeType)];
         }
+        else if (message.Voice is { } voice)
+        {
+            // Duration in whole seconds — Telegram's own field, used by MessageProcessor to
+            // reject anything past a cost-driven cap before spending on transcription
+            // (docs/13-piano-miglioramenti.md, E1).
+            media = [new InboundMedia("voice", voice.FileId, FileName: null, voice.MimeType, voice.Duration)];
+        }
 
         return new InboundMessage(
             ChannelName: "telegram",

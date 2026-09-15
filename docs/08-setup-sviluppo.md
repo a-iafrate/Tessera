@@ -93,6 +93,7 @@ dotnet user-secrets set "Telegram:WebhookSecret" "$(openssl rand -hex 32)"
 dotnet user-secrets set "AzureOpenAI:Endpoint"   "https://....openai.azure.com/"
 dotnet user-secrets set "AzureOpenAI:ApiKey"     "..."
 dotnet user-secrets set "AzureOpenAI:Deployment" "gpt-4o-mini"
+dotnet user-secrets set "AzureOpenAI:TranscriptionDeployment" "gpt-4o-transcribe"
 dotnet user-secrets set "ApplicationInsights:ConnectionString" "InstrumentationKey=...;IngestionEndpoint=..."
 dotnet user-secrets set "ConnectionStrings:Default" \
   "Server=(localdb)\\MSSQLLocalDB;Database=Tessera;Trusted_Connection=True;"
@@ -117,6 +118,8 @@ dotnet user-secrets set "WebPush:Subject"         "mailto:<tua-email>"
 `Email:*` è opzionale allo stesso modo (docs/03-integrazioni.md) — senza, `/Account/ForgotPassword` resta visibile ma non invia nulla, e il digest non raggiunge nessuno via email. `Email:ConnectionString` si trova sulla risorsa ACS, blade **Keys** — stesso trattamento di `BlobStorage:ConnectionString` sopra: mai nel repository, solo user-secrets in locale / application settings su App Service in produzione, **non** Key Vault (riservato ai refresh token OAuth per-utente, hard rule 4).
 
 `WebPush:*` è opzionale allo stesso modo (docs/13-piano-miglioramenti.md, C2) — senza, il riquadro "Notifiche push" in `/settings` resta nascosto e `WebChannel` si comporta come prima (solo mailbox). La coppia di chiavi VAPID si genera una volta sola, non su una risorsa Azure: `WebPush.VapidHelper.GenerateVapidKeys()` (pacchetto NuGet `WebPush`) restituisce `PublicKey`/`PrivateKey` pronte per `user-secrets`/application settings — la chiave privata va trattata come ogni altro segreto qui sopra, mai nel repository. `WebPush:Subject` è un `mailto:` o URL che identifica chi manda le notifiche, richiesto dal protocollo VAPID (RFC 8292), non un endpoint da chiamare.
+
+`AzureOpenAI:TranscriptionDeployment` è opzionale allo stesso modo (docs/13-piano-miglioramenti.md, E1) — senza, i messaggi vocali restano disabilitati (`Voice.NotConfigured`, solo un warning di avvio), il resto del bot funziona come sempre. È un deployment **separato** da `AzureOpenAI:Deployment`: un modello di trascrizione (es. `gpt-4o-transcribe` o `whisper`) va creato a parte sulla stessa risorsa Azure OpenAI, non riusa il deployment gpt-4o-mini di chat/vision/ricette.
 
 In produzione le stesse chiavi arrivano da Key Vault via Managed Identity. Configurazione in `Program.cs`:
 

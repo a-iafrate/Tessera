@@ -1000,6 +1000,39 @@ dichiarati (divisione delle spese, meal planning, turni di casa, sync Alexa) res
   alla stessa soglia giornaliera di `UsageService`, con un limite sulla durata.
 - **Fatto quando**: un vocale con due voci da aggiungere le aggiunge entrambe e le rilegge in
   conferma.
+- **Fatto (codice; non verificato dal vivo)**: `VoiceTranscriptionClient` (`Tessera.Ai`), stesso
+  schema di `ReceiptVisionClient` — deployment Azure OpenAI **separato**
+  (`AzureOpenAI:TranscriptionDeployment`, un modello di trascrizione non è il deployment chat
+  condiviso da vision/ricette/L3), inghiotte i propri errori e torna `null`. `InboundMedia`
+  guadagna `DurationSeconds` (opzionale, in coda — vecchie righe `ProcessedMessage.PayloadJson`
+  restano deserializzabili); popolato per i vocali Telegram in `UpdateExtensions`. Il trascritto
+  rientra in `ProcessAsync` con lo stesso meccanismo di *replay* già usato da
+  `HandleSpaceChoiceCallbackAsync`/`HandlePermissionFallbackCallbackAsync` (`ProviderMessageId`
+  prefissato `replay:`, mai reinserito in `ProcessedMessage` — la deduplica in ingresso non
+  interviene su una chiamata ricorsiva in-process) — quindi passa per L1/L2/L3 esattamente come
+  se fosse stato digitato, mai un salto diretto a L3. La soglia giornaliera addebitata è
+  `UsageService.TryRecordL3CallAsync`, la stessa dell'L3 (non un nuovo `UsageEventKind`: il costo
+  della trascrizione è nell'ordine di quello di una chiamata L3, non di uno scontrino — vedi
+  [04-costi.md](04-costi.md#cosa-costa-davvero) — quindi non è un asse vendibile su
+  `Pricing.razor` come lo sono stati gli scontrini in D1). Limite di durata di 60 secondi
+  (guardia di costo, non di protocollo — Telegram permette vocali fino a un'ora).
+  Per prima cosa: la risoluzione dello spazio a cui addebitare la trascrizione non conosce ancora
+  la risorsa reale che il trascritto toccherà, quindi usa lo stesso placeholder già in uso per il
+  testo non ancora instradato (`ShoppingList`/`Read`) — il *replay* ririsolve spazio e permessi
+  da zero una volta noto il trascritto, stesso schema a due passi già usato dal fallback L3.
+  **Aggiunta non prevista in "Cosa" ma necessaria per il "Fatto quando"**: nessun punto della
+  pipeline divideva mai "aggiungi latte e pane" in due voci — né il matcher L2
+  (`ItShoppingAddMatcher`/`EnShoppingAddMatcher` catturano l'intera frase come un unico slot
+  `item`) né lo schema del tool L3 (`add_shopping_item` prende un solo `item`). `HandleAddAsync`
+  ora divide il testo sulle virgole e sulla congiunzione della cultura ("e"/"and") prima di
+  aggiungere, con una sola risposta di conferma che elenca tutte le voci — corregge lo stesso
+  buco anche per il testo digitato, non solo per i vocali, e vale sia per L2 sia per il tool L3
+  che riusa `HandleAddAsync`.
+  **Non verificato dal vivo**: serve un vero messaggio vocale Telegram e un deployment di
+  trascrizione Azure OpenAI provisionato — nessuno dei due disponibile in questa sessione
+  (il provisioning di risorse Azure resta manuale, non fatto da qui). Verificato che l'app si
+  avvia pulita con la nuova configurazione assente (warning di avvio, nessun crash) e che
+  `dotnet build`/`dotnet test` restano puliti (232 test — nessuno copre `MessageProcessor`).
 
 ### E2 — Promemoria di garanzia dallo scontrino ✅
 
@@ -1301,7 +1334,7 @@ eseguirli.
 | 6 | **F2** ✅ | I permessi, prima di aggiungere superficie che li usa — fatto fuori ordine, su richiesta esplicita, prima dei passi 4-5 (lotto B) |
 | 7 | **C3, C1** ✅ | Aggregazione e poi email: il canale che sostituisce WhatsApp |
 | 8 | **D3** ✅, decisioni aperte 2 ✅ e 3, **D1** ✅, **D4** ✅, **D2** (codice fatto, click-through sandbox annuale da fare a mano), poi **D5** | La telemetria prima del riassetto: si decide su dati, non a memoria |
-| 9 | **E3** ✅**, E2** ✅**, E4** ✅ (digest settimanale a parte)**, E1** | Export e garanzie sono quasi gratis; la voce merita di stare dopo perché tocca la pipeline |
+| 9 | **E3** ✅**, E2** ✅**, E4** ✅ (digest settimanale a parte)**, E1** (codice fatto, verifica dal vivo da fare) | Export e garanzie sono quasi gratis; la voce merita di stare dopo perché tocca la pipeline |
 | 10 | **B12, B13, B15**, **F3**, **F4** | Manutenibilità e rifiniture, quando i pattern si sono consolidati |
 | 11 | **C2** ✅ (fatto fuori ordine insieme a C1/C3, su richiesta esplicita — chiude tutto il lotto C), **E5, E6, E7** | Il resto, senza urgenza |
 

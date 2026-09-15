@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading.RateLimiting;
 using Microsoft.ApplicationInsights;
 using Microsoft.EntityFrameworkCore;
@@ -390,8 +391,18 @@ public sealed class MessageProcessor(
         IntentMatch? match = null;
         ResourceKind resourceKind;
         AccessLevel requiredLevel;
+        var isVoice = message.Media.Count > 0 && message.Media[0].Kind == "voice";
 
-        if (message.Media.Count > 0 && nativeCommand == NativeCommand.Expense)
+        if (isVoice)
+        {
+            // Doesn't know yet which resource the transcript will touch — same placeholder the
+            // unmatched-text branch below uses, just to resolve a plausible space to charge the
+            // transcription against (docs/13-piano-miglioramenti.md, E1). The eventual replay,
+            // once the transcript is known, re-resolves the real resource and space from
+            // scratch — same two-step shape the L3 fallback already has.
+            (resourceKind, requiredLevel) = (ResourceKind.ShoppingList, AccessLevel.Read);
+        }
+        else if (message.Media.Count > 0 && nativeCommand == NativeCommand.Expense)
         {
             // A photo captioned "/expense" (or its Italian alias) means "read this as a
             // receipt" — Expenses/Write, not Notes (docs/06-roadmap.md Fase 4: "scontrini via
@@ -427,11 +438,16 @@ public sealed class MessageProcessor(
 
         // Router level distribution, overall and per language (docs/05-ottimizzazioni.md): if
         // L3 creeps past 40%, or one language sits almost entirely on L3, that's the signal to
-        // improve the router rather than guess at it.
-        var routerLevel = message.Media.Count > 0 || message.CallbackData is not null || nativeCommand != NativeCommand.None
-            ? "L1"
-            : match is not null ? "L2" : "L3";
-        telemetry?.TrackEvent($"Router{routerLevel}", new Dictionary<string, string> { ["Culture"] = culture.Name });
+        // improve the router rather than guess at it. A voice message isn't classified here at
+        // all — it isn't routed yet, only transcribed — its eventual replay re-enters this same
+        // line for the transcript text and gets the real classification then.
+        if (!isVoice)
+        {
+            var routerLevel = message.Media.Count > 0 || message.CallbackData is not null || nativeCommand != NativeCommand.None
+                ? "L1"
+                : match is not null ? "L2" : "L3";
+            telemetry?.TrackEvent($"Router{routerLevel}", new Dictionary<string, string> { ["Culture"] = culture.Name });
+        }
 
         // Touches no resource of its own — the space to act on is whatever LastOperation
         // already recorded, not something to (re-)resolve here (docs/10-conversazione.md).
@@ -479,6 +495,12 @@ public sealed class MessageProcessor(
         var undo = scope.ServiceProvider.GetRequiredService<UndoService>();
         var notes = scope.ServiceProvider.GetRequiredService<NoteService>();
         var usage = scope.ServiceProvider.GetRequiredService<UsageService>();
+
+        if (isVoice)
+        {
+            await HandleVoiceAsync(scope, usage, address, spaceId, message, message.Media[0], ct);
+            return;
+        }
 
         if (message.Media.Count > 0 && nativeCommand == NativeCommand.Expense)
         {
@@ -627,7 +649,7 @@ public sealed class MessageProcessor(
             reply = match.Intent switch
             {
                 "shopping.add" => await HandleAddAsync(
-                    shopping, notifications, undo, onboarding, address, spaceId, user.Id, match.Slots["item"], listName: null, ct),
+                    shopping, notifications, undo, onboarding, address, spaceId, user.Id, match.Slots["item"], listName: null, culture, ct),
                 "shopping.show" => await HandleShowAsync(shopping, address, spaceId, user.Id, listName: null, ct),
                 "shopping.check" => await HandleCheckAsync(
                     shopping, notifications, undo, address, spaceId, user.Id, match.Slots["item"], listName: null, ct),
@@ -725,7 +747,7 @@ public sealed class MessageProcessor(
         {
             LlmTools.AddShoppingItem => await HandleAddAsync(
                 shopping, notifications, undo, onboarding, address, spaceId, user.Id,
-                args.GetProperty("item").GetString() ?? "", GetOptionalString(args, "list"), ct),
+                args.GetProperty("item").GetString() ?? "", GetOptionalString(args, "list"), culture, ct),
             LlmTools.CheckShoppingItem => await HandleCheckAsync(
                 shopping, notifications, undo, address, spaceId, user.Id,
                 args.GetProperty("item").GetString() ?? "", GetOptionalString(args, "list"), ct),
@@ -1994,16 +2016,40 @@ public sealed class MessageProcessor(
         await channel.SendTextAsync(address, localizer["Group.Welcome", adder.DisplayName ?? adder.Email], ct);
     }
 
+    // Splits on commas and the culture's own word for "and" so a single slot capture ("latte e
+    // pane" / "milk and bread") still adds every item named, not just the first
+    // (docs/13-piano-miglioramenti.md, E1 — a voice message naming two items must add both, and
+    // voice reuses this exact L2 path rather than its own). Only one undo slot ends up pointing
+    // at the last item added, same as every other multi-item action in this codebase (a receipt
+    // scan checking off several shopping items doesn't get one undo each either).
     private async Task<string?> HandleAddAsync(
         ShoppingListService shopping, NotificationService notifications, UndoService undo, OnboardingService onboarding,
-        ChannelAddress address, Guid spaceId, Guid userId, string itemText, string? listName, CancellationToken ct)
+        ChannelAddress address, Guid spaceId, Guid userId, string itemText, string? listName, CultureInfo culture, CancellationToken ct)
     {
-        var item = await shopping.AddItemAsync(spaceId, userId, itemText, listName, ct);
-        await notifications.NotifyAsync(
-            new ShoppingItemAdded(spaceId, userId, item.RawText, address.ExternalChatId, DateTimeOffset.UtcNow), ct);
-        await undo.RecordShoppingAddAsync(userId, spaceId, item.Id, ct);
-        await FinalizeUsefulActionReplyAsync(onboarding, address, userId, "shopping", localizer["Shopping.ItemAdded", item.RawText].Value, ct);
+        var addedNames = new List<string>();
+        foreach (var name in SplitMultipleItems(itemText, culture))
+        {
+            var item = await shopping.AddItemAsync(spaceId, userId, name, listName, ct);
+            await notifications.NotifyAsync(
+                new ShoppingItemAdded(spaceId, userId, item.RawText, address.ExternalChatId, DateTimeOffset.UtcNow), ct);
+            await undo.RecordShoppingAddAsync(userId, spaceId, item.Id, ct);
+            addedNames.Add(item.RawText);
+        }
+
+        var reply = addedNames.Count == 1
+            ? localizer["Shopping.ItemAdded", addedNames[0]].Value
+            : localizer["Shopping.ItemsAdded", string.Join(", ", addedNames)].Value;
+        await FinalizeUsefulActionReplyAsync(onboarding, address, userId, "shopping", reply, ct);
         return null;
+    }
+
+    private static IReadOnlyList<string> SplitMultipleItems(string itemText, CultureInfo culture)
+    {
+        var connector = culture.TwoLetterISOLanguageName == "it" ? "e" : "and";
+        return Regex.Split(itemText, $@",|\s+{connector}\s+", RegexOptions.IgnoreCase)
+            .Select(p => p.Trim())
+            .Where(p => p.Length > 0)
+            .ToList();
     }
 
     private async Task<string?> HandleShowAsync(
@@ -2737,6 +2783,59 @@ public sealed class MessageProcessor(
         await attachments.AddAsync(spaceId, ResourceKind.Notes, note.Id, user.Id, content, fileName, contentType, content.Length, ct);
 
         return isNewNote ? localizer["Attachments.NoteCreated"] : localizer["Attachments.AddedToRecentNote"];
+    }
+
+    // A cost limit, not a protocol one — Telegram itself allows voice messages up to ~60
+    // minutes; this is about not paying to transcribe someone's pocket-recorded meeting
+    // (docs/13-piano-miglioramenti.md, E1).
+    private const int MaxVoiceSeconds = 60;
+
+    // Transcribes, then replays the transcript through ProcessAsync from the top — the same
+    // router a typed message goes through, not a shortcut to L3 (docs/13-piano-miglioramenti.md,
+    // E1). Everything about "which space, which resource, which permission" is decided fresh by
+    // that replay; this method's own job is only "is this worth paying to transcribe".
+    private async Task HandleVoiceAsync(
+        AsyncServiceScope scope, UsageService usage, ChannelAddress address, Guid spaceId,
+        InboundMessage message, InboundMedia media, CancellationToken ct)
+    {
+        var transcription = scope.ServiceProvider.GetService<VoiceTranscriptionClient>();
+        if (transcription is null)
+        {
+            await channel.SendTextAsync(address, localizer["Voice.NotConfigured"], ct);
+            return;
+        }
+
+        if (media.DurationSeconds is > MaxVoiceSeconds)
+        {
+            await channel.SendTextAsync(address, localizer["Voice.TooLong", MaxVoiceSeconds], ct);
+            return;
+        }
+
+        // Charged before the transcription call, like receipts are charged before the vision
+        // call — the daily allowance protects the thing that actually costs money, regardless
+        // of whether the resulting transcript ends up resolving at L2 (free) or itself falls
+        // through to its own separate L3 charge.
+        if (!await usage.TryRecordL3CallAsync(spaceId, ct))
+        {
+            await channel.SendTextAsync(address, localizer["Usage.LimitExceeded"], ct);
+            return;
+        }
+
+        using var content = await channel.DownloadMediaAsync(media.FileId, ct);
+        var transcript = await transcription.TranscribeAsync(content, "voice.ogg", ct);
+        if (string.IsNullOrWhiteSpace(transcript))
+        {
+            await channel.SendTextAsync(address, localizer["Voice.NotUnderstood"], ct);
+            return;
+        }
+
+        var replay = message with
+        {
+            Text = transcript,
+            Media = [],
+            ProviderMessageId = $"replay:{message.ProviderMessageId}",
+        };
+        await ProcessAsync(replay, ct);
     }
 
     // A photo captioned "/expense" (docs/06-roadmap.md Fase 4: "scontrini via vision") — reads

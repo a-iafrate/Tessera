@@ -61,6 +61,9 @@
   <data name="Shopping.ItemAdded" xml:space="preserve">
     <value>Aggiunto {0}</value>
   </data>
+  <data name="Shopping.ItemsAdded" xml:space="preserve">
+    <value>Aggiunti: {0}</value>
+  </data>
   <data name="Shopping.ItemChecked" xml:space="preserve">
     <value>Spuntato {0}</value>
   </data>
@@ -1974,6 +1977,15 @@ Provami subito:</value>
   </data>
   <data name="Attachments.NotConfigured" xml:space="preserve">
     <value>Gli allegati non sono ancora disponibili.</value>
+  </data>
+  <data name="Voice.NotConfigured" xml:space="preserve">
+    <value>I messaggi vocali non sono ancora disponibili — prova a scrivere.</value>
+  </data>
+  <data name="Voice.TooLong" xml:space="preserve">
+    <value>Quel vocale dura più di {0} secondi — prova con uno più corto, oppure scrivilo.</value>
+  </data>
+  <data name="Voice.NotUnderstood" xml:space="preserve">
+    <value>Non sono riuscito a capire quel vocale — riprova, oppure scrivilo.</value>
   </data>
   <data name="Attachments.NoRecentNote" xml:space="preserve">
     <value>Non ho una nota recente a cui allegarlo — rimandalo con una didascalia per creare una nuova nota, oppure creane prima una.</value>

@@ -222,6 +222,12 @@ var azureOpenAiDeployment = builder.Configuration["AzureOpenAI:Deployment"];
 var azureOpenAiEnabled = !string.IsNullOrWhiteSpace(azureOpenAiEndpoint)
     && !string.IsNullOrWhiteSpace(azureOpenAiApiKey)
     && !string.IsNullOrWhiteSpace(azureOpenAiDeployment);
+
+// Voice input (docs/13-piano-miglioramenti.md, E1) — a separate Azure OpenAI deployment (a
+// transcription model, not the chat one the registrations below share), so it gets its own
+// config key and its own gate rather than riding on azureOpenAiEnabled alone.
+var azureOpenAiTranscriptionDeployment = builder.Configuration["AzureOpenAI:TranscriptionDeployment"];
+var voiceTranscriptionEnabled = azureOpenAiEnabled && !string.IsNullOrWhiteSpace(azureOpenAiTranscriptionDeployment);
 if (azureOpenAiEnabled)
 {
     builder.Services.AddSingleton(new AzureOpenAIClient(
@@ -238,6 +244,13 @@ if (azureOpenAiEnabled)
     // Recipes and suggestions (docs/06-roadmap.md Fase 4) — plain text completion, same
     // deployment and gate as everything else above.
     builder.Services.AddSingleton<RecipeSuggestionClient>();
+
+    if (voiceTranscriptionEnabled)
+    {
+        builder.Services.AddSingleton(sp =>
+            sp.GetRequiredService<AzureOpenAIClient>().GetAudioClient(azureOpenAiTranscriptionDeployment));
+        builder.Services.AddSingleton<VoiceTranscriptionClient>();
+    }
 }
 
 // Refresh tokens may only ever live in Key Vault, never the database (hard rule 4,
@@ -460,6 +473,11 @@ if (!blobStorageEnabled)
 if (!azureOpenAiEnabled)
 {
     app.Logger.LogWarning("AzureOpenAI configuration is missing — the L3 fallback is disabled.");
+}
+
+if (azureOpenAiEnabled && !voiceTranscriptionEnabled)
+{
+    app.Logger.LogWarning("AzureOpenAI:TranscriptionDeployment is not configured — voice messages are disabled.");
 }
 
 if (!payPalEnabled)
