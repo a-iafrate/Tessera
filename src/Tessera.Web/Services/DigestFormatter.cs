@@ -72,4 +72,22 @@ public static class DigestFormatter
 
         return sections;
     }
+
+    // Flattens one user's per-space sections into the single list Format expects
+    // (docs/13-piano-miglioramenti.md, E4). A user with only one space contributing content
+    // gets the exact wording they always had — no space name attached — since attribution only
+    // matters once there's more than one space to tell apart.
+    public static IReadOnlyList<(string Header, string Body)> CombineSpaces(
+        IReadOnlyList<(string SpaceName, IReadOnlyList<(string Header, string Body)> Sections)> perSpace)
+    {
+        var contributing = perSpace.Where(s => s.Sections.Count > 0).ToList();
+        if (contributing.Count <= 1)
+        {
+            return contributing.Count == 0 ? [] : contributing[0].Sections;
+        }
+
+        return contributing
+            .SelectMany(s => s.Sections.Select(section => ($"{section.Header} — {s.SpaceName}", section.Body)))
+            .ToList();
+    }
 }

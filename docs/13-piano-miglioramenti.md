@@ -1080,15 +1080,38 @@ dichiarati (divisione delle spese, meal planning, turni di casa, sync Alexa) res
   voce) — non riprodotta rallentando leggermente l'interazione, e non specifica a questa
   funzionalità: non risolta qui, segnalata a parte.
 
-### E4 — Digest su più spazi e digest periodico
+### E4 — Digest su più spazi e digest periodico ✅ (solo il difetto multi-spazio; il digest settimanale resta da fare)
 
-- [ ] **Connette**: digest ↔ spese ↔ budget. **Dove**: `Jobs/DailyDigestJob.cs:54`, `DigestService`
+- [x] **Connette**: digest ↔ spese ↔ budget. **Dove**: `Jobs/DailyDigestJob.cs:54`, `DigestService`
 - **Perché**: il job costruisce il digest **solo** per `User.DefaultSpaceId`: chi ha Casa più
   Personale più un gruppo vede un terzo della propria giornata. È un difetto, non un'estensione.
   Aggiungerci il riepilogo settimanale con confronto al periodo precedente è poi quasi gratis.
 - **Cosa**: iterare gli spazi con permesso `Read`, con sezioni per spazio (l'omissione delle
   sezioni vuote esiste già); digest settimanale opzionale con andamento e stato del budget.
 - **Fatto quando**: un utente con tre spazi vede tutti e tre nel digest.
+- **Fatto (solo il difetto multi-spazio)**: `DailyDigestJob` itera `SpaceService.GetForUserAsync`
+  invece del solo `DefaultSpaceId`; `DigestService.BuildAsync` non lancia più
+  `UnauthorizedAccessException` se l'utente non ha `Read` su una delle quattro risorse in uno
+  spazio (probabile con permessi granulari per membro) — la contribuzione di quella risorsa
+  diventa semplicemente vuota (`TryReadAsync`), coerente col principio "sezione vuota = niente
+  rumore" già esistente in `DigestFormatter.BuildSections`. Corregge anche un bug latente nel
+  comando `/digest` on-demand, non solo nel job. Nuovo `DigestFormatter.CombineSpaces`: se un solo
+  spazio contribuisce contenuto (il caso comune, un solo spazio con qualcosa da dire oggi), il
+  testo resta identico a prima — nessuna etichetta di spazio; con più spazi ciascuna sezione
+  guadagna un suffisso col nome dello spazio, per non attribuire un promemoria al posto sbagliato.
+  Nessuna migrazione: nessun nuovo campo, solo comportamento.
+  **Deliberatamente non fatto in questo intervento**: il digest settimanale con andamento e stato
+  budget. La motivazione del "Perché" lo definisce "quasi gratis" una volta fatto il resto, ma in
+  pratica richiede: un opt-in nuovo (il digest giornaliero non ne ha uno generico, solo
+  `EmailDigestEnabled` per il solo canale email), una cadenza settimanale mai esistita finora
+  (`IScheduledJob` più vicino è orario, `RecurringExpenseJob`), un campo di idempotenza dedicato
+  (`LastWeeklyDigestSentFor` o simile, distinto da `LastDigestSentFor`) e un confronto col periodo
+  precedente non ancora presente in nessun servizio — una feature a sé, non un'estensione da dieci
+  righe. Trattato come lavoro separato, non come debito di questo intervento.
+- **Fatto (verifica)**: `dotnet build`/`dotnet test` puliti (232 test) — nessun test automatico
+  copre `DailyDigestJob` (nessun test esiste per `MessageProcessor`/i job in generale in questa
+  codebase), e non è raggiungibile né dalla console web né da un tool Playwright in questa
+  sessione.
 
 ### E5 — "Prenota" dopo la disponibilità incrociata
 
@@ -1278,7 +1301,7 @@ eseguirli.
 | 6 | **F2** ✅ | I permessi, prima di aggiungere superficie che li usa — fatto fuori ordine, su richiesta esplicita, prima dei passi 4-5 (lotto B) |
 | 7 | **C3, C1** ✅ | Aggregazione e poi email: il canale che sostituisce WhatsApp |
 | 8 | **D3** ✅, decisioni aperte 2 ✅ e 3, **D1** ✅, **D4** ✅, **D2** (codice fatto, click-through sandbox annuale da fare a mano), poi **D5** | La telemetria prima del riassetto: si decide su dati, non a memoria |
-| 9 | **E3** ✅**, E2** ✅**, E4, E1** | Export e garanzie sono quasi gratis; la voce merita di stare dopo perché tocca la pipeline |
+| 9 | **E3** ✅**, E2** ✅**, E4** ✅ (digest settimanale a parte)**, E1** | Export e garanzie sono quasi gratis; la voce merita di stare dopo perché tocca la pipeline |
 | 10 | **B12, B13, B15**, **F3**, **F4** | Manutenibilità e rifiniture, quando i pattern si sono consolidati |
 | 11 | **C2** ✅ (fatto fuori ordine insieme a C1/C3, su richiesta esplicita — chiude tutto il lotto C), **E5, E6, E7** | Il resto, senza urgenza |
 

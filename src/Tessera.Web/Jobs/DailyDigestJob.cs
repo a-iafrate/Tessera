@@ -31,6 +31,7 @@ public sealed class DailyDigestJob(
         var db = scope.ServiceProvider.GetRequiredService<TesseraDbContext>();
         var digest = scope.ServiceProvider.GetRequiredService<DigestService>();
         var expenses = scope.ServiceProvider.GetRequiredService<ExpenseService>();
+        var spaces = scope.ServiceProvider.GetRequiredService<SpaceService>();
         var identities = scope.ServiceProvider.GetRequiredService<IChannelIdentityRepository>();
 
         var now = DateTimeOffset.UtcNow;
@@ -53,11 +54,23 @@ public sealed class DailyDigestJob(
             CultureInfo.CurrentCulture = culture;
             CultureInfo.CurrentUICulture = culture;
 
-            var spaceId = user.DefaultSpaceId!.Value;
-            var daily = await digest.BuildAsync(spaceId, user.Id, timeZone, today, ct);
-            var currency = await expenses.GetSpaceCurrencyAsync(spaceId, ct);
-            var categories = await expenses.GetCategoriesAsync(spaceId, ct);
-            var sections = DigestFormatter.BuildSections(daily, categories, currency, timeZone, culture, localizer);
+            // Every space the user belongs to, not just DefaultSpaceId — someone with Home +
+            // Personal + a group only ever saw a third of their day before this
+            // (docs/13-piano-miglioramenti.md, E4). DigestService.BuildAsync no longer throws
+            // for a space where this user's membership lacks Read on one of the four domains;
+            // it just contributes nothing for that domain.
+            var userSpaces = await spaces.GetForUserAsync(user.Id, ct);
+            var perSpaceSections = new List<(string SpaceName, IReadOnlyList<(string Header, string Body)> Sections)>();
+            foreach (var space in userSpaces)
+            {
+                var daily = await digest.BuildAsync(space.Id, user.Id, timeZone, today, ct);
+                var currency = await expenses.GetSpaceCurrencyAsync(space.Id, ct);
+                var categories = await expenses.GetCategoriesAsync(space.Id, ct);
+                var spaceSections = DigestFormatter.BuildSections(daily, categories, currency, timeZone, culture, localizer);
+                perSpaceSections.Add((space.Name, spaceSections));
+            }
+
+            var sections = DigestFormatter.CombineSpaces(perSpaceSections);
             var text = DigestFormatter.Format(sections, localizer);
 
             var userIdentities = await identities.GetForUserAsync(user.Id, ct);
