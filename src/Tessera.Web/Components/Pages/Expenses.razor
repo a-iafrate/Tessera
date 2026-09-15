@@ -3,6 +3,7 @@
 
 @using System.Globalization
 @using System.Security.Claims
+@using System.Text
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.Extensions.Localization
@@ -61,6 +62,36 @@
             </div>
         }
 
+        <div class="card max-w-32 mb-6">
+            <h2 class="mb-2">@Localizer["Expenses.Export.Heading"]</h2>
+            <div class="stack stack-sm">
+                <label class="form-label" for="exportDateFrom">@Localizer["Expenses.Export.DateFromLabel"]</label>
+                <input type="date" id="exportDateFrom" @bind="exportDateFrom" class="form-control" />
+                <label class="form-label" for="exportDateTo">@Localizer["Expenses.Export.DateToLabel"]</label>
+                <input type="date" id="exportDateTo" @bind="exportDateTo" class="form-control" />
+                <label class="form-label" for="exportCategory">@Localizer["Expenses.Export.CategoryLabel"]</label>
+                <select id="exportCategory" @bind="exportCategoryId" class="select-compact">
+                    <option value="">@Localizer["Expenses.Export.AllCategories"]</option>
+                    @foreach (var category in categories)
+                    {
+                        <option value="@category.Id">@MessageProcessor.GetCategoryDisplayName(category, Localizer)</option>
+                    }
+                </select>
+                <button type="button" class="btn btn-secondary" disabled="@isExporting" @onclick="GenerateExportAsync">
+                    @if (isExporting) { <span class="spinner" aria-hidden="true"></span> }
+                    @Localizer["Expenses.Export.GenerateButton"]
+                </button>
+                @if (exportDataUri is not null)
+                {
+                    <a class="btn btn-primary" download="expenses.csv" href="@exportDataUri">@Localizer["Expenses.Export.DownloadButton"]</a>
+                }
+                else if (exportIsEmpty)
+                {
+                    <p class="text-soft">@Localizer["Expenses.Export.NoResults"]</p>
+                }
+            </div>
+        </div>
+
         <div class="seam" aria-hidden="true">
             <span></span><span></span><span></span>
         </div>
@@ -111,6 +142,13 @@
     private string newMerchant = "";
     private DateOnly newDate = DateOnly.FromDateTime(DateTime.Today);
     private Dictionary<Guid, IReadOnlyList<Attachment>> attachmentsByExpense = [];
+
+    private DateOnly? exportDateFrom;
+    private DateOnly? exportDateTo;
+    private Guid? exportCategoryId;
+    private bool isExporting;
+    private string? exportDataUri;
+    private bool exportIsEmpty;
 
     // Attachments are conditionally registered (Program.cs — only when BlobStorage:ConnectionString
     // is configured), same pattern as Notes.razor.
@@ -195,6 +233,35 @@
         finally
         {
             isBusy = false;
+        }
+    }
+
+    private async Task GenerateExportAsync()
+    {
+        if (isExporting)
+        {
+            return;
+        }
+
+        isExporting = true;
+        exportDataUri = null;
+        exportIsEmpty = false;
+        try
+        {
+            var expenses = await ExpenseService.GetForExportAsync(SpaceId, userId, exportDateFrom, exportDateTo, exportCategoryId, CancellationToken.None);
+            if (expenses.Count == 0)
+            {
+                exportIsEmpty = true;
+                return;
+            }
+
+            var categoriesById = categories.ToDictionary(c => c.Id);
+            var csv = ExpenseCsvExporter.Build(expenses, categoriesById, CultureInfo.CurrentUICulture, Localizer);
+            exportDataUri = $"data:text/csv;base64,{Convert.ToBase64String(Encoding.UTF8.GetBytes(csv))}";
+        }
+        finally
+        {
+            isExporting = false;
         }
     }
 

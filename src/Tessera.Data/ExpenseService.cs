@@ -229,6 +229,35 @@ public sealed class ExpenseService(TesseraDbContext db, IAccessPolicy accessPoli
             .ToListAsync(ct);
     }
 
+    // For the CSV export (docs/13-piano-miglioramenti.md, E3) — unlike GetRecentAsync (capped,
+    // unfiltered, newest-first for the on-screen list) or QueryHistoryAsync (filtered but only
+    // ever returns one aggregate, never rows, since it's built for L3 tool dispatch), this
+    // returns every matching row, oldest-first (how a spreadsheet/commercialista expects a
+    // ledger read top to bottom).
+    public async Task<IReadOnlyList<Expense>> GetForExportAsync(
+        Guid spaceId, Guid userId, DateOnly? dateFrom, DateOnly? dateTo, Guid? categoryId, CancellationToken ct)
+    {
+        await EnsureAccessAsync(spaceId, userId, AccessLevel.Read, ct);
+
+        var query = db.Expenses.Where(x => x.SpaceId == spaceId);
+        if (dateFrom is { } from)
+        {
+            query = query.Where(x => x.Date >= from);
+        }
+
+        if (dateTo is { } to)
+        {
+            query = query.Where(x => x.Date <= to);
+        }
+
+        if (categoryId is { } category)
+        {
+            query = query.Where(x => x.CategoryId == category);
+        }
+
+        return await query.OrderBy(x => x.Date).AsNoTracking().ToListAsync(ct);
+    }
+
     public async Task<(decimal Amount, string Currency)> GetMonthlyTotalAsync(
         Guid spaceId, Guid userId, int year, int month, CancellationToken ct)
     {

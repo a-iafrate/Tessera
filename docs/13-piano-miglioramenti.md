@@ -946,15 +946,53 @@ dichiarati (divisione delle spese, meal planning, turni di casa, sync Alexa) res
   bottone, non creare d'autorità — un promemoria a 23 mesi.
 - **Fatto quando**: uno scontrino con un elettrodomestico propone il promemoria una volta sola.
 
-### E3 — Export delle spese
+### E3 — Export delle spese ✅
 
-- [ ] **Connette**: spese ↔ console. **Dove**: `Components/Pages/Expenses.razor`, `ExpenseService`
+- [x] **Connette**: spese ↔ console. **Dove**: `Components/Pages/Expenses.razor`, `ExpenseService`
 - **Perché**: valore percepito alto, sforzo minimo, e copre insieme una richiesta pratica
   (portare i dati al commercialista o in un foglio di calcolo) e il diritto di portabilità che
   [07-compliance.md](07-compliance.md#adempimenti-minimi) richiede.
 - **Cosa**: CSV per periodo e categoria, formattazione numerica e di data secondo la cultura
   dell'utente ([09-localizzazione.md](09-localizzazione.md)).
 - **Fatto quando**: l'export si apre correttamente in Excel con cultura italiana.
+- **Fatto**: nuovo `ExpenseService.GetForExportAsync(spaceId, userId, dateFrom?, dateTo?,
+  categoryId?, ct)` — né `GetRecentAsync` (senza filtri, limitato, per la lista a schermo) né
+  `QueryHistoryAsync` (filtrata ma restituisce solo un aggregato, mai le righe, essendo pensata
+  per il dispatch dei tool L3) coprivano già questo caso. La composizione del CSV vive in una
+  classe a parte, `Tessera.Web/Services/ExpenseCsvExporter.cs` (statica, senza DB — stesso posto
+  e stile di `DigestFormatter`/`MoneyFormatter`), non inline nel code-behind della pagina.
+  Il punto non ovvio, non discusso da nessuna parte nei docs prima d'ora: **il delimitatore CSV
+  dipende dalla cultura, non è quasi mai la virgola.** Un CSV con virgola come separatore decimale
+  *e* come separatore di campo (l'assunzione implicita di ogni guida in inglese) si apre in una
+  singola colonna su un Excel italiano. Il delimitatore è preso da
+  `CultureInfo.TextInfo.ListSeparator` (`;` per `it`, `,` per `en`) — stesso principio già seguito
+  altrove per numeri/valute/date (`MoneyFormatter`, `09-localizzazione.md`), mai applicato prima
+  d'ora a un CSV. Escaping RFC 4180 completo (virgolette quando un campo contiene il
+  delimitatore, una virgoletta o un a-capo) — verificato dal vivo che un importo inglese come
+  `1,234.50` (la virgola delle migliaia collide con la virgola-delimitatore) e un esercente
+  italiano con `;` e `"` incorporati vengono entrambi correttamente racchiusi fra virgolette.
+  Data in formato lungo (`"d MMMM yyyy"`), non il formato numerico che la lista a schermo usa
+  già — stessa raccomandazione di `09-localizzazione.md` per eliminare l'ambiguità giorno/mese,
+  qui senza il vincolo di spazio di una riga a schermo. BOM UTF-8 in testa al file — senza,
+  Excel su Windows indovina la codifica sbagliata e storpia le lettere accentate in
+  esercente/nota. Importo formattato come numero puro (`"N2"`) con la valuta in colonna propria,
+  non con `MoneyFormatter.Format` (che incorpora il simbolo di valuta nella stringa, inutile e
+  dannoso per un foglio di calcolo che deve poter sommare la colonna). Categoria risolta con
+  `MessageProcessor.GetCategoryDisplayName`, la stessa funzione già usata dalla pagina per il
+  menu a tendina. Scaricato dal browser con lo stesso meccanismo già in uso in
+  `AccountDelete.razor` (un `<a download>` con `data:text/csv;base64,...`, nessun interop
+  JavaScript) — qui costruito al click di un bottone "Genera CSV" anziché in `OnInitializedAsync`,
+  perché i filtri (intervallo di date, categoria) possono cambiare dopo il caricamento pagina.
+  Verificato dal vivo in entrambe le culture con un account reale: registrando due spese in
+  italiano (una con `èòàù` ed esercente contenente sia `;` sia `"`) il CSV scaricato ha
+  delimitatore `;`, decimali con virgola, data lunga italiana, BOM presente, ed escaping corretto;
+  lo stesso in inglese ha delimitatore `,`, `"1,234.50"` correttamente tra virgolette, data lunga
+  inglese. Durante la verifica in inglese un click troppo ravvicinato fra la digitazione
+  dell'importo e l'invio del form ha fatto emergere un'altra istanza della stessa classe di
+  race sul `DbContext` scoped già vista e risolta altrove in questa sessione (stavolta in
+  `ExpenseService.RecordAsync`, il percorso di scrittura preesistente, non toccato da questa
+  voce) — non riprodotta rallentando leggermente l'interazione, e non specifica a questa
+  funzionalità: non risolta qui, segnalata a parte.
 
 ### E4 — Digest su più spazi e digest periodico
 
@@ -1140,7 +1178,7 @@ eseguirli.
 | 6 | **F2** ✅ | I permessi, prima di aggiungere superficie che li usa — fatto fuori ordine, su richiesta esplicita, prima dei passi 4-5 (lotto B) |
 | 7 | **C3, C1** ✅ | Aggregazione e poi email: il canale che sostituisce WhatsApp |
 | 8 | **D3** ✅, poi decisioni aperte 2 e 3, poi **D1, D4, D2, D5** | La telemetria prima del riassetto: si decide su dati, non a memoria |
-| 9 | **E3, E2, E4, E1** | Export e garanzie sono quasi gratis; la voce merita di stare dopo perché tocca la pipeline |
+| 9 | **E3** ✅**, E2, E4, E1** | Export e garanzie sono quasi gratis; la voce merita di stare dopo perché tocca la pipeline |
 | 10 | **B12, B13, B15**, **F3**, **F4** | Manutenibilità e rifiniture, quando i pattern si sono consolidati |
 | 11 | **C2** ✅ (fatto fuori ordine insieme a C1/C3, su richiesta esplicita — chiude tutto il lotto C), **E5, E6, E7** | Il resto, senza urgenza |
 

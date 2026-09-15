@@ -1813,6 +1813,48 @@ Try it now:</value>
   <data name="Expenses.ExpenseRecorded" xml:space="preserve">
     <value>Recorded: {0}</value>
   </data>
+  <data name="Expenses.Export.Heading" xml:space="preserve">
+    <value>Export</value>
+  </data>
+  <data name="Expenses.Export.DateFromLabel" xml:space="preserve">
+    <value>From</value>
+  </data>
+  <data name="Expenses.Export.DateToLabel" xml:space="preserve">
+    <value>To</value>
+  </data>
+  <data name="Expenses.Export.CategoryLabel" xml:space="preserve">
+    <value>Category</value>
+  </data>
+  <data name="Expenses.Export.AllCategories" xml:space="preserve">
+    <value>All categories</value>
+  </data>
+  <data name="Expenses.Export.GenerateButton" xml:space="preserve">
+    <value>Generate CSV</value>
+  </data>
+  <data name="Expenses.Export.DownloadButton" xml:space="preserve">
+    <value>Download CSV</value>
+  </data>
+  <data name="Expenses.Export.NoResults" xml:space="preserve">
+    <value>No expenses match these filters.</value>
+  </data>
+  <data name="Expenses.Export.DateColumn" xml:space="preserve">
+    <value>Date</value>
+  </data>
+  <data name="Expenses.Export.AmountColumn" xml:space="preserve">
+    <value>Amount</value>
+  </data>
+  <data name="Expenses.Export.CurrencyColumn" xml:space="preserve">
+    <value>Currency</value>
+  </data>
+  <data name="Expenses.Export.CategoryColumn" xml:space="preserve">
+    <value>Category</value>
+  </data>
+  <data name="Expenses.Export.MerchantColumn" xml:space="preserve">
+    <value>Merchant</value>
+  </data>
+  <data name="Expenses.Export.NoteColumn" xml:space="preserve">
+    <value>Note</value>
+  </data>
   <data name="Reminders.PageTitle" xml:space="preserve">
     <value>Reminders</value>
   </data>

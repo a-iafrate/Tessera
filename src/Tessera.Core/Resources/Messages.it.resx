@@ -1813,6 +1813,48 @@ Provami subito:</value>
   <data name="Expenses.ExpenseRecorded" xml:space="preserve">
     <value>Registrata: {0}</value>
   </data>
+  <data name="Expenses.Export.Heading" xml:space="preserve">
+    <value>Esporta</value>
+  </data>
+  <data name="Expenses.Export.DateFromLabel" xml:space="preserve">
+    <value>Dal</value>
+  </data>
+  <data name="Expenses.Export.DateToLabel" xml:space="preserve">
+    <value>Al</value>
+  </data>
+  <data name="Expenses.Export.CategoryLabel" xml:space="preserve">
+    <value>Categoria</value>
+  </data>
+  <data name="Expenses.Export.AllCategories" xml:space="preserve">
+    <value>Tutte le categorie</value>
+  </data>
+  <data name="Expenses.Export.GenerateButton" xml:space="preserve">
+    <value>Genera CSV</value>
+  </data>
+  <data name="Expenses.Export.DownloadButton" xml:space="preserve">
+    <value>Scarica CSV</value>
+  </data>
+  <data name="Expenses.Export.NoResults" xml:space="preserve">
+    <value>Nessuna spesa corrisponde a questi filtri.</value>
+  </data>
+  <data name="Expenses.Export.DateColumn" xml:space="preserve">
+    <value>Data</value>
+  </data>
+  <data name="Expenses.Export.AmountColumn" xml:space="preserve">
+    <value>Importo</value>
+  </data>
+  <data name="Expenses.Export.CurrencyColumn" xml:space="preserve">
+    <value>Valuta</value>
+  </data>
+  <data name="Expenses.Export.CategoryColumn" xml:space="preserve">
+    <value>Categoria</value>
+  </data>
+  <data name="Expenses.Export.MerchantColumn" xml:space="preserve">
+    <value>Esercente</value>
+  </data>
+  <data name="Expenses.Export.NoteColumn" xml:space="preserve">
+    <value>Nota</value>
+  </data>
   <data name="Reminders.PageTitle" xml:space="preserve">
     <value>Promemoria</value>
   </data>
