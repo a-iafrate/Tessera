@@ -1264,25 +1264,42 @@ dichiarati (divisione delle spese, meal planning, turni di casa, sync Alexa) res
 
 I documenti sono la fonte di verità del progetto: le divergenze si scrivono lì, non solo nel codice.
 
-- [ ] **G1** — [06-roadmap.md](06-roadmap.md): Fase 3 riscritta da "WhatsApp" a "canali proattivi
-  senza burocrazia" (email, web push); WhatsApp declassato a Fase 5 accanto ad Alexa, con la
-  motivazione vera — la Business Verification di Meta per un professionista in regime forfettario
-  senza visura camerale, non il costo dei template
-- [ ] **G2** — [04-costi.md](04-costi.md): via lo scenario Fase 3 a €150-400 e la soglia "50-100
-  utenti su WhatsApp"; la soglia di sostenibilità si sposta a 200-300 utenti Telegram, il che rende
-  la monetizzazione opportunistica anziché necessaria. Sezione "Piani a pagamento" allineata a
-  **D1**
-- [ ] **G3** — [09-localizzazione.md](09-localizzazione.md): la differenziazione digest-per-evento
-  resta valida, ma il caso motivante diventa l'email (nessuna inline keyboard, un invio al giorno)
-- [ ] **G4** — [01-architettura.md](01-architettura.md): `EmailChannel` come terzo `IChannel`;
-  il recupero della coda al riavvio (**A4**) accanto al vincolo noto della coda in memoria
-- [ ] **G5** — [03-integrazioni.md](03-integrazioni.md): sezione WhatsApp Cloud API marcata come
-  non perseguita, con il motivo amministrativo esplicito
-- [ ] **G6** — [12-stile-sito.md](12-stile-sito.md): se il lotto B introduce toast e selettore di
-  tema, vanno descritti come componenti, non lasciati impliciti
-- [ ] **G7** — [02-modello-dati.md](02-modello-dati.md): i nuovi campi di `SubscriptionPlan`
-  (**D1** ✅ fatto, sezione "Piano di abbonamento" riscritta) e `User.EmailDigestEnabled`
-  (**C1**, ancora da fare)
+- [x] **G1** ✅ — [06-roadmap.md](06-roadmap.md): Fase 3 riscritta da "WhatsApp" a "canali proattivi
+  senza burocrazia" (email, web push, marcata ✅); WhatsApp spostato a Fase 5 accanto ad Alexa, con
+  la motivazione vera — la Business Verification Meta per un professionista in regime forfettario
+  spesso non iscritto al registro delle imprese, non il costo dei template. Corretti anche due
+  riferimenti stale adiacenti trovati durante la modifica (il "terzo canale" della sezione Canale
+  Web, l'enforcement pre-D1 elencato sotto Pagamenti).
+- [x] **G2** ✅ — [04-costi.md](04-costi.md): via lo scenario Fase 3 a €150-400 e la soglia "50-100
+  utenti su WhatsApp"; soglia di sostenibilità a 200-300 utenti Telegram, monetizzazione
+  opportunistica non necessaria. Sezione "WhatsApp" condensata a nota storica (il modello a
+  conversazione l'avrebbe reso comunque il canale più caro, motivo secondario dietro quello
+  amministrativo). Sezione "Piani a pagamento" allineata a **D1**/**D2** (due piani, i cinque assi
+  di valore, ciclo annuale). Corretto anche un anchor rotto verso questo file lasciato da un
+  commit precedente di D1.
+- [x] **G3** ✅ — [09-localizzazione.md](09-localizzazione.md): non esisteva una sezione
+  digest-per-evento in questo file (viveva solo in 03/04-costi.md, motivata da WhatsApp) — aggiunta
+  ex novo sotto "Notifiche in uno spazio multilingua", motivata dal vincolo reale di `EmailChannel`
+  (`SupportsInlineKeyboard = false`, `SupportsRealTimeNotifications = false`), non da un'ipotesi
+  WhatsApp mai costruita.
+- [x] **G4** ✅ — [01-architettura.md](01-architettura.md): `EmailChannel` documentato come terzo
+  canale (sezione dedicata), `ChannelCapabilities` aggiornata a 5 campi reali, tabella dei job
+  schedulati riscritta (elencava 4 job di cui uno mai esistito, ne mancavano 5 realmente
+  registrati), il recupero della coda al riavvio (**A4**, `PendingMessageRecoveryJob`) documentato
+  accanto al vincolo noto della coda in memoria che chiudeva a metà. Vari riferimenti a
+  `WhatsAppChannel`/endpoint mai esistiti rimossi.
+- [x] **G5** ✅ — [03-integrazioni.md](03-integrazioni.md): sezione WhatsApp Cloud API riscritta
+  come "non perseguito, decisione presa" (stesso stile della sezione Alexa), motivo amministrativo
+  esplicito, con un rimando esplicito a "se dovesse tornare" (via BSP, esperimento di
+  distribuzione) invece di cancellare la conoscenza tecnica accumulata.
+- [x] **G6** ✅ — [12-stile-sito.md](12-stile-sito.md): nuove sezioni "Toast" e "Selettore di tema"
+  sotto "Componenti" (prima menzionati solo di sfuggita altrove nel file) — varianti, comportamento
+  di autodismiss, applicazione pre-paint per il tema, idioma dei bottoni riusato dal selettore
+  ciclo mensile/annuale di D2.
+- [x] **G7** ✅ — [02-modello-dati.md](02-modello-dati.md): i campi di `SubscriptionPlan` (**D1**,
+  già fatto in precedenza) e i tre campi digest di `User` — `DigestHourLocal`,
+  `LastDigestSentFor`, `EmailDigestEnabled` (**C1**) — aggiunti alla classe `User` nel doc con nota
+  sulla differenza fra i primi due (tutti i canali) e il terzo (opt-in specifico a email).
 
 ---
 
@@ -1311,7 +1328,7 @@ eseguirli.
    per nucleo familiare intero; Cozi Gold $39/anno; Todoist Pro $5/utente/mese in fatturazione
    annuale (nessun piano famiglia). Il segmento converge su **€1-5/mese**, quasi sempre con sconto
    sostanzioso per fatturazione annuale, e nessuno dei comparabili ha un costo di inferenza LLM da
-   coprire. Confrontato con [04-costi.md](04-costi.md#costo-per-chiamata-l3): a 50-100 utenti il
+   coprire. Confrontato con [04-costi.md](04-costi.md#cosa-costa-davvero): a 50-100 utenti il
    costo Azure OpenAI reale è **€0,30-0,40 per utente al mese** anche con L3 pieno (non gpt-4o
    mini forfettario) — il margine per prezzi in linea col segmento c'è, il €25/mese attuale non è
    giustificato né dal mercato né dal costo. Le cifre finali restano una decisione del titolare,
@@ -1338,6 +1355,5 @@ eseguirli.
 | 10 | **B12, B13, B15**, **F3**, **F4** | Manutenibilità e rifiniture, quando i pattern si sono consolidati |
 | 11 | **C2** ✅ (fatto fuori ordine insieme a C1/C3, su richiesta esplicita — chiude tutto il lotto C), **E5, E6, E7** | Il resto, senza urgenza |
 
-**G1-G5 vanno fatti subito**, fuori da questa scaletta: sono divergenze già accertate fra
-documentazione e realtà, e finché restano aperte ogni rilettura di `docs/` riparte da premesse
-sbagliate. **G6** e **G7** seguono i lotti che li generano.
+**G1-G7 tutti fatti** ✅ — erano divergenze già accertate fra documentazione e realtà; restavano
+aperte solo perché nessun lotto le aveva ancora forzate a essere risolte.

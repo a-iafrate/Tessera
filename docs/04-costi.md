@@ -1,6 +1,6 @@
 # 04 — Costi
 
-> **Tutti i numeri sono ordini di grandezza a memoria, riferiti al listino noto a maggio 2026, regione West Europe, IVA esclusa.** I prezzi Azure, Azure OpenAI e WhatsApp cambiano con regolarità. Prima di prendere decisioni, verificare su [Azure Pricing Calculator](https://azure.microsoft.com/pricing/calculator/) e sul listino Meta per il proprio paese.
+> **Tutti i numeri sono ordini di grandezza a memoria, riferiti al listino noto a maggio 2026, regione West Europe, IVA esclusa.** I prezzi Azure e Azure OpenAI cambiano con regolarità. Prima di prendere decisioni, verificare su [Azure Pricing Calculator](https://azure.microsoft.com/pricing/calculator/).
 
 ## Riepilogo
 
@@ -8,9 +8,9 @@
 |---|---|
 | Fase 1 — MVP Telegram, ~10 utenti | **€25-40** |
 | Fase 2 — con calendario, ~50 utenti | **€50-80** |
-| Fase 3 — con WhatsApp, ~100 utenti | **€150-400** ⚠️ |
+| Fase 3 — canali proattivi (email + push), ~100 utenti | **€55-85** |
 
-Il salto della Fase 3 non è infrastruttura: sono i template WhatsApp. È lì che il modello economico va deciso, non prima.
+Niente salto di costo alla Fase 3 (WhatsApp l'avrebbe prodotto, con i suoi template a pagamento — vedi [03-integrazioni.md](03-integrazioni.md), non perseguito per ragioni amministrative prima ancora che di costo). Email (ACS) e web push (nessun costo per notifica, solo l'infrastruttura VAPID già inclusa) restano voci marginali anche a 100 utenti.
 
 ## Fase 1 — MVP
 
@@ -22,7 +22,7 @@ Il salto della Fase 3 non è infrastruttura: sono i template WhatsApp. È lì ch
 | Application Insights | Primi 5 GB/mese gratuiti | 0 |
 | Blob Storage | Scontrini, fase 4 | 0 |
 | Azure OpenAI | gpt-4o-mini, vedi sotto | 3-10 |
-| Azure Communication Services | Email, solo reset password | <1 |
+| Azure Communication Services | Email, reset password + digest quotidiano | <1-2 |
 | Dominio | ~15/anno | ~1 |
 | **Totale** | | **~25-40** |
 
@@ -32,7 +32,7 @@ Note:
 - **Azure SQL serverless con auto-pause** è la scelta economica giusta, con l'avvertenza che il risveglio dalla pausa costa alcuni secondi di latenza. Se il bot "sembra lento al mattino", è quello. L'alternativa è il tier Basic a costo fisso (~€5) senza auto-pause, adeguato per l'MVP.
 - **Key Vault** si paga a operazione: mettere in cache i token in memoria con TTL, non rileggerli a ogni messaggio.
 - **Service Bus: non incluso.** Nell'MVP la coda è in memoria. Aggiungerlo costa ~€10/mese (Basic) quando servirà.
-- **Azure Communication Services** fattura per email inviata (pochi centesimi di dollaro per mille email alla tariffazione attuale, da verificare in fase di setup) — al volume atteso (reset password occasionali, non digest o notifiche di massa) resta una voce trascurabile.
+- **Azure Communication Services** fattura per email inviata (pochi centesimi di dollaro per mille email alla tariffazione attuale, da verificare in fase di setup). Include ora anche il digest quotidiano via email (docs/13-piano-miglioramenti.md, C1) — al massimo un invio per utente al giorno, non uno per notifica (`EmailChannel.Capabilities.SupportsRealTimeNotifications = false`), quindi resta una voce marginale anche a qualche centinaio di utenti.
 
 ### Credito MVP
 
@@ -72,45 +72,23 @@ Stessa colonna con **gpt-4o** pieno (~$2.50/1M input): moltiplicare per circa 16
 
 Il risparmio economico reale arriva dall'evitare lo **schema dei tool nel prompt**, che è il vero peso: 3-4k token ripetuti a ogni turno. Vedi [05-ottimizzazioni.md](05-ottimizzazioni.md).
 
-## WhatsApp — dove il modello economico si decide
+## WhatsApp — perché sarebbe stato caro anche a prescindere dal blocco amministrativo
 
-Meta fattura per **conversazione** (finestra di 24 ore), con tariffa che varia per categoria e paese. Ordini di grandezza per l'Italia:
+Non perseguito per ragioni amministrative, non di costo (Business Verification Meta — vedi [03-integrazioni.md](03-integrazioni.md#whatsapp-cloud-api--non-perseguito)). Ma il modello economico l'avrebbe comunque reso il canale più caro del gruppo, ed è la ragione per cui questa sezione resta come nota storica.
 
-| Categoria | Costo indicativo per conversazione |
-|---|---|
-| Service (avviata dall'utente) | Spesso gratuita entro una soglia mensile |
-| Utility (template: promemoria, notifiche) | €0,03-0,05 |
-| Marketing | €0,08-0,12 |
-
-Le notifiche proattive di questo prodotto ricadono in **Utility**.
-
-### Lo scenario che va evitato
-
-Un promemoria mattutino cade sempre fuori dalla finestra 24h → template a pagamento.
+Meta fattura per **conversazione** (finestra di 24 ore): un promemoria mattutino cade quasi sempre fuori finestra, quindi a **template a pagamento** (categoria Utility, ~€0,03-0,05/conversazione in Italia).
 
 ```
 100 utenti × 1 digest mattutino × 30 giorni × €0,04 = €120/mese
 ```
 
-E questo con **una sola** notifica al giorno. Con una notifica per ogni voce aggiunta alla lista condivisa, il conto esplode: una famiglia che aggiunge 10 articoli genera 10 notifiche verso ciascun altro membro.
-
-### Mitigazioni obbligatorie prima di aprire WhatsApp
-
-1. **Digest, non eventi.** Una notifica aggregata al giorno, non una per modifica.
-2. **Notifiche proattive opt-in**, non attive per default.
-3. **Sfruttare la finestra 24h.** Un utente che scrive al bot durante il giorno riapre la finestra: le notifiche successive sono gratuite. Un utente attivo costa quasi nulla, un utente passivo costa il template.
-4. **Il digest quotidiano è l'unico template che vale la spesa.** Costa un template al giorno, ma se l'utente risponde riapre la finestra e rende gratuite tutte le notifiche successive della giornata — promemoria, avvisi di budget, modifiche alla lista. È l'investimento che ripaga; una notifica per singolo evento no.
-5. **Differenziare per canale.** Su Telegram le notifiche sono libere e gratuite: nessun motivo per limitarle. La logica di notifica deve leggere `ChannelCapabilities.SupportsProactiveFree`.
-6. **Nessun template per la lista condivisa fuori finestra.** Se B non ha scritto al bot da 24 ore, la modifica di A la vedrà alla prossima apertura. È accettabile per una lista della spesa.
-
-Con queste mitigazioni, 100 utenti su WhatsApp stanno realisticamente sui €30-60/mese di template invece dei €120+ dello scenario naïf.
+Questo con **una sola** notifica al giorno — una per ogni voce aggiunta alla lista condivisa avrebbe fatto esplodere il conto. Le mitigazioni pensate per contenerlo — digest invece di notifiche per singolo evento, differenziazione per canale — sono diventate comunque funzionalità reali: [Fase 3](06-roadmap.md#fase-3--canali-proattivi-senza-burocrazia-2-settimane) (email + web push) le ha ereditate tramite `ChannelCapabilities.SupportsRealTimeNotifications`, senza però il costo per conversazione che le rendeva indispensabili in primo luogo.
 
 ## Costi non-Azure
 
 | Voce | Costo |
 |---|---|
 | Telegram | €0 |
-| Numero telefonico per WhatsApp | €5-15/mese (SIM dati o numero VoIP compatibile) |
 | Dominio | €10-20/anno |
 | Google OAuth verification (scope sensitive) | €0, solo tempo |
 | Microsoft publisher verification | €0 (richiede Partner Center account) |
@@ -123,16 +101,16 @@ L'ultima riga è il motivo per cui Gmail è in Fase 4 con un punto di domanda: q
 
 1. **Modello piccolo per default** — fattore ~16 sul costo LLM
 2. **Prompt caching sullo schema dei tool** — riduzione significativa sui turni ripetuti
-3. **Digest invece di notifiche per evento su WhatsApp** — fattore 5-10 sui template
+3. **Digest invece di notifiche per evento su email** — una sola azione schedulata al giorno per utente invece di un invio ACS per ogni evento (`ChannelCapabilities.SupportsRealTimeNotifications = false` per `EmailChannel`)
 4. **Router di intent** — porta a zero le operazioni frequenti (impatto maggiore su latenza che su costo)
 5. **Cache in memoria dei token Key Vault** — pochi euro, ma banale da fare
 6. **Auto-pause su SQL** — pochi euro, con costo in latenza
 
-Le prime tre valgono più delle altre tre insieme.
+Le prime due valgono più delle altre quattro insieme.
 
 ## Soglia di sostenibilità
 
-Se il prodotto restasse gratuito per un'utenza allargata, il punto di rottura arriva intorno ai **200-300 utenti su Telegram** (~€100/mese fra infrastruttura e LLM) o già ai **50-100 utenti su WhatsApp** con notifiche proattive.
+Se il prodotto restasse gratuito per un'utenza allargata, il punto di rottura arriva intorno ai **200-300 utenti su Telegram** (~€100/mese fra infrastruttura e LLM) — soglia più alta di quanto stimato quando WhatsApp era ancora in piano, dato che email e web push non aggiungono un costo per notifica. Rende la monetizzazione un'opzione da valutare quando la retention lo giustifica, non una necessità imminente.
 
 Questo non è un problema della Fase 1 — è la ragione per cui il punto di decisione sta alla fine della Fase 1. Se la retention c'è, la domanda diventa monetizzazione o limitazione dell'utenza; se non c'è, il conto non è mai stato un problema.
 
@@ -140,10 +118,11 @@ Questo non è un problema della Fase 1 — è la ragione per cui il punto di dec
 
 Lo schema esiste già (`SubscriptionPlan`, per spazio non per utente — vedi [02-modello-dati.md](02-modello-dati.md#piano-di-abbonamento) per l'entità e la tabella dei livelli attuali), introdotto in anticipo apposta per non dover riscrivere `Space` quando arriverà davvero la fatturazione.
 
-**Enforcement collegato.** `MaxCallsPerDay` (`UsageService`), `AllowsReceiptScanning` (`MessageProcessor`) e `MaxLinkedBots` (`LinkService.CanLinkAnotherBotAsync`, solo sul collegamento di un gruppo Telegram — vedi [02-modello-dati.md](02-modello-dati.md#piano-di-abbonamento) per il perché di questo limite) sono tutti applicati. Il rate limiting fisso per identità di canale (60 msg/ora, vedi [07-compliance.md](07-compliance.md)) resta comunque attivo in parallelo, indipendente dal piano. Restano da fare:
+**Enforcement collegato.** Cinque assi di valore — `MaxReceiptsPerMonth`, `MaxLinkedCalendars`, `HistoryMonths`, `AllowsExport`, `MaxSpacesOwned` — più `MaxCallsPerDay`/`MaxLinkedBots` come guardie anti-abuso non più vendute (D1, vedi [02-modello-dati.md](02-modello-dati.md#piano-di-abbonamento) per l'entità, i due piani attuali e ogni punto di enforcement). Il rate limiting fisso per identità di canale (60 msg/ora, vedi [07-compliance.md](07-compliance.md)) resta comunque attivo in parallelo, indipendente dal piano. Flusso di pagamento reale implementato con PayPal (sottoscrivi, cambia piano, annulla — tutti testati end-to-end in sandbox, [06-roadmap.md](06-roadmap.md)). Restano da fare:
 
-- Il flusso di pagamento reale e la UI in console per scegliere/cambiare piano — vedi sotto per il provider scelto (implementato con PayPal, cambio piano fra due abbonamenti a pagamento ancora da fare — [06-roadmap.md](06-roadmap.md)).
-- Le implicazioni di fatturazione/IVA che questo introduce, non coperte da [07-compliance.md](07-compliance.md) (che tratta solo GDPR).
+- Le implicazioni di fatturazione/IVA che l'incasso introduce, non coperte da [07-compliance.md](07-compliance.md) (che tratta solo GDPR).
+- Il passaggio da sandbox a live (solo configurazione, nessun codice — [08-setup-sviluppo.md](08-setup-sviluppo.md)).
+- Le cifre finali dei piani, ancora un placeholder — vedi *Decisioni aperte* in [13-piano-miglioramenti.md](13-piano-miglioramenti.md).
 
 Deliberatamente rimandato a dopo il punto di decisione di Fase 1: introdurlo prima significherebbe costruire fatturazione per un prodotto che non ha ancora dimostrato di essere usato.
 
@@ -153,7 +132,7 @@ Decisione presa (non più "Stripe o simile"): **PayPal Subscriptions REST API**.
 
 - Le commissioni PayPal sono trattate come servizio finanziario esente IVA. Le commissioni Stripe arrivano invece da un fornitore con sede in Irlanda: ogni fattura commissioni triggera reverse charge, con autofattura elettronica (TD17) e F24 mensile — un adempimento ricorrente che PayPal evita quasi del tutto.
 - Nessun obbligo di posizione VIES per le commissioni del gateway, non avendo acquisti intracomunitari soggetti a reverse charge da parte sua.
-- Con solo 4 piani fissi (vedi [02-modello-dati.md](02-modello-dati.md#piano-di-abbonamento)) e nessuna necessità di scalare a logiche di fatturazione complesse, la superficie di integrazione resta comunque piccola.
+- Con solo due piani fissi (vedi [02-modello-dati.md](02-modello-dati.md#piano-di-abbonamento)) e nessuna necessità di scalare a logiche di fatturazione complesse, la superficie di integrazione resta comunque piccola.
 
 **Non verificato da un commercialista in questa sede** — la lettura sopra viene da una consulenza esterna dell'utente, non da un parere fiscale raccolto qui. In particolare resta da confermare con chi segue la posizione forfettaria: l'interazione fra regime forfettario (niente IVA sulle vendite italiane) e registrazione OSS (necessaria solo superati i 10.000 € lordi annui di vendite verso privati in altri Paesi UE) — sotto soglia le vendite estere UE si trattano come vendite italiane, sopra soglia serve OSS a parte.
 

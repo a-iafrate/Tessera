@@ -111,48 +111,24 @@ Il flusso pulito su Telegram sfrutta il deep link con payload.
 
 Il token nel link è a tutti gli effetti una credenziale: se qualcuno lo intercetta, associa la propria chat all'account. Da qui TTL corto, monouso, e nessuna rigenerazione automatica.
 
-**Su WhatsApp il deep link con payload non esiste.** `wa.me/<numero>?text=...` precompila il testo ma l'utente può modificarlo, quindi non è affidabile come canale di trasporto di un segreto. Il fallback è un **codice a 6 cifre** mostrato in console che l'utente invia al bot: TTL 10 minuti, massimo 5 tentativi, rate limit per numero. Meno elegante ma robusto.
+**Su WhatsApp il deep link con payload non esiste** — `wa.me/<numero>?text=...` precompila il testo ma l'utente può modificarlo, quindi non è affidabile come canale di trasporto di un segreto. Irrilevante in pratica: vedi sotto, il canale non è perseguito.
 
-## WhatsApp Cloud API — fase 3
+## WhatsApp Cloud API — non perseguito, decisione presa
 
-Da affrontare **solo dopo** aver visto la retention su Telegram. Il costo non è di sviluppo, è di setup burocratico e di modello economico.
+Sostituito da email e web push come strada per raggiungere chi non usa Telegram (docs/13-piano-miglioramenti.md, lotto C; [06-roadmap.md](06-roadmap.md#fase-3--canali-proattivi-senza-burocrazia-2-settimane)).
 
-### Requisiti di ingresso
+### Perché
 
-- Meta Business Account con **business verification** (documenti societari; come freelance con P.IVA è fattibile, ma i tempi variano)
-- Numero di telefono dedicato, non associato ad account WhatsApp personale o Business App
-- WhatsApp Business Account (WABA) collegato
-- App su Meta for Developers con revisione dei permessi
+Non per il modello economico dei template (vedi comunque [04-costi.md](04-costi.md#whatsapp--perché-sarebbe-stato-caro-anche-a-prescindere-dal-blocco-amministrativo), che lo confermava comunque svantaggioso), ma per la **Business Verification Meta**: richiede documenti societari, e un libero professionista in regime forfettario, spesso non iscritto al registro delle imprese (nessuna visura camerale da presentare), non la supera. Non è un problema di tempi di attesa che si possono mettere in coda — è un requisito d'ingresso che manca.
 
-### I due vincoli che cambiano il prodotto
+I due vincoli di prodotto che la Cloud API avrebbe comunque imposto, per completezza:
 
-**1. Nessun supporto ai gruppi.** La Cloud API è 1:1 fra business e singolo numero. La lista condivisa non può essere "il bot nel gruppo famiglia": si implementa come *N conversazioni separate legate allo stesso spazio*. L'utente A scrive al bot, il bot notifica B nella sua chat privata.
+- **Nessun supporto ai gruppi.** La Cloud API è 1:1 fra business e singolo numero — la lista condivisa non può essere "il bot nel gruppo famiglia", andrebbe implementata come *N conversazioni separate legate allo stesso spazio*. Il `ChannelCapabilities.SupportsGroups = false` esiste già per il caso generale.
+- **Finestra di 24 ore.** Fuori da 24 ore dall'ultimo messaggio dell'utente, solo **template pre-approvati**, a pagamento per conversazione — un promemoria mattutino ci cade quasi sempre. Le mitigazioni progettuali pensate per questo (digest invece di notifiche per evento, differenziazione per canale) sono diventate comunque funzionalità reali di email/web push, tramite `ChannelCapabilities.SupportsRealTimeNotifications` — vedi [09-localizzazione.md](09-localizzazione.md#notifiche-in-tempo-reale-vs-digest-per-canale).
 
-Funziona, ma è un'esperienza diversa e va progettata come tale. Il `ChannelCapabilities.SupportsGroups = false` esiste per questo.
+### Se dovesse tornare
 
-**2. Finestra di 24 ore.** Dopo un messaggio dell'utente si può rispondere liberamente per 24 ore. Fuori da quella finestra si possono inviare solo **template pre-approvati**, a pagamento per conversazione.
-
-Questo colpisce esattamente il caso d'uso proattivo:
-
-| Notifica | Dentro 24h | Fuori 24h |
-|---|---|---|
-| "Sara ha aggiunto il pane" | Gratis | Template a pagamento |
-| "Domani hai la riunione alle 9" | Gratis | Template a pagamento |
-
-Un promemoria mattutino cade quasi sempre fuori finestra. Con qualche notifica al giorno per utente, il costo per utente diventa la voce dominante del progetto — vedi [04-costi.md](04-costi.md).
-
-Mitigazioni progettuali: raggruppare le notifiche in un digest unico quotidiano invece di una per evento; rendere le notifiche proattive opt-in; su Telegram lasciarle libere e su WhatsApp limitarle. La differenza di canale va esposta all'utente, non nascosta.
-
-### Validazione della firma
-
-```csharp
-// X-Hub-Signature-256: sha256=<hmac>
-var computed = Convert.ToHexString(
-    HMACSHA256.HashData(Encoding.UTF8.GetBytes(appSecret), rawBody)).ToLowerInvariant();
-var valid = CryptographicOperations.FixedTimeEquals(
-    Encoding.UTF8.GetBytes($"sha256={computed}"),
-    Encoding.UTF8.GetBytes(receivedHeader));
-```
+Non una porta chiusa per sempre (docs/13-piano-miglioramenti.md, *Decisioni aperte* #1): solo tramite un BSP (Business Solution Provider) che accompagni la verification, e trattato come **esperimento di distribuzione** — nessuna decisione di prodotto, di prezzo o di roadmap deve dipendere dal suo esito. La validazione della firma userebbe lo stesso principio già in uso per PayPal (verifica esterna/HMAC sul body raw prima di qualunque deserializzazione — vedi sotto), applicato a `X-Hub-Signature-256`.
 
 L'HMAC va calcolato sul **body raw**, prima di qualunque deserializzazione. Serve `EnableBuffering()` o un middleware che catturi il corpo grezzo.
 

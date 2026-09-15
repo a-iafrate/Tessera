@@ -39,7 +39,7 @@ Precedenza:
 3. "en"                              ← fallback
 ```
 
-WhatsApp non fornisce un equivalente affidabile della lingua del client: lì il default è `"en"` e la scelta va fatta in console o al primo contatto.
+Non tutti i canali forniscono un equivalente affidabile della lingua del client — email, ad esempio, non ha alcun campo di lingua nel protocollo: lì il default è `"en"` e la scelta va fatta in console o al primo contatto.
 
 `TimeZoneId` sta accanto a `PreferredCulture` perché è lo stesso tipo di problema e si dimentica nello stesso modo. Lingua e fuso sono indipendenti: un italiano a Londra vuole l'interfaccia in italiano e gli orari in `Europe/London`.
 
@@ -223,6 +223,12 @@ Le due righe che contano: notificare nel gruppo un'azione fatta nel gruppo è ru
 Implementazione: la resa della notifica riceve l'`InboundMessage.ExternalChatId` di origine e salta i destinatari raggiungibili tramite quella chat. In pratica, se lo spazio ha un `GroupChatId` e l'azione è nata lì, si notifica solo chi non è membro del gruppo Telegram.
 
 `ShoppingItemAdded.ActorUserId` esiste anche per questo: l'autore non si notifica mai.
+
+### Notifiche in tempo reale vs digest, per canale
+
+Non tutti i canali devono ricevere lo stesso fan-out. Email è il caso motivante: nessuna inline keyboard (`EmailChannel.Capabilities.SupportsInlineKeyboard = false` — una email non può rispondere a un tap), e un invio al giorno è il ritmo giusto, non uno per ogni voce aggiunta alla lista — dieci email in un pomeriggio di spesa attiva sarebbero spam, non un servizio (docs/04-costi.md).
+
+`ChannelCapabilities.SupportsRealTimeNotifications` (default `true`, `false` solo per `EmailChannel` oggi) è la leva: `NotificationService`/`NotificationAggregationFlushJob` (docs/13-piano-miglioramenti.md, C3) notificano ogni membro in tempo reale su tutti i canali che valgono `true`; email riceve solo il digest quotidiano schedulato (`DailyDigestJob`), mai il fan-out per singolo evento. Stessa idea già codificata per i gruppi (`SupportsGroups`) o il deep link (`SupportsDeepLinkPayload`): le differenze fra canali si espongono via `Capabilities`, non si nascondono dietro un'astrazione finta.
 
 ### La distinzione che va tenuta rigida
 

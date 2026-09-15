@@ -155,23 +155,16 @@ La disponibilità incrociata è risultata la funzione più difendibile del prodo
 - **Graph non ha un equivalente calendario-specifico di `freebusy.query`** (`getSchedule` lavora per mailbox, non per id di calendario arbitrari) — la disponibilità su Microsoft usa `calendarView` con `$select=start,end`, che non fa mai transitare i titoli degli eventi (stessa proprietà di privacy di `freebusy.query`, ottenuta diversamente).
 - **Microsoft non ha un endpoint di revoca per singolo refresh token** come Google — "Scollega" per Microsoft pulisce solo lo stato locale (Key Vault + mappature), senza revocare l'autorizzazione lato Microsoft. Da valutare se documentare esplicitamente in [07-compliance.md](07-compliance.md).
 
-## Fase 3 — WhatsApp (~3-4 settimane, molte di attesa)
+## Fase 3 — Canali proattivi senza burocrazia (~2 settimane) ✅
 
-**Solo con retention confermata su Telegram.**
+**Solo con retention confermata su Telegram.** Sostituisce WhatsApp come strada per raggiungere chi non usa Telegram — non per il costo dei template, come stimato inizialmente, ma perché la **Business Verification Meta** è impraticabile per un libero professionista in regime forfettario, spesso non iscritto al registro delle imprese (nessuna visura camerale da presentare). Retrocesso a Fase 5, non abbandonato — vedi sotto.
 
-- [ ] Meta Business Account e business verification
-- [ ] Numero dedicato e WABA
-- [ ] Webhook con validazione HMAC
-- [ ] `WhatsAppChannel : IChannel` con `SupportsGroups = false`
-- [ ] Linking via codice a 6 cifre (nessun deep link con payload)
-- [ ] Lista condivisa come N conversazioni sullo stesso spazio
-- [ ] Template approvati per le notifiche fuori finestra 24h
-- [ ] **Logica di notifica differenziata per canale**: digest su WhatsApp, eventi su Telegram
-- [ ] Monitoraggio del costo per utente sui template
+- [x] **`EmailChannel : IChannel`** (docs/13-piano-miglioramenti.md, C1) — digest quotidiano via email (Azure Communication Services). Nessuna inline keyboard (`Capabilities.SupportsInlineKeyboard = false`), un invio al giorno, mai il fan-out in tempo reale delle altre azioni. Dettagli in [03-integrazioni.md](03-integrazioni.md#emailchannel-e-digest-via-email).
+- [x] **Web push sulla PWA** (C2) — promemoria e digest raggiungono anche chi ha la console/PWA chiusa, via sottoscrizione VAPID per dispositivo. Chiude tutto il lotto C.
+- [x] **Aggregazione delle notifiche** (C3) — finestra di 60 secondi o più prima di inoltrare, invece di un messaggio per ogni singola azione.
+- [x] **Logica di notifica differenziata per canale**: `ChannelCapabilities.SupportsRealTimeNotifications` — email è il primo canale a valere `false`, riceve solo il digest schedulato, mai il fan-out in tempo reale.
 
-Il layer di astrazione scritto in Fase 0 dovrebbe rendere questa fase un lavoro di adattamento, non di riscrittura. Se richiede di toccare la pipeline, l'astrazione era sbagliata.
-
-Qui la domanda vera è economica, non tecnica: il costo per utente dei template regge? Vedi [04-costi.md](04-costi.md).
+Il layer di astrazione scritto in Fase 0 (`IChannel`, `ChannelCapabilities`) ha retto l'aggiunta di due canali senza toccare la pipeline — l'astrazione era quella giusta.
 
 ## Fase 4 — Estensioni
 
@@ -200,7 +193,7 @@ Nessuna urgenza, nessun ordine obbligato. In ordine di rapporto valore/sforzo:
 
 ## Canale Web (console) e PWA
 
-Non prevista nella pianificazione originale — aggiunta su richiesta esplicita, come terzo canale accanto a Telegram e WhatsApp: chi non ha Telegram, accede da un dispositivo che non è il proprio, o vuole solo provare l'assistente, può farlo dalla pagina `/chat` della console. Dettagli architetturali in [01-architettura.md](01-architettura.md#canale-web-console-e-ichannelregistry).
+Non prevista nella pianificazione originale — aggiunta su richiesta esplicita, come canale aggiuntivo accanto a Telegram: chi non ha Telegram, accede da un dispositivo che non è il proprio, o vuole solo provare l'assistente, può farlo dalla pagina `/chat` della console. Dettagli architetturali in [01-architettura.md](01-architettura.md#canale-web-console-e-ichannelregistry).
 
 - [x] **v1 — chat testuale autenticata**: `WebChannel : IChannel`, pagina `/chat`, `IChannelRegistry` per risolvere il canale giusto per messaggio (prerequisito riusato anche da `NotificationService` e dai job proattivi, non solo dal canale web). Identità auto-provisionata (`LinkService.EnsureWebIdentityAsync`), nessun flusso di collegamento a token. Manifest + service worker minimale per l'installabilità (nessuna cache offline: è un'app Blazor Server, non ha senso funzionare offline).
 - [x] **v2 — allegati**: upload di foto/PDF dalla pagina (`InputFile`), `WebChannel.StageUpload`/`DownloadMediaAsync` per farli fluire nella stessa pipeline di scontrini e note-con-foto già usata da Telegram, zero rami speciali in `MessageProcessor`.
@@ -226,8 +219,10 @@ Non prevista nella pianificazione originale — aggiunta su richiesta esplicita,
 - [x] **Deciso**: pagamento fallito (`BILLING.SUBSCRIPTION.SUSPENDED`) → downgrade immediato a `Free`, nessun periodo di grazia — non c'è perdita di dati, solo di funzioni oltre le soglie del piano gratuito.
 - [x] **Testato end-to-end in sandbox**: sottoscrizione → approvazione PayPal → webhook (via ngrok) → `Space.PlanId` aggiornato. Funzionante.
 - [x] **Guardia contro la doppia sottoscrizione**: `PayPalSubscriptionService.CreateSubscriptionAsync` rifiuta una nuova sottoscrizione se lo spazio ne ha già una `ACTIVE`/`APPROVAL_PENDING` (controllo lato server, non solo UI) — senza, un secondo click avrebbe potuto lasciare due abbonamenti PayPal attivi in parallelo sullo stesso spazio. `SpaceUsage.razor` nasconde i pulsanti "Sottoscrivi" nello stesso caso, mostrando lo stato dell'abbonamento esistente.
-- [x] **Enforcement di `MaxLinkedBots`**: applicato al collegamento di un gruppo Telegram a uno spazio (`LinkService.CanLinkAnotherBotAsync`/`GetLinkedBotCountAsync`), non al collegamento dell'account Telegram privato di un membro — quell'azione non è scopabile a un singolo spazio (`ChannelIdentity` è per-utente, un utente può appartenere a più spazi). Conteggio derivato, senza modifiche di schema — dettagli in [02-modello-dati.md](02-modello-dati.md#piano-di-abbonamento). `MaxCallsPerDay` e `AllowsReceiptScanning` erano già applicati (`UsageService`, `MessageProcessor`).
-- [x] **Cambio piano fra due abbonamenti a pagamento** (es. da Basic a Plus): `PayPalSubscriptionService.ReviseSubscriptionAsync`, pulsante "Cambia piano" su `/spaces/{id}/usage` quando l'abbonamento è `ACTIVE`. Dettagli in [03-integrazioni.md](03-integrazioni.md#cambio-piano-fra-due-abbonamenti-a-pagamento).
+- [x] **Enforcement di `MaxLinkedBots`**: applicato al collegamento di un gruppo Telegram a uno spazio (`LinkService.CanLinkAnotherBotAsync`/`GetLinkedBotCountAsync`), non al collegamento dell'account Telegram privato di un membro — quell'azione non è scopabile a un singolo spazio (`ChannelIdentity` è per-utente, un utente può appartenere a più spazi). Conteggio derivato, senza modifiche di schema — dettagli in [02-modello-dati.md](02-modello-dati.md#piano-di-abbonamento). `MaxCallsPerDay` era già applicato (`UsageService`); `MaxReceiptsPerMonth` lo sostituisce dopo D1, vedi sotto.
+- [x] **Cambio piano fra due abbonamenti a pagamento** (es. da Free a Plus): `PayPalSubscriptionService.ReviseSubscriptionAsync`, pulsante "Cambia piano" su `/spaces/{id}/usage` quando l'abbonamento è `ACTIVE`. Dettagli in [03-integrazioni.md](03-integrazioni.md#cambio-piano-fra-due-abbonamenti-a-pagamento).
+- [x] **Piani riassestati su assi di valore, non di costo** (D1) — due piani (Free, Plus) invece di quattro; `AllowsReceiptScanning` sostituito da `MaxReceiptsPerMonth`, più `MaxLinkedCalendars`/`HistoryMonths`/`AllowsExport`/`MaxSpacesOwned`. Dettagli in [02-modello-dati.md](02-modello-dati.md#piano-di-abbonamento).
+- [x] **Ciclo di fatturazione annuale e periodo di prova** (D2) — un secondo billing plan PayPal per ciclo, 14 giorni di prova senza addebito su ogni piano a pagamento. Non ancora verificato dal vivo il ciclo completo sull'annuale in sandbox — vedi [13-piano-miglioramenti.md](13-piano-miglioramenti.md).
 - [x] **Cancellazione dalla console**: `PayPalSubscriptionService.CancelSubscriptionAsync`, pulsante "Annulla abbonamento" su `/spaces/{id}/usage` (attivo per abbonamenti `ACTIVE` o `APPROVAL_PENDING`) — applicato subito, senza aspettare il webhook `CANCELLED` che arriva comunque dopo a riconferma.
 - [x] **Ciclo sottoscrivi → cambia piano → annulla testato end-to-end in sandbox.** Flusso pagamenti considerato completo.
 - [ ] **Passaggio a live**: richiede una seconda app/webhook PayPal in modalità live quando si deciderà di andare oltre il sandbox — nessuna modifica di codice necessaria, solo configurazione (`PayPal:Environment=live` + nuove credenziali).
@@ -235,6 +230,7 @@ Non prevista nella pianificazione originale — aggiunta su richiesta esplicita,
 
 ## Fase 5 — Ipotesi remote
 
+- **WhatsApp Cloud API** — non abbandonato, solo non perseguibile con l'attuale Business Verification Meta (vedi Fase 3 sopra). Se dovesse tornare, solo tramite un BSP che accompagni la verification, e come **esperimento di distribuzione**: nessuna decisione di prodotto, di prezzo o di roadmap deve dipendere dal suo esito. Il display name andrà probabilmente allineato alla ragione sociale.
 - Custom skill Alexa con invocation name — solo se emerge che l'Echo è il punto d'ingresso principale dell'utenza. Il sync bidirezionale resta impossibile, vedi [03-integrazioni.md](03-integrazioni.md).
 - Modello locale per la classificazione degli intent — sperimentazione interessante, ma App Service non ha GPU.
 - App mobile — se si arriva qui, il prodotto ha funzionato e la conversazione è un'altra.
@@ -247,7 +243,7 @@ Non prevista nella pianificazione originale — aggiunta su richiesta esplicita,
 | 1 — MVP + console | 9-10 settimane | verification avviate in parallelo |
 | **Punto di decisione** | — | — |
 | 2 — Calendario ✅ | 5-6 settimane | Google 2-6 settimane (già maturate) |
-| 3 — WhatsApp | 3-4 settimane | business verification, variabile |
+| 3 — Canali proattivi ✅ | ~2 settimane | — |
 | 4 — Estensioni | aperta | — |
 
 Da zero a calendario funzionante: **~16-17 settimane** di sviluppo, se le verification sono partite al momento giusto. Se partono in Fase 2, si aggiungono 4-6 settimane di attesa a vuoto.

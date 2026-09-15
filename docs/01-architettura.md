@@ -23,13 +23,16 @@ src/
       Layout/
     Endpoints/
       TelegramWebhook.cs
-      WhatsAppWebhook.cs      ← fase 3
+      PayPalWebhookEndpoints.cs
+      PushEndpoints.cs
     Public/                   ← homepage, privacy policy, termini (necessari per OAuth review)
     Services/
       MessageQueue.cs         ← Channel<T> in memoria
       MessageProcessor.cs     ← BackgroundService, consumer reattivo
       SchedulerWorker.cs      ← BackgroundService, lavoro temporizzato
-    Jobs/                     ← RemindersDueJob, DailyDigestJob, RecurringExpenseJob
+    Jobs/                     ← RemindersDueJob, DailyDigestJob, RecurringExpenseJob,
+                                 PendingMessageRecoveryJob, NotificationAggregationFlushJob, e altri
+                                 (vedi "Il secondo worker" più sotto per l'elenco completo)
   Tessera.Core/             ← domain puro, zero dipendenze da infrastruttura
     Spaces/                   ← Space, Membership, Role, ResourceKind
     Shopping/                 ← ShoppingList, ShoppingItem
@@ -39,7 +42,7 @@ src/
     Notifications/            ← eventi di dominio strutturati (vedi 09)
     Resources/                ← Messages.resx, Messages.it.resx
     Abstractions/             ← interfacce dei repository e dei servizi
-  Tessera.Channels/         ← IChannel, IChannelRegistry, TelegramChannel, WebChannel, WhatsAppChannel
+  Tessera.Channels/         ← IChannel, IChannelRegistry, TelegramChannel, WebChannel, EmailChannel
   Tessera.Integrations/     ← GraphCalendarClient, GoogleCalendarClient
   Tessera.Ai/               ← router di intent, client Azure OpenAI, tool schema
   Tessera.Data/             ← EF Core: DbContext, configurazioni, migrations
@@ -53,46 +56,55 @@ docs/
 
 ## Astrazione del canale
 
-L'unico modo per non riscrivere la pipeline quando arriva WhatsApp.
+L'unico modo per non riscrivere la pipeline ogni volta che si aggiunge un canale — finora Telegram, web e email, in quest'ordine.
 
 ```csharp
 public interface IChannel
 {
-    string Name { get; }                     // "telegram" | "whatsapp"
+    string Name { get; }                     // "telegram" | "web" | "email"
     Task SendTextAsync(ChannelAddress to, string text, CancellationToken ct);
     Task SendChoicesAsync(ChannelAddress to, string text,
                           IReadOnlyList<Choice> choices, CancellationToken ct);
     ChannelCapabilities Capabilities { get; }
+    // Più altri: SendGroupedChoicesAsync, EditListMessageAsync, SendPhotoAsync,
+    // SendDocumentAsync, DownloadMediaAsync — omessi qui, non cambiano la forma dell'astrazione.
 }
 
 public record ChannelCapabilities(
-    bool SupportsGroups,          // Telegram: true — WhatsApp Cloud API: false
-    bool SupportsInlineKeyboard,  // Telegram: true — WhatsApp: solo reply/list button
-    bool SupportsProactiveFree,   // Telegram: true — WhatsApp: solo entro 24h
-    bool SupportsDeepLinkPayload  // Telegram: true (/start <token>) — WhatsApp: false
+    bool SupportsGroups,                    // Telegram: true — web/email: false
+    bool SupportsInlineKeyboard,            // Telegram: true — web: true — email: false
+    bool SupportsProactiveFree,             // Telegram/web/email: true (nessun costo per messaggio proattivo su nessuno dei tre oggi)
+    bool SupportsDeepLinkPayload,           // Telegram: true (/start <token>) — web/email: false
+    bool SupportsRealTimeNotifications = true  // true per tutti tranne email — vedi sotto
 );
 ```
 
+Un canale futuro con vincoli reali (un costo per messaggio proattivo, niente gruppi) userebbe gli stessi flag per dichiararlo, senza toccare `MessageProcessor`/`NotificationService` — le differenze fra canali si espongono via `Capabilities`, non si nascondono dietro un'astrazione finta.
+
 ### Canale Web (console) e `IChannelRegistry`
 
-Un terzo canale, oltre a Telegram e WhatsApp: la pagina `/chat` della console stessa, per chi non ha Telegram, accede da un altro dispositivo, o vuole solo provare l'assistente. Nessun provider esterno, nessun webhook — l'invio non è una chiamata HTTP in uscita ma la scrittura in una mailbox in memoria per utente, che la pagina Blazor legge in streaming finché resta aperta. `WebChannel.Capabilities` ha `SupportsGroups: false` (nessun concetto di gruppo in console) e `SupportsDeepLinkPayload: false` (l'utente è già autenticato, non serve un token `/start`).
+Un secondo canale, oltre a Telegram: la pagina `/chat` della console stessa, per chi non ha Telegram, accede da un altro dispositivo, o vuole solo provare l'assistente. Nessun provider esterno, nessun webhook — l'invio non è una chiamata HTTP in uscita ma la scrittura in una mailbox in memoria per utente, che la pagina Blazor legge in streaming finché resta aperta (con fallback a web push se la mailbox non ha un ascoltatore attivo — vedi sotto). `WebChannel.Capabilities` ha `SupportsGroups: false` (nessun concetto di gruppo in console) e `SupportsDeepLinkPayload: false` (l'utente è già autenticato, non serve un token `/start`).
 
 L'identità segue lo stesso schema di Telegram — `ChannelIdentity` con `ChannelName = "web"` — ma **auto-provisionata** invece che tramite `LinkToken`: chi è già loggato in console non ha bisogno di un flusso di collegamento, `LinkService.EnsureWebIdentityAsync` crea la riga idempotentemente al primo caricamento di `/chat`. Questo evita qualunque ramo speciale nel resto della pipeline: `MessageProcessor` risolve l'utente da `ChannelIdentity` esattamente come per Telegram.
 
-Aggiungere un secondo canale ha reso evidente un problema che esisteva già in nuce: `MessageProcessor`, `NotificationService` e i job proattivi (`RemindersDueJob` e simili) iniettavano un singolo `IChannel` — corretto quando ne esisteva uno solo, ma con due registrazioni la DI di .NET risolve silenziosamente l'ultima registrata invece di segnalare un errore. `IChannelRegistry` (in `Tessera.Core.Channels`, implementato in `Tessera.Channels`) risolve il canale giusto per `ChannelName` in ognuno di questi punti — la stessa astrazione che il canale WhatsApp di Fase 3 dovrà usare, non qualcosa di nuovo introdotto solo per il web.
+Aggiungere un secondo canale ha reso evidente un problema che esisteva già in nuce: `MessageProcessor`, `NotificationService` e i job proattivi (`RemindersDueJob` e simili) iniettavano un singolo `IChannel` — corretto quando ne esisteva uno solo, ma con più registrazioni la DI di .NET risolve silenziosamente l'ultima registrata invece di segnalare un errore. `IChannelRegistry` (in `Tessera.Core.Channels`, implementato in `Tessera.Channels`) risolve il canale giusto per `ChannelName` in ognuno di questi punti.
 
-**v1 vs v2.** La v1 è solo testo: nessun `IBrowserFile` in ingresso, `WebChannel.DownloadMediaAsync` non aveva nulla da scaricare. La v2 aggiunge gli allegati: la pagina legge i byte del file scelto nel browser (già disponibili localmente, a differenza del `file_id` di Telegram che va risolto con una chiamata al provider) e li deposita in `WebChannel.StageUpload`, che restituisce un id usato come `InboundMedia.FileId` — `DownloadMediaAsync` lo consuma una sola volta quando `MessageProcessor` lo richiede. Stessa pipeline di scontrini/note-con-foto di Telegram, zero rami speciali.
+**v1 vs v2.** La v1 è solo testo: nessun `IBrowserFile` in ingresso, `WebChannel.DownloadMediaAsync` non aveva nulla da scaricare. La v2 aggiunge gli allegati: la pagina legge i byte del file scelto nel browser (già disponibili localmente, a differenza del `file_id` di Telegram che va risolto con una chiamata al provider) e li deposita in `WebChannel.StageUpload`, che restituisce un id usato come `InboundMedia.FileId` — `DownloadMediaAsync` lo consuma una sola volta quando `MessageProcessor` lo richiede. Stessa pipeline di scontrini/note-con-foto di Telegram, zero rami speciali. La v3 aggiunge il web push (docs/13-piano-miglioramenti.md, C2): quando `WebChannel.Post` non trova una mailbox aperta, prova una sottoscrizione VAPID persistita per dispositivo (`Tessera.Core.Users.PushSubscription`) invece di scartare il messaggio.
 
-**Limite noto**: una sola scheda per utente riceve gli aggiornamenti live (`WebChannel.Subscribe` sostituisce la mailbox precedente anziché accodarsi); più schede aperte contemporaneamente sullo stesso account non è un caso gestito. I job proattivi (promemoria, digest) restano per ora solo su Telegram — non sono stati estesi al canale web in questa iterazione.
+**Limite noto**: una sola scheda per utente riceve gli aggiornamenti live in streaming (`WebChannel.Subscribe` sostituisce la mailbox precedente anziché accodarsi); più schede aperte contemporaneamente sullo stesso account non è un caso gestito — il push v3 attenua il problema (raggiunge comunque il dispositivo), non lo risolve (non sincronizza fra schede).
 
-Le differenze fra canali non vanno nascoste dietro un'astrazione finta: sono esposte via `Capabilities` e la logica applicativa si adatta. Un promemoria proattivo su Telegram è un messaggio libero, su WhatsApp è un template a pagamento — la pipeline deve saperlo.
+### `EmailChannel` — il terzo canale, un caso a parte
+
+`EmailChannel` (`Tessera.Channels`, usa `Azure.Communication.Email.EmailClient` — non un `HttpClient` fatto in casa come Telegram/PayPal/calendari, la firma HMAC per-richiesta della connection string non vale la pena reimplementarla) è il primo canale con `SupportsInlineKeyboard: false` e `SupportsRealTimeNotifications: false`: `SendChoicesAsync`/`SendGroupedChoicesAsync` lanciano `NotSupportedException` (una email non può rispondere a un tap), e il fan-out in tempo reale di `NotificationService` lo salta sempre — l'unico messaggio che email riceve è il digest quotidiano schedulato (`DailyDigestJob`), tramite `EmailChannel.SendDigestAsync` (subject + sezioni HTML + link di disiscrizione, non lo stesso "manda questo testo" di `SendTextAsync`). Dettagli su cosa questo implica per la localizzazione in [09-localizzazione.md](09-localizzazione.md#notifiche-in-tempo-reale-vs-digest-per-canale), sul costo in [04-costi.md](04-costi.md). Registrato in `Program.cs` solo se `Email:ConnectionString`/`Email:SenderAddress` sono configurati (stesso pattern opzionale di ogni altra integrazione) — senza, il digest semplicemente non raggiunge nessuno via email, Telegram e web restano invariati.
+
+Le differenze fra canali non vanno nascoste dietro un'astrazione finta: sono esposte via `Capabilities` e la logica applicativa si adatta. Un promemoria proattivo su Telegram è un messaggio libero e in tempo reale; su email è confinato al digest quotidiano — la pipeline deve saperlo.
 
 Il messaggio in ingresso viene normalizzato subito:
 
 ```csharp
 public record InboundMessage(
     string ChannelName,
-    string ExternalChatId,        // chat_id Telegram / wa_id WhatsApp
+    string ExternalChatId,        // chat_id Telegram / mailbox key web / indirizzo email
     string? ExternalUserId,       // mittente nel gruppo
     string? Text,
     IReadOnlyList<InboundMedia> Media,
@@ -143,7 +155,7 @@ Ogni messaggio processato viene registrato con `(ChannelName, ProviderMessageId)
 
 ## Il secondo worker: lavoro temporizzato
 
-Oltre al consumer della coda dei messaggi (reattivo), serve un worker **temporizzato** per il lavoro proattivo: promemoria scaduti, digest quotidiano, generazione delle spese ricorrenti, avvisi di budget.
+Oltre al consumer della coda dei messaggi (reattivo), serve un worker **temporizzato** per il lavoro proattivo: promemoria scaduti, digest quotidiano, generazione delle spese ricorrenti, recupero di code perse. Gli avvisi di budget restano sincroni (`AppendBudgetAlertsAsync`, subito dopo la registrazione di una spesa), non un job a sé.
 
 ```csharp
 public interface IScheduledJob
@@ -152,12 +164,21 @@ public interface IScheduledJob
     TimeSpan Interval { get; }
     Task RunAsync(CancellationToken ct);
 }
-
-// RemindersDueJob      — ogni minuto
-// DailyDigestJob       — ogni 15 minuti (l'ora locale del digest varia per fuso)
-// RecurringExpenseJob  — ogni ora
-// BudgetAlertJob       — dopo ogni spesa, o ogni ora
 ```
+
+`SchedulerWorker` risolve `IEnumerable<IScheduledJob>` una sola volta alla costruzione; ogni job apre il proprio scope a ogni esecuzione. Registrati oggi (`Program.cs`), ciascuno dietro il proprio gate opzionale dove ne ha uno:
+
+| Job | Intervallo | Gate |
+|---|---|---|
+| `NotificationAggregationFlushJob` | secondo la finestra di aggregazione (docs/13-piano-miglioramenti.md, C3) | nessuno — deve girare anche senza Telegram configurato |
+| `RemindersDueJob` | ogni minuto | Telegram |
+| `DailyDigestJob` | ogni 15 minuti (l'ora locale del digest varia per fuso) | Telegram |
+| `RecurringExpenseJob` | ogni ora | Telegram |
+| `PendingMessageRecoveryJob` | ogni 5 minuti, dalla prima esecuzione | Telegram — vedi "Vincolo noto: coda in memoria" sotto |
+| `RefreshCalendarListJob` | periodico | integrazione calendario |
+| `CalendarReminderJob` | periodico | calendario + Telegram |
+| `CalendarToListSuggestionJob` | periodico | calendario + Telegram |
+| `ProcessedMessagePurgeJob` | periodico | nessuno |
 
 Due vincoli non ovvi:
 
@@ -173,7 +194,7 @@ Nell'MVP è un `BackgroundService` con un timer nella stessa app. Con più istan
 |---|---|
 | Console web | Cookie auth (**ASP.NET Core Identity**) |
 | `/hooks/telegram` | `AllowAnonymous` + header `X-Telegram-Bot-Api-Secret-Token` |
-| `/hooks/whatsapp` | `AllowAnonymous` + HMAC SHA-256 su `X-Hub-Signature-256` |
+| `/hooks/paypal` | `AllowAnonymous` + verifica firma via chiamata a PayPal (`POST /v1/notifications/verify-webhook-signature`, non un HMAC locale — vedi [03-integrazioni.md](03-integrazioni.md#webhook-e-validazione-della-firma)) |
 | Pagine pubbliche | Anonime (homepage, privacy, termini) |
 
 I webhook **non devono** passare per il cookie della console: non hanno un utente loggato. Sono due endpoint filter, non due applicazioni.
@@ -215,7 +236,7 @@ Azure Web App (App Service)
 
 ### Vincolo noto: coda in memoria
 
-Con un `Channel<T>` in memoria e una sola istanza, un riavvio o un deploy perde i messaggi accodati e non ancora processati. Accettabile in Fase 1. È il primo motivo concreto per introdurre **Azure Service Bus**, insieme alla necessità di scalare oltre una singola istanza (con più istanze, la coda in memoria significa che ogni istanza vede solo i propri messaggi — funziona, ma perde la possibilità di ritentare il lavoro di un'istanza caduta).
+Con un `Channel<T>` in memoria e una sola istanza, un riavvio o un deploy fra "webhook ha risposto 200" e "il messaggio è stato processato" perde quel messaggio dalla coda — e Telegram non lo ri-consegna, avendo già ricevuto 200. Accettabile in Fase 1, ma non lasciato senza rete: `TelegramUpdateIngestor` scrive una riga `ProcessedMessage` (con l'`InboundMessage` serializzato in `PayloadJson`) **prima** di accodare, e `MessageProcessor` valorizza `CompletedAt` solo a lavoro finito. `PendingMessageRecoveryJob` (docs/13-piano-miglioramenti.md, A4) gira ogni 5 minuti — e alla primissima esecuzione dopo l'avvio, entro un minuto circa — e ri-accoda ogni riga `CompletedAt == null` più vecchia di una soglia di un minuto (il margine per un messaggio ancora legittimamente in corso sulla stessa istanza). Chiude la finestra di perdita silenziosa, non elimina il vincolo di fondo: con più istanze la coda in memoria significa che ogni istanza vede solo i propri messaggi — funziona, ma perde la possibilità di ritentare il lavoro di un'istanza caduta senza un simile meccanismo di recovery per istanza. È il primo motivo concreto per introdurre **Azure Service Bus**, insieme alla necessità di scalare oltre una singola istanza.
 
 L'interfaccia `MessageQueue` è pensata per rendere quella sostituzione una modifica di una riga in `Program.cs`.
 

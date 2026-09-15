@@ -219,6 +219,14 @@ Un solo bottone primario per schermata. Se una pagina sembra averne bisogno di d
 
 Sfondo `--paper-raised`, bordo `--line` da 1px, **mai ombra pesante**: un'ombra minima (`0 1px 2px rgba(0,0,0,0.04)`) o nessuna, il bordo sottile basta a separare dal fondo. Le ombre morbide e diffuse sono la firma visiva più riconoscibile dei template generici.
 
+### Toast
+
+Un solo host (`Toast.razor`), renderizzato una volta in `MainLayout`, indipendente dalla pagina instradata — una pagina alza `ToastService.ShowSuccess`/`ShowError` dopo una scrittura invece di renderizzare un proprio alert transitorio (docs/13-piano-miglioramenti.md, B11). Due varianti soltanto, `.toast-success`/`.toast-error`, `role="status"`/`role="alert"` di conseguenza — non decorativo, è l'unico modo con cui l'utente sa che una scrittura è andata a buon fine su una pagina che non ricarica la lista intera. Si autonasconde dopo 4 secondi; un secondo toast prima che il primo sparisca lo sostituisce, non si accoda.
+
+### Selettore di tema
+
+Tre opzioni (chiaro / scuro / automatico), non un semplice switch on/off — "automatico" segue `prefers-color-scheme` del sistema, un toggle manuale imposta `[data-theme]` sull'`<html>` e sovrascrive. Applicato **prima del primo paint** con uno script inline in `App.razor` (non da Blazor dopo il caricamento del circuito), altrimenti si vedrebbe un lampo del tema sbagliato a ogni refresh. La preferenza vive solo in `localStorage` del browser (`theme.js`), mai lato server: non è un campo utente, è per-dispositivo. Bottoni `.btn-primary`/`.btn-secondary` per marcare l'opzione attiva — stesso idioma già in uso per altri selettori a scelta singola (es. il ciclo di fatturazione mensile/annuale su `/pricing`), non un componente "segmented control" dedicato.
+
 ### Stati vuoti e di errore
 
 Coerenti con il tono definito per il bot in [10-conversazione.md](10-conversazione.md): un errore dice cosa è successo e come risolverlo, senza scuse; uno stato vuoto è un invito ad agire, non un'assenza da annunciare.

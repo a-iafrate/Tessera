@@ -24,6 +24,9 @@ public class User
     public string PreferredCulture { get; set; } = "en";  // IETF: "it", "en" — vedi 09
     public string? TimeZoneId { get; set; }               // IANA: "Europe/Rome"
     public Guid? DefaultSpaceId { get; set; }             // disambiguazione in chat privata
+    public int DigestHourLocal { get; set; } = 8;          // ora locale del digest quotidiano
+    public DateOnly? LastDigestSentFor { get; set; }       // idempotenza: un digest al giorno
+    public bool EmailDigestEnabled { get; set; }           // opt-in separato, solo per il canale email
     public DateTimeOffset CreatedAt { get; set; }
 
     public ICollection<ChannelIdentity> ChannelIdentities { get; set; } = [];
@@ -35,7 +38,7 @@ public class ChannelIdentity        // "questo chat_id Telegram è questo utente
 {
     public Guid Id { get; set; }
     public Guid UserId { get; set; }
-    public string ChannelName { get; set; } = null!;   // "telegram" | "whatsapp"
+    public string ChannelName { get; set; } = null!;   // "telegram" | "web" | "email"
     public string ExternalUserId { get; set; } = null!;
     public string? ExternalChatId { get; set; }        // chat privata con il bot
     public DateTimeOffset LinkedAt { get; set; }
@@ -82,7 +85,9 @@ public class ApplicationUser : IdentityUser<Guid>
 
 Nota su `LinkedAccount`: nel database sta solo il **nome del segreto**, mai il refresh token. Vedi [07-compliance.md](07-compliance.md).
 
-Nota su `PreferredCulture` e `TimeZoneId`: stanno su `User`, non su `ChannelIdentity`. Un utente che usa sia Telegram che WhatsApp ha una sola lingua preferita, impostabile da console o da `/language` e valida su tutti i canali. Il `LanguageCode` che Telegram fornisce nel messaggio è solo il default alla prima interazione. Vedi [09-localizzazione.md](09-localizzazione.md).
+Nota su `PreferredCulture` e `TimeZoneId`: stanno su `User`, non su `ChannelIdentity`. Un utente che usa sia Telegram che la console web ha una sola lingua preferita, impostabile da console o da `/language` e valida su tutti i canali. Il `LanguageCode` che Telegram fornisce nel messaggio è solo il default alla prima interazione. Vedi [09-localizzazione.md](09-localizzazione.md).
+
+Nota su `DigestHourLocal`/`LastDigestSentFor`/`EmailDigestEnabled`: i primi due guidano `DailyDigestJob` per **tutti** i canali — un digest al giorno, nell'ora locale scelta dall'utente, indipendentemente da dove arriva (docs/13-piano-miglioramenti.md, E4: il job costruisce il digest per ogni spazio di cui l'utente è membro, non solo `DefaultSpaceId`). `EmailDigestEnabled` è un opt-in **aggiuntivo e specifico al canale email** (C1) — un'identità email, una volta provisionata, non sparisce se l'utente disattiva il digest da `/settings`, quindi il job la controlla esplicitamente prima di inviare; Telegram e web non hanno un opt-in equivalente, ricevono il digest semplicemente avendo un'identità di canale collegata.
 
 ### Spazio
 
