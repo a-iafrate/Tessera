@@ -857,6 +857,9 @@ Note: I only read messages that start with / or mention me.</value>
   <data name="SpaceUsage.SubscriptionStatus" xml:space="preserve">
     <value>Subscription: {0}</value>
   </data>
+  <data name="SpaceUsage.BillingCycleLabel" xml:space="preserve">
+    <value>Billing: {0}</value>
+  </data>
   <data name="SpaceUsage.UpgradeHeading" xml:space="preserve">
     <value>Upgrade this space</value>
   </data>
@@ -1482,6 +1485,21 @@ Try it now:</value>
   </data>
   <data name="Pricing.PerMonth" xml:space="preserve">
     <value>/month</value>
+  </data>
+  <data name="Pricing.PerYear" xml:space="preserve">
+    <value>/year</value>
+  </data>
+  <data name="Pricing.BillingCycleMonthly" xml:space="preserve">
+    <value>Monthly</value>
+  </data>
+  <data name="Pricing.BillingCycleAnnual" xml:space="preserve">
+    <value>Annual</value>
+  </data>
+  <data name="Pricing.AnnualEquivalentNote" xml:space="preserve">
+    <value>≈ {0}/month, billed yearly</value>
+  </data>
+  <data name="Pricing.TrialNote" xml:space="preserve">
+    <value>New subscriptions start with a {0}-day free trial — cancel anytime before it ends and you won't be charged.</value>
   </data>
   <data name="Pricing.FreeTagline" xml:space="preserve">
     <value>Everything a family needs to get organized, with light monthly caps.</value>

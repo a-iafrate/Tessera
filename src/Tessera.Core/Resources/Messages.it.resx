@@ -857,6 +857,9 @@ Nota: leggo solo i messaggi che iniziano con / o che mi menzionano.</value>
   <data name="SpaceUsage.SubscriptionStatus" xml:space="preserve">
     <value>Abbonamento: {0}</value>
   </data>
+  <data name="SpaceUsage.BillingCycleLabel" xml:space="preserve">
+    <value>Fatturazione: {0}</value>
+  </data>
   <data name="SpaceUsage.UpgradeHeading" xml:space="preserve">
     <value>Aggiorna questo spazio</value>
   </data>
@@ -1482,6 +1485,21 @@ Provami subito:</value>
   </data>
   <data name="Pricing.PerMonth" xml:space="preserve">
     <value>/mese</value>
+  </data>
+  <data name="Pricing.PerYear" xml:space="preserve">
+    <value>/anno</value>
+  </data>
+  <data name="Pricing.BillingCycleMonthly" xml:space="preserve">
+    <value>Mensile</value>
+  </data>
+  <data name="Pricing.BillingCycleAnnual" xml:space="preserve">
+    <value>Annuale</value>
+  </data>
+  <data name="Pricing.AnnualEquivalentNote" xml:space="preserve">
+    <value>≈ {0}/mese, fatturato annualmente</value>
+  </data>
+  <data name="Pricing.TrialNote" xml:space="preserve">
+    <value>Le nuove sottoscrizioni iniziano con {0} giorni di prova gratuita — disdici in qualsiasi momento prima della fine e non ti verrà addebitato nulla.</value>
   </data>
   <data name="Pricing.FreeTagline" xml:space="preserve">
     <value>Tutto ciò che serve a una famiglia per organizzarsi, con soglie mensili leggere.</value>

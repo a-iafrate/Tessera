@@ -867,6 +867,29 @@ Lo schema e il flusso di pagamento sono completi e testati in sandbox
 - **Fatto quando**: il ciclo sottoscrivi → cambia piano → annulla è ripetuto in sandbox anche
   sull'annuale.
 - **Dipende da**: **D1**.
+- **Fatto (codice e provisioning; manca il click-through interattivo)**: `BillingCycle`
+  (`Monthly`/`Annual`) su `SpaceSubscription`; `SubscriptionPlan` guadagna `AnnualPrice` (cifra
+  propria, non calcolata — stesso status di placeholder di `MonthlyPrice`) e due colonne id in
+  più (`PayPalPlanIdSandboxAnnual`/`...LiveAnnual`) — quattro id in tutto per un piano a
+  pagamento, perché PayPal non ha un piano a doppia frequenza. `PayPalClient.CreatePlanAsync`
+  prende un parametro `BillingCycle` e antepone un billing cycle `TRIAL` a costo zero
+  (`BillingDefaults.TrialDays`, 14 giorni placeholder, unica fonte di verità condivisa fra il
+  client PayPal e le pagine) a quello `REGULAR` — sullo stesso piano, indipendentemente dal
+  ciclo scelto. `EnsurePlansProvisionedAsync` provisiona le due metà (mensile/annuale)
+  indipendentemente, non tutto o niente. `CreateSubscriptionAsync`/`ReviseSubscriptionAsync`
+  accettano il ciclo e risolvono l'id PayPal giusto; `ReviseSubscriptionAsync` aggiorna anche
+  `BillingCycle` sulla riga esistente. Selettore mensile/annuale (due pulsanti, stesso idioma di
+  `.btn-primary`/`.btn-secondary` già in uso altrove — nessun componente "segmented control"
+  esisteva) aggiunto sia a `/pricing` (cambia solo il prezzo mostrato) sia a
+  `/spaces/{id}/usage` (cambia anche cosa viene effettivamente sottoscritto/revisionato,
+  precompilato sul ciclo già attivo quando si cambia piano). Migrazione additiva applicata al
+  database condiviso. **Verificato dal vivo**: `EnsurePlansProvisionedAsync` ha chiamato
+  davvero l'API sandbox PayPal e creato un nuovo billing plan annuale reale per Plus
+  (`P-87041...`, loggato). **Non verificato**: il ciclo completo sottoscrivi → approva su PayPal
+  → webhook → cambia piano → annulla sul ramo annuale, che richiede di cliccare attraverso la UI
+  di approvazione ospitata da PayPal — non automatizzabile senza un tool Playwright/browser,
+  assente in questa sessione. Da fare a mano prima di considerare l'annuale pronto per utenti
+  reali.
 
 ### D3 — Telemetria di conversione ✅
 
@@ -1234,7 +1257,7 @@ eseguirli.
 | 5 | **B5, B8, B9, B10, B11, B14** ✅ | Accessibilità, riscontro, tono. B8 è solo riscrittura di risorse. Scoperte due questioni non previste: B5's skip link è oscurato da `FocusOnNavigate` pre-esistente; il 404 reale (`UseStatusCodePagesWithReExecute`) è rotto da prima di questa sessione |
 | 6 | **F2** ✅ | I permessi, prima di aggiungere superficie che li usa — fatto fuori ordine, su richiesta esplicita, prima dei passi 4-5 (lotto B) |
 | 7 | **C3, C1** ✅ | Aggregazione e poi email: il canale che sostituisce WhatsApp |
-| 8 | **D3** ✅, decisioni aperte 2 ✅ e 3, **D1** ✅, **D4** ✅, poi **D2, D5** | La telemetria prima del riassetto: si decide su dati, non a memoria |
+| 8 | **D3** ✅, decisioni aperte 2 ✅ e 3, **D1** ✅, **D4** ✅, **D2** (codice fatto, click-through sandbox annuale da fare a mano), poi **D5** | La telemetria prima del riassetto: si decide su dati, non a memoria |
 | 9 | **E3** ✅**, E2, E4, E1** | Export e garanzie sono quasi gratis; la voce merita di stare dopo perché tocca la pipeline |
 | 10 | **B12, B13, B15**, **F3**, **F4** | Manutenibilità e rifiniture, quando i pattern si sono consolidati |
 | 11 | **C2** ✅ (fatto fuori ordine insieme a C1/C3, su richiesta esplicita — chiude tutto il lotto C), **E5, E6, E7** | Il resto, senza urgenza |

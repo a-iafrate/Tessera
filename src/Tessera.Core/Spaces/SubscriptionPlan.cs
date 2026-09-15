@@ -19,9 +19,22 @@ public class SubscriptionPlan
     public int MaxCallsPerDay { get; set; }
 
     public decimal MonthlyPrice { get; set; }
+
+    // Its own stored figure rather than a computed discount off MonthlyPrice — same placeholder
+    // status as MonthlyPrice (docs/13-piano-miglioramenti.md, D2), kept adjustable independently
+    // since the eventual discount is a business call, not a fixed formula.
+    public decimal AnnualPrice { get; set; }
+
     public string Currency { get; set; } = "EUR";
+
+    // Monthly-cycle PayPal billing plan ids.
     public string? PayPalPlanIdSandbox { get; set; }
     public string? PayPalPlanIdLive { get; set; }
+
+    // Annual-cycle PayPal billing plan ids — a distinct PayPal resource per (plan, cycle,
+    // environment): PayPal has no single plan that bills at two different frequencies.
+    public string? PayPalPlanIdSandboxAnnual { get; set; }
+    public string? PayPalPlanIdLiveAnnual { get; set; }
 
     // Replaces the old all-or-nothing AllowsReceiptScanning bool — a free space can still try
     // the thing the README calls out as the product's actual differentiator, just not without

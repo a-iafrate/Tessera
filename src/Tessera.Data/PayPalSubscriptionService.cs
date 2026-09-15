@@ -14,24 +14,25 @@ public sealed class PayPalSubscriptionService(
     TesseraDbContext db, IPaymentProvider paymentProvider, ILogger<PayPalSubscriptionService> logger, TelemetryClient? telemetry = null)
 {
     // Idempotent — safe to call on every startup or repeatedly by hand. Only ever touches paid
-    // plans (Free has no PayPal plan, docs/02-modello-dati.md) and only plans that don't
-    // already have a PayPalPlanId, so re-running after the first successful provisioning is a
-    // no-op network-wise beyond the initial product lookup.
+    // plans (Free has no PayPal plan, docs/02-modello-dati.md) and, per plan, only the cycle
+    // whose id column is still null — a plan that already has its monthly id but not its annual
+    // one (e.g. an environment upgraded from before D2) only provisions the missing half.
     public async Task EnsurePlansProvisionedAsync(CancellationToken ct)
     {
         var isLive = paymentProvider.IsLive;
-        var plans = isLive
-            ? await db.SubscriptionPlans.Where(x => x.Id != SystemPlanIds.Free && x.PayPalPlanIdLive == null).ToListAsync(ct)
-            : await db.SubscriptionPlans.Where(x => x.Id != SystemPlanIds.Free && x.PayPalPlanIdSandbox == null).ToListAsync(ct);
-        if (plans.Count == 0)
+        var candidates = await db.SubscriptionPlans.Where(x => x.Id != SystemPlanIds.Free).ToListAsync(ct);
+        var missingMonthly = candidates.Where(x => (isLive ? x.PayPalPlanIdLive : x.PayPalPlanIdSandbox) is null).ToList();
+        var missingAnnual = candidates.Where(x => (isLive ? x.PayPalPlanIdLiveAnnual : x.PayPalPlanIdSandboxAnnual) is null).ToList();
+        if (missingMonthly.Count == 0 && missingAnnual.Count == 0)
         {
             return;
         }
 
         var productId = await paymentProvider.EnsureProductAsync(ct);
-        foreach (var plan in plans)
+
+        foreach (var plan in missingMonthly)
         {
-            var payPalPlanId = await paymentProvider.CreatePlanAsync(productId, plan.Name, plan.MonthlyPrice, plan.Currency, ct);
+            var payPalPlanId = await paymentProvider.CreatePlanAsync(productId, plan.Name, plan.MonthlyPrice, plan.Currency, BillingCycle.Monthly, ct);
             if (isLive)
             {
                 plan.PayPalPlanIdLive = payPalPlanId;
@@ -41,12 +42,38 @@ public sealed class PayPalSubscriptionService(
                 plan.PayPalPlanIdSandbox = payPalPlanId;
             }
 
-            logger.LogInformation("Created PayPal ({Environment}) billing plan {PayPalPlanId} for {PlanName}",
+            logger.LogInformation("Created PayPal ({Environment}) monthly billing plan {PayPalPlanId} for {PlanName}",
+                isLive ? "live" : "sandbox", payPalPlanId, plan.Name);
+        }
+
+        foreach (var plan in missingAnnual)
+        {
+            var payPalPlanId = await paymentProvider.CreatePlanAsync(productId, plan.Name, plan.AnnualPrice, plan.Currency, BillingCycle.Annual, ct);
+            if (isLive)
+            {
+                plan.PayPalPlanIdLiveAnnual = payPalPlanId;
+            }
+            else
+            {
+                plan.PayPalPlanIdSandboxAnnual = payPalPlanId;
+            }
+
+            logger.LogInformation("Created PayPal ({Environment}) annual billing plan {PayPalPlanId} for {PlanName}",
                 isLive ? "live" : "sandbox", payPalPlanId, plan.Name);
         }
 
         await db.SaveChangesAsync(ct);
     }
+
+    private static string ResolvePayPalPlanId(SubscriptionPlan plan, BillingCycle cycle, bool isLive) => (isLive, cycle) switch
+    {
+        (true, BillingCycle.Monthly) => plan.PayPalPlanIdLive,
+        (true, BillingCycle.Annual) => plan.PayPalPlanIdLiveAnnual,
+        (false, BillingCycle.Monthly) => plan.PayPalPlanIdSandbox,
+        (false, BillingCycle.Annual) => plan.PayPalPlanIdSandboxAnnual,
+        _ => null,
+    } ?? throw new InvalidOperationException(
+        $"Plan {plan.Name} has no {cycle} PayPal plan id for the {(isLive ? "live" : "sandbox")} environment — run EnsurePlansProvisionedAsync first.");
 
     // A Space with one of these already has money moving on PayPal's side — ACTIVE obviously,
     // APPROVAL_PENDING because the user may still complete the approval and end up with two
@@ -58,7 +85,8 @@ public sealed class PayPalSubscriptionService(
     // approval — the subscription only becomes real once the webhook confirms ACTIVATED
     // (docs/03-integrazioni.md), so the row created here starts in APPROVAL_PENDING and
     // Space.PlanId is deliberately left untouched until then.
-    public async Task<string> CreateSubscriptionAsync(Guid spaceId, Guid planId, string returnUrl, string cancelUrl, string locale, CancellationToken ct)
+    public async Task<string> CreateSubscriptionAsync(
+        Guid spaceId, Guid planId, BillingCycle billingCycle, string returnUrl, string cancelUrl, string locale, CancellationToken ct)
     {
         // Checked here too, not just in the UI (SpaceUsage.razor) — without this, clicking
         // Subscribe twice (two tabs, a slow first redirect) would leave PayPal charging the
@@ -80,12 +108,7 @@ public sealed class PayPalSubscriptionService(
         }
 
         var plan = await db.SubscriptionPlans.AsNoTracking().FirstAsync(x => x.Id == planId, ct);
-        var payPalPlanId = paymentProvider.IsLive ? plan.PayPalPlanIdLive : plan.PayPalPlanIdSandbox;
-        if (payPalPlanId is null)
-        {
-            throw new InvalidOperationException(
-                $"Plan {plan.Name} has no PayPal plan id for the {(paymentProvider.IsLive ? "live" : "sandbox")} environment — run EnsurePlansProvisionedAsync first.");
-        }
+        var payPalPlanId = ResolvePayPalPlanId(plan, billingCycle, paymentProvider.IsLive);
 
         var (subscriptionId, approveUrl) = await paymentProvider.CreateSubscriptionAsync(payPalPlanId, returnUrl, cancelUrl, locale, ct);
 
@@ -95,6 +118,7 @@ public sealed class PayPalSubscriptionService(
             SpaceId = spaceId,
             PayPalSubscriptionId = subscriptionId,
             PlanId = planId,
+            BillingCycle = billingCycle,
             Status = "APPROVAL_PENDING",
             CreatedAt = DateTimeOffset.UtcNow,
         });
@@ -108,7 +132,8 @@ public sealed class PayPalSubscriptionService(
     // an approve URL if PayPal needs the payer to confirm the new terms, same redirect pattern
     // as CreateSubscriptionAsync; null means it applied immediately, and Space.PlanId is
     // updated right away rather than waiting for a webhook that may never distinctly fire.
-    public async Task<string?> ReviseSubscriptionAsync(Guid spaceId, Guid newPlanId, string returnUrl, string cancelUrl, CancellationToken ct)
+    public async Task<string?> ReviseSubscriptionAsync(
+        Guid spaceId, Guid newPlanId, BillingCycle newBillingCycle, string returnUrl, string cancelUrl, CancellationToken ct)
     {
         var current = await db.SpaceSubscriptions
             .Where(x => x.SpaceId == spaceId && x.Status == "ACTIVE")
@@ -120,16 +145,12 @@ public sealed class PayPalSubscriptionService(
         }
 
         var plan = await db.SubscriptionPlans.AsNoTracking().FirstAsync(x => x.Id == newPlanId, ct);
-        var payPalPlanId = paymentProvider.IsLive ? plan.PayPalPlanIdLive : plan.PayPalPlanIdSandbox;
-        if (payPalPlanId is null)
-        {
-            throw new InvalidOperationException(
-                $"Plan {plan.Name} has no PayPal plan id for the {(paymentProvider.IsLive ? "live" : "sandbox")} environment — run EnsurePlansProvisionedAsync first.");
-        }
+        var payPalPlanId = ResolvePayPalPlanId(plan, newBillingCycle, paymentProvider.IsLive);
 
         var approveUrl = await paymentProvider.ReviseSubscriptionAsync(current.PayPalSubscriptionId, payPalPlanId, returnUrl, cancelUrl, ct);
 
         current.PlanId = newPlanId;
+        current.BillingCycle = newBillingCycle;
         if (approveUrl is null)
         {
             await SetSpacePlanAsync(spaceId, newPlanId, ct);

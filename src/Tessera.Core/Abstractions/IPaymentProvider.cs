@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Tessera.Core.Spaces;
 
 namespace Tessera.Core.Abstractions;
 
@@ -15,7 +16,9 @@ public interface IPaymentProvider
 
     Task<string> EnsureProductAsync(CancellationToken ct);
 
-    Task<string> CreatePlanAsync(string productId, string planName, decimal monthlyPrice, string currency, CancellationToken ct);
+    // One PayPal billing plan resource per (tier, cycle) — includes a BillingDefaults.TrialDays
+    // trial segment ahead of the regular one (docs/13-piano-miglioramenti.md, D2).
+    Task<string> CreatePlanAsync(string productId, string planName, decimal price, string currency, BillingCycle cycle, CancellationToken ct);
 
     Task<(string SubscriptionId, string ApproveUrl)> CreateSubscriptionAsync(
         string providerPlanId, string returnUrl, string cancelUrl, string locale, CancellationToken ct);

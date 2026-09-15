@@ -53,6 +53,10 @@
             @if (currentSubscription is not null)
             {
                 <p class="text-soft text-sm">@Localizer["SpaceUsage.SubscriptionStatus", SubscriptionStatusLabel(currentSubscription.Status)]</p>
+                @if (currentSubscription.Status is "ACTIVE" or "APPROVAL_PENDING")
+                {
+                    <p class="text-soft text-sm">@Localizer["SpaceUsage.BillingCycleLabel", BillingCycleLabel(currentSubscription.BillingCycle)]</p>
+                }
             }
 
             @if (cancelError is not null)
@@ -100,12 +104,23 @@
             }
             else
             {
+                <div class="inline-row mb-4">
+                    <button type="button" class="btn @(selectedCycle == BillingCycle.Monthly ? "btn-primary" : "btn-secondary")"
+                            disabled="@isSubscribing" @onclick="() => selectedCycle = BillingCycle.Monthly">
+                        @Localizer["Pricing.BillingCycleMonthly"]
+                    </button>
+                    <button type="button" class="btn @(selectedCycle == BillingCycle.Annual ? "btn-primary" : "btn-secondary")"
+                            disabled="@isSubscribing" @onclick="() => selectedCycle = BillingCycle.Annual">
+                        @Localizer["Pricing.BillingCycleAnnual"]
+                    </button>
+                </div>
+
                 <div class="card-grid mt-4">
                     @foreach (var other in otherPlans)
                     {
                         <div class="card grid-item">
                             <h3 class="mb-2">@other.Name</h3>
-                            <p class="text-soft">@MoneyFormatter.Format(other.MonthlyPrice, other.Currency, CultureInfo.CurrentUICulture.Name) @Localizer["Pricing.PerMonth"]</p>
+                            <p class="text-soft">@MoneyFormatter.Format(PriceFor(other, selectedCycle), other.Currency, CultureInfo.CurrentUICulture.Name) @Localizer[PeriodLabelKey(selectedCycle)]</p>
                             @if (CanChangePlan)
                             {
                                 <button type="button" class="btn btn-primary" disabled="@isSubscribing" @onclick="() => ReviseAsync(other.Id)">
@@ -121,6 +136,11 @@
                         </div>
                     }
                 </div>
+
+                @if (!CanChangePlan)
+                {
+                    <p class="text-soft text-sm mt-2">@Localizer["Pricing.TrialNote", BillingDefaults.TrialDays]</p>
+                }
             }
         }
     }
@@ -149,6 +169,7 @@
     private string? payPalStatusMessage;
     private bool isCancelling;
     private string? cancelError;
+    private BillingCycle selectedCycle = BillingCycle.Monthly;
 
     // A still-pending subscription can't be revised (nothing to change plan on yet) and
     // blocks starting a second one — same PayPalSubscriptionService.BlockingStatuses rule.
@@ -164,6 +185,15 @@
     private bool CanCancel => isOwner && currentSubscription is { Status: "ACTIVE" or "APPROVAL_PENDING" };
 
     private TelemetryClient? TelemetryOrNull => ServiceProvider.GetService<TelemetryClient>();
+
+    private static decimal PriceFor(SubscriptionPlan plan, BillingCycle cycle) =>
+        cycle == BillingCycle.Annual ? plan.AnnualPrice : plan.MonthlyPrice;
+
+    private static string PeriodLabelKey(BillingCycle cycle) =>
+        cycle == BillingCycle.Annual ? "Pricing.PerYear" : "Pricing.PerMonth";
+
+    private LocalizedString BillingCycleLabel(BillingCycle cycle) =>
+        Localizer[cycle == BillingCycle.Annual ? "Pricing.BillingCycleAnnual" : "Pricing.BillingCycleMonthly"];
 
     protected override async Task OnInitializedAsync()
     {
@@ -193,6 +223,12 @@
                 .Where(x => x.Id != plan.Id && (paymentProvider.IsLive ? x.PayPalPlanIdLive : x.PayPalPlanIdSandbox) is not null)
                 .ToList();
             currentSubscription = await payPalSubscriptions.GetForSpaceAsync(SpaceId, CancellationToken.None);
+            if (currentSubscription is { Status: "ACTIVE" })
+            {
+                // Defaults the toggle to whatever cycle is already active, so "change plan"
+                // doesn't silently switch a payer from annual to monthly.
+                selectedCycle = currentSubscription.BillingCycle;
+            }
         }
 
         payPalStatusMessage = PayPalReturnStatus switch
@@ -231,7 +267,7 @@
             var cancelUrl = $"{baseUri}/spaces/{SpaceId}/usage?paypal=cancel";
             var locale = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "it" ? "it-IT" : "en-US";
 
-            var approveUrl = await payPalSubscriptions.CreateSubscriptionAsync(SpaceId, planId, returnUrl, cancelUrl, locale, CancellationToken.None);
+            var approveUrl = await payPalSubscriptions.CreateSubscriptionAsync(SpaceId, planId, selectedCycle, returnUrl, cancelUrl, locale, CancellationToken.None);
             NavigationManager.NavigateTo(approveUrl, forceLoad: true);
         }
         catch (Exception)
@@ -256,7 +292,7 @@
             var returnUrl = $"{baseUri}/spaces/{SpaceId}/usage?paypal=success";
             var cancelUrl = $"{baseUri}/spaces/{SpaceId}/usage?paypal=cancel";
 
-            var approveUrl = await payPalSubscriptions.ReviseSubscriptionAsync(SpaceId, planId, returnUrl, cancelUrl, CancellationToken.None);
+            var approveUrl = await payPalSubscriptions.ReviseSubscriptionAsync(SpaceId, planId, selectedCycle, returnUrl, cancelUrl, CancellationToken.None);
             if (approveUrl is not null)
             {
                 NavigationManager.NavigateTo(approveUrl, forceLoad: true);

@@ -158,20 +158,28 @@ public class SpaceSubscription
     public Guid SpaceId { get; set; }
     public string PayPalSubscriptionId { get; set; } = null!;  // "I-XXXXXXXXXXXX", assegnato da PayPal alla creazione
     public Guid PlanId { get; set; }                            // FK a SubscriptionPlan
+    public BillingCycle BillingCycle { get; set; }               // Monthly | Annual (docs/13, D2)
     public string Status { get; set; } = null!;                 // rispecchia lo stato PayPal: APPROVAL_PENDING, ACTIVE, SUSPENDED, CANCELLED, EXPIRED
     public DateTimeOffset? CurrentPeriodEnd { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 }
 ```
 
-Entità separata da `Space`, stesso principio di `LinkedAccount`/`ExternalCalendar`: lo stato di un abbonamento cambia per eventi esterni (webhook PayPal), non ha senso annidarlo in `Space` come colonne dirette. `SubscriptionPlan` guadagna due campi:
+Entità separata da `Space`, stesso principio di `LinkedAccount`/`ExternalCalendar`: lo stato di un abbonamento cambia per eventi esterni (webhook PayPal), non ha senso annidarlo in `Space` come colonne dirette. `SubscriptionPlan` guadagna cinque campi:
 
 ```csharp
-public string? PayPalPlanIdSandbox { get; set; }  // id del billing plan lato PayPal (v1/billing/plans)
-public string? PayPalPlanIdLive { get; set; }      // null per Free, che non ha un piano PayPal
+public decimal AnnualPrice { get; set; }                  // figura propria, non calcolata da MonthlyPrice
+public string? PayPalPlanIdSandbox { get; set; }           // id del billing plan mensile lato PayPal (v1/billing/plans)
+public string? PayPalPlanIdLive { get; set; }               // null per Free, che non ha un piano PayPal
+public string? PayPalPlanIdSandboxAnnual { get; set; }      // id del billing plan annuale — risorsa PayPal distinta
+public string? PayPalPlanIdLiveAnnual { get; set; }
 ```
 
-Due colonne, non una: il database è condiviso fra test e produzione (docs/03-integrazioni.md), e sandbox/live sono account PayPal diversi con id incompatibili fra loro. Una sola colonna avrebbe fatto sì che il primo avvio in `live` trovasse la colonna già valorizzata dal sandbox e non creasse i piani veri — bug scoperto e corretto prima di andare in produzione, non dopo.
+Due colonne per ciclo (sandbox/live), non una: il database è condiviso fra test e produzione (docs/03-integrazioni.md), e sandbox/live sono account PayPal diversi con id incompatibili fra loro. Una sola colonna avrebbe fatto sì che il primo avvio in `live` trovasse la colonna già valorizzata dal sandbox e non creasse i piani veri — bug scoperto e corretto prima di andare in produzione, non dopo. Il ciclo annuale (docs/13-piano-miglioramenti.md, D2) raddoppia questo schema invece di riusarlo: PayPal non ha un concetto di "stesso piano, frequenza diversa" — mensile e annuale sono due risorse `v1/billing/plans` separate, quindi quattro colonne id in tutto per un piano a pagamento, non due. `EnsurePlansProvisionedAsync` provisiona ciascuna indipendentemente (una può mancare senza bloccare l'altra).
+
+`AnnualPrice` è un campo proprio, non un calcolo (`MonthlyPrice * 10`, "due mesi gratis", applicato solo come seed iniziale) — il piano doc lo tratta come lo stesso genere di placeholder di `MonthlyPrice`, regolabile senza toccare lo schema.
+
+Ogni piano a pagamento include anche un periodo di prova (`BillingDefaults.TrialDays`, 14 giorni placeholder) — un billing cycle `TRIAL` a costo zero anteposto al `REGULAR` nella definizione PayPal (`PayPalClient.CreatePlanAsync`), non uno stato tracciato lato Tessera: PayPal gestisce la transizione trial → fatturazione reale sulla stessa subscription, `HandleWebhookEventAsync` non deve saperne nulla di diverso.
 
 `Space.PlanId` resta la fonte di verità per l'enforcement di tutti gli assi del piano — `SpaceSubscription` è lo stato del pagamento che lo tiene aggiornato, aggiornato dagli eventi webhook (`BILLING.SUBSCRIPTION.ACTIVATED` → aggiorna `Space.PlanId` al piano acquistato, `BILLING.SUBSCRIPTION.CANCELLED`/`EXPIRED` → retrocede a `Free`). Dettagli del flusso OAuth/webhook in [03-integrazioni.md](03-integrazioni.md#paypal-subscriptions--pagamenti).
 

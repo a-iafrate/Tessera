@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Tessera.Core.Abstractions;
+using Tessera.Core.Spaces;
 
 namespace Tessera.Integrations;
 
@@ -59,36 +60,55 @@ public sealed class PayPalClient(IHttpClientFactory httpClientFactory, string cl
         return created.Id;
     }
 
-    // One PayPal billing plan per paid SubscriptionPlan tier (docs/02-modello-dati.md) — Free
-    // has no PayPal plan, so this is only ever called for Basic/Plus/Family.
+    // One PayPal billing plan resource per (paid SubscriptionPlan tier, BillingCycle,
+    // environment) — Free has no PayPal plan, so this is only ever called for Plus, twice (once
+    // per cycle, docs/13-piano-miglioramenti.md, D2). Every plan gets a TRIAL segment ahead of
+    // the REGULAR one so a new subscriber can try the full paid tier before being charged,
+    // regardless of which cycle they pick.
     //
     // payment_failure_threshold: 1 — matches the product decision that a suspended
     // subscription downgrades the Space to Free immediately, with no grace period (there's no
     // data loss on downgrade, only reduced limits), so PayPal should suspend on the first
-    // failed payment rather than retry silently for days first.
-    public async Task<string> CreatePlanAsync(string productId, string planName, decimal monthlyPrice, string currency, CancellationToken ct)
+    // failed payment rather than retry silently for days first. Doesn't apply to the trial
+    // itself, which bills nothing.
+    public async Task<string> CreatePlanAsync(string productId, string planName, decimal price, string currency, BillingCycle cycle, CancellationToken ct)
     {
         var accessToken = await GetAccessTokenAsync(ct);
         var client = httpClientFactory.CreateClient();
+
+        var (intervalUnit, cycleLabel) = cycle == BillingCycle.Annual
+            ? ("YEAR", "Annual")
+            : ("MONTH", "Monthly");
 
         using var request = new HttpRequestMessage(HttpMethod.Post, $"{BaseUrl}/v1/billing/plans");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         request.Content = JsonContent.Create(new
         {
             product_id = productId,
-            name = planName,
-            description = $"Piano Tessera {planName}",
+            name = $"{planName} ({cycleLabel})",
+            description = $"Piano Tessera {planName} — {(cycle == BillingCycle.Annual ? "fatturazione annuale" : "fatturazione mensile")}",
             billing_cycles = new object[]
             {
                 new
                 {
-                    frequency = new { interval_unit = "MONTH", interval_count = 1 },
-                    tenure_type = "REGULAR",
+                    frequency = new { interval_unit = "DAY", interval_count = BillingDefaults.TrialDays },
+                    tenure_type = "TRIAL",
                     sequence = 1,
+                    total_cycles = 1,
+                    pricing_scheme = new
+                    {
+                        fixed_price = new { value = "0.00", currency_code = currency },
+                    },
+                },
+                new
+                {
+                    frequency = new { interval_unit = intervalUnit, interval_count = 1 },
+                    tenure_type = "REGULAR",
+                    sequence = 2,
                     total_cycles = 0,
                     pricing_scheme = new
                     {
-                        fixed_price = new { value = monthlyPrice.ToString("F2", System.Globalization.CultureInfo.InvariantCulture), currency_code = currency },
+                        fixed_price = new { value = price.ToString("F2", System.Globalization.CultureInfo.InvariantCulture), currency_code = currency },
                     },
                 },
             },

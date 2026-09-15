@@ -14,6 +14,11 @@ public class SpaceSubscription
     public string PayPalSubscriptionId { get; set; } = null!;
     public Guid PlanId { get; set; }
 
+    // Which of the plan's two PayPal billing plans (PayPalPlanIdSandbox/Live vs ...Annual) this
+    // subscription is on (docs/13-piano-miglioramenti.md, D2) — needed because
+    // ReviseSubscriptionAsync can change PlanId alone and must know which cycle's id to look up.
+    public BillingCycle BillingCycle { get; set; } = BillingCycle.Monthly;
+
     // Mirrors PayPal's own vocabulary (APPROVAL_PENDING, ACTIVE, SUSPENDED, CANCELLED, EXPIRED)
     // rather than a local enum — one less mapping to keep in sync as PayPal's webhook events
     // arrive, and the raw value is exactly what shows up in support conversations with PayPal.

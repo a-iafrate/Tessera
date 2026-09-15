@@ -21,6 +21,7 @@
     <h1>@Localizer["Pricing.Title"]</h1>
     <p class="text-soft">@Localizer["Pricing.Intro"]</p>
     <p class="text-soft">@Localizer["Pricing.ReceiptScanningExplainer"]</p>
+    <p class="text-soft">@Localizer["Pricing.TrialNote", BillingDefaults.TrialDays]</p>
 
     @if (plans.Count == 0)
     {
@@ -28,7 +29,18 @@
     }
     else
     {
-        <div class="card-grid mt-6">
+        <div class="inline-row mt-6">
+            <button type="button" class="btn @(selectedCycle == BillingCycle.Monthly ? "btn-primary" : "btn-secondary")"
+                    @onclick="() => selectedCycle = BillingCycle.Monthly">
+                @Localizer["Pricing.BillingCycleMonthly"]
+            </button>
+            <button type="button" class="btn @(selectedCycle == BillingCycle.Annual ? "btn-primary" : "btn-secondary")"
+                    @onclick="() => selectedCycle = BillingCycle.Annual">
+                @Localizer["Pricing.BillingCycleAnnual"]
+            </button>
+        </div>
+
+        <div class="card-grid mt-4">
             @foreach (var plan in plans)
             {
                 <div class="card grid-item">
@@ -40,10 +52,14 @@
                         }
                         else
                         {
-                            @MoneyFormatter.Format(plan.MonthlyPrice, plan.Currency, CultureInfo.CurrentUICulture.Name)
-                            <span class="text-soft plan-price-suffix">@Localizer["Pricing.PerMonth"]</span>
+                            @MoneyFormatter.Format(PriceFor(plan), plan.Currency, CultureInfo.CurrentUICulture.Name)
+                            <span class="text-soft plan-price-suffix">@Localizer[PeriodLabelKey()]</span>
                         }
                     </p>
+                    @if (plan.MonthlyPrice > 0 && selectedCycle == BillingCycle.Annual)
+                    {
+                        <p class="text-soft text-sm">@Localizer["Pricing.AnnualEquivalentNote", MoneyFormatter.Format(plan.AnnualPrice / 12, plan.Currency, CultureInfo.CurrentUICulture.Name)]</p>
+                    }
                     <p class="text-soft">@Localizer[TaglineKey(plan)]</p>
                     <ul>
                         <li>@(IsUnlimited(plan.MaxReceiptsPerMonth) ? Localizer["Pricing.ReceiptsUnlimited"] : Localizer["Pricing.ReceiptsPerMonth", plan.MaxReceiptsPerMonth])</li>
@@ -108,6 +124,7 @@
     private IReadOnlyList<SubscriptionPlan> plans = [];
     private bool isAuthenticated;
     private IReadOnlyList<Space> ownedSpaces = [];
+    private BillingCycle selectedCycle = BillingCycle.Monthly;
 
     // Optional, same "degrades without Application Insights configured" shape as every other
     // consumer (Program.cs) — @inject would throw if nothing registered TelemetryClient, so this
@@ -123,6 +140,12 @@
     // is seed data an admin could rename without expecting the tagline to silently disappear.
     private static string TaglineKey(SubscriptionPlan plan) =>
         plan.Id == SystemPlanIds.Plus ? "Pricing.PlusTagline" : "Pricing.FreeTagline";
+
+    private decimal PriceFor(SubscriptionPlan plan) =>
+        selectedCycle == BillingCycle.Annual ? plan.AnnualPrice : plan.MonthlyPrice;
+
+    private string PeriodLabelKey() =>
+        selectedCycle == BillingCycle.Annual ? "Pricing.PerYear" : "Pricing.PerMonth";
 
     protected override async Task OnInitializedAsync()
     {
