@@ -64,7 +64,7 @@ public static class DigestFormatter
                 }
 
                 var category = categories.FirstOrDefault(c => c.Id == status.CategoryId);
-                var categoryName = category is null ? "" : MessageProcessor.GetCategoryDisplayName(category, localizer);
+                var categoryName = category is null ? "" : ExpenseHandlers.GetCategoryDisplayName(category, localizer);
                 return localizer["Digest.BudgetLineCategory", categoryName, spentFormatted, limitFormatted].Value;
             }));
             sections.Add((localizer["Digest.BudgetHeader"].Value, body));

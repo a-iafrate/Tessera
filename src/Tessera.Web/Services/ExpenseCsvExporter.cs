@@ -38,7 +38,7 @@ public static class ExpenseCsvExporter
         foreach (var expense in expenses)
         {
             var categoryName = expense.CategoryId is { } categoryId && categoriesById.TryGetValue(categoryId, out var category)
-                ? MessageProcessor.GetCategoryDisplayName(category, localizer)
+                ? ExpenseHandlers.GetCategoryDisplayName(category, localizer)
                 : localizer["Expenses.NoCategory"].Value;
 
             // Long date, not the numeric "d" pattern the on-screen list uses — the numeric form

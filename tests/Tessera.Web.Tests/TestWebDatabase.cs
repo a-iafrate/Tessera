@@ -16,6 +16,10 @@ internal sealed class TestWebDatabase : IDisposable
 
     public TesseraDbContext Db { get; }
 
+    // Fresh per test instance, same reasoning as Tessera.Data.Tests/TestDatabase.cs — ExpenseService's
+    // category cache (5-minute TTL) must never leak staleness between tests.
+    public IMemoryCache Cache { get; } = new MemoryCache(new MemoryCacheOptions());
+
     public TestWebDatabase()
     {
         connection = new SqliteConnection("DataSource=:memory:");

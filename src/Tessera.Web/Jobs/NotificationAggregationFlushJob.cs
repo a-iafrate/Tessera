@@ -114,7 +114,7 @@ public sealed class NotificationAggregationFlushJob(
             return category is null
                 ? localizer["Notification.ExpenseRecorded", single.ActorDisplayName, formatted]
                 : localizer["Notification.ExpenseRecordedWithCategory",
-                    single.ActorDisplayName, formatted, MessageProcessor.GetCategoryDisplayName(category, localizer)];
+                    single.ActorDisplayName, formatted, ExpenseHandlers.GetCategoryDisplayName(category, localizer)];
         }
 
         var total = events.Sum(e => e.Amount);

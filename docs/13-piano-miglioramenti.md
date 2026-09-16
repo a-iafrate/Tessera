@@ -1274,8 +1274,40 @@ dichiarati (divisione delle spese, meal planning, turni di casa, sync Alexa) res
   default `(ShoppingList, Read)` invece di `Write` come `"shopping.check"`, un'asimmetria di
   permessi preesistente. Correggerla cambierebbe silenziosamente su quale spazio risolve un tap
   di rimozione — va fatto come intervento a sé, con la sua verifica dedicata.
-  **Restano da estrarre**: `ExpenseHandlers`, `CalendarHandlers`, `NoteHandlers`,
-  `ReminderHandlers` — un commit per dominio, come sopra.
+  **Lotto 2 di 5: `ExpenseHandlers` ✅.** `MessageProcessor.cs`: 3016 → 2342 righe. Nuovo
+  `Services/ExpenseHandlers.cs` (712 righe) — più grande di `ShoppingHandlers` perché bundla
+  quattro superfici, non una sola: `HandleExpenseAddAsync`/`HandleExpenseCommandAsync`/
+  `HandleExpenseConfirmCallbackAsync`/`RecordExpenseAndReplyAsync`/`HandleReceiptAsync`/
+  `HandleExpenseCategorizeCallbackAsync`/`HandleWarrantyReminderCallbackAsync`/query-e-storico
+  (`HandleExpensesQueryAsync`, `HandleExpensesQueryByCategoryAsync`, `HandleHistoryQueryAsync`,
+  `HandlePriceHistoryQueryAsync`), più `HandleRecurringCommandAsync`, `HandleBudgetCommandAsync` e
+  `HandleDigestCommandAsync`. Il piano elenca cinque classi handler, non otto: budget e ricorrenti
+  sono limiti/generatori di spese, e `/digest`'s handler originale prendeva solo `DigestService` ed
+  `ExpenseService`, niente dagli altri domini — nessuno dei tre aveva un posto migliore dove stare.
+  Stesso pattern di Shopping: costruita **per messaggio**, spostamento verbatim, `FinalizeUsefulActionReplyAsync`
+  passato come delegate. Due helper statici condivisi con domini non ancora estratti sono rimasti in
+  `MessageProcessor` ma resi `internal static` per essere richiamabili da fuori: `GetOptionalString`
+  (già usato da Calendar/Reminders via L3) e `GetFrequencyDisplayName` (usato anche da
+  `HandleRemindCommandAsync`, non ancora estratto in `ReminderHandlers`) — quest'ultimo è passato da
+  metodo d'istanza a `static` con `localizer` esplicito perché niente in `ExpenseHandlers` ha
+  accesso al campo privato di `MessageProcessor`. `GetCategoryDisplayName` invece si è **spostato**
+  per intero in `ExpenseHandlers` (non solo referenziato) perché è genuinamente expense-specific;
+  aggiornati i suoi quattro chiamanti esterni (`DigestFormatter.cs`, `ExpenseCsvExporter.cs`,
+  `NotificationAggregationFlushJob.cs`, `Expenses.razor`) da `MessageProcessor.GetCategoryDisplayName`
+  a `ExpenseHandlers.GetCategoryDisplayName`. Bug di battitura evitato in corsa: `ResourceKind` vive
+  in `Tessera.Core.Spaces`, non in `Tessera.Core.Resources` come il nome suggerirebbe — il primo
+  tentativo di build l'ha preso subito. 15 nuovi test in `tests/Tessera.Web.Tests/ExpenseHandlersTests.cs`
+  (stesso schema di `ShoppingHandlersTests`, incluso un `TestWebDatabase.Cache` nuovo — `ExpenseService`
+  è il primo servizio del progetto a usarne uno) — copre registrazione semplice, importo non
+  interpretabile, il round-trip di conferma per importi ambigui (`AmountAmbiguity`), query mensile e
+  per categoria, categorizzazione con apprendimento del merchant, il promemoria garanzia
+  (accettato/rifiutato), budget (impostazione/lista vuota), spese ricorrenti (creazione/lista vuota),
+  un digest su spazio vuoto, e `HandleReceiptAsync` quando `ReceiptVisionClient` non è configurato.
+  Non ri-testati singolarmente: gli alert budget dentro `RecordExpenseAndReplyAsync` e il flusso
+  completo di scansione scontrino con item — coperti solo indirettamente. `dotnet build`/`dotnet test`
+  puliti, 291 test in tutto (276 precedenti + 15 di questo lotto).
+  **Restano da estrarre**: `CalendarHandlers`, `NoteHandlers`, `ReminderHandlers` — un commit per
+  dominio, come sopra.
 
 ### F4 — Test dei servizi con database ✅
 
@@ -1411,7 +1443,7 @@ eseguirli.
 | 7 | **C3, C1** ✅ | Aggregazione e poi email: il canale che sostituisce WhatsApp |
 | 8 | **D3** ✅, decisioni aperte 2 ✅ e 3, **D1** ✅, **D4** ✅, **D2** (codice fatto, click-through sandbox annuale da fare a mano), poi **D5** | La telemetria prima del riassetto: si decide su dati, non a memoria |
 | 9 | **E3** ✅**, E2** ✅**, E4** ✅ (digest settimanale a parte)**, E1** (codice fatto, verifica dal vivo da fare) | Export e garanzie sono quasi gratis; la voce merita di stare dopo perché tocca la pipeline |
-| 10 | **B12, B13, B15** ✅, **F4** ✅, **F3** (1/5 lotti: Shopping ✅, restano Expense/Calendar/Note/Reminder) | Manutenibilità e rifiniture, quando i pattern si sono consolidati |
+| 10 | **B12, B13, B15** ✅, **F4** ✅, **F3** (2/5 lotti: Shopping ✅, Expense ✅, restano Calendar/Note/Reminder) | Manutenibilità e rifiniture, quando i pattern si sono consolidati |
 | 11 | **C2** ✅ (fatto fuori ordine insieme a C1/C3, su richiesta esplicita — chiude tutto il lotto C), **E5, E6, E7** | Il resto, senza urgenza |
 
 **G1-G7 tutti fatti** ✅ — erano divergenze già accertate fra documentazione e realtà; restavano

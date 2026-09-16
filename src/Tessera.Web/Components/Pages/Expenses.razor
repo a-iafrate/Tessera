@@ -49,7 +49,7 @@
                             <option value="">@Localizer["Expenses.NoCategory"]</option>
                             @foreach (var category in categories)
                             {
-                                <option value="@category.Id">@MessageProcessor.GetCategoryDisplayName(category, Localizer)</option>
+                                <option value="@category.Id">@ExpenseHandlers.GetCategoryDisplayName(category, Localizer)</option>
                             }
                         </select>
                         <input @bind="newMerchant" placeholder="@Localizer["Expenses.MerchantPlaceholder"]" class="form-control" />
@@ -77,7 +77,7 @@
                         <option value="">@Localizer["Expenses.Export.AllCategories"]</option>
                         @foreach (var category in categories)
                         {
-                            <option value="@category.Id">@MessageProcessor.GetCategoryDisplayName(category, Localizer)</option>
+                            <option value="@category.Id">@ExpenseHandlers.GetCategoryDisplayName(category, Localizer)</option>
                         }
                     </select>
                     <button type="button" class="btn btn-secondary" disabled="@isExporting" @onclick="GenerateExportAsync">
@@ -284,6 +284,6 @@
     private string CategoryName(Guid? categoryId)
     {
         var category = categories.FirstOrDefault(c => c.Id == categoryId);
-        return category is null ? Localizer["Expenses.NoCategory"] : MessageProcessor.GetCategoryDisplayName(category, Localizer);
+        return category is null ? Localizer["Expenses.NoCategory"] : ExpenseHandlers.GetCategoryDisplayName(category, Localizer);
     }
 }
