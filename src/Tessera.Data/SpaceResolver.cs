@@ -51,8 +51,12 @@ public sealed class SpaceResolver(TesseraDbContext db, IAccessPolicy accessPolic
         }
 
         // 2. ConversationState.ActiveSpaceId within TTL — already disambiguated recently.
+        // DateTimeOffset.UtcNow captured once, not inlined in the query — the SQLite provider
+        // (docs/13-piano-miglioramenti.md, F4) doesn't translate the static property access the
+        // same way it does a plain parameter, and this reads no differently against SqlServer.
+        var now = DateTimeOffset.UtcNow;
         var state = await db.ConversationStates
-            .FirstOrDefaultAsync(s => s.UserId == userId && s.ExpiresAt > DateTimeOffset.UtcNow, ct);
+            .FirstOrDefaultAsync(s => s.UserId == userId && s.ExpiresAt > now, ct);
         if (state?.ActiveSpaceId is { } activeSpaceId && accessibleSpaceIds.Contains(activeSpaceId))
         {
             return new SpaceResolution(activeSpaceId, messageText, []);

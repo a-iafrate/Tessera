@@ -90,5 +90,27 @@ public sealed class TesseraDbContext(DbContextOptions<TesseraDbContext> options)
     {
         base.OnModelCreating(builder);
         builder.ApplyConfigurationsFromAssembly(typeof(TesseraDbContext).Assembly);
+
+        // SQLite has no native DateTimeOffset comparison/ordering support — every ">="/"<"/
+        // OrderBy on a DateTimeOffset column throws at query-translation time, not silently
+        // misbehaves (docs/13-piano-miglioramenti.md, F4: this is what makes the SQLite
+        // in-memory tests it asks for possible at all). Never touches SqlServer, which keeps
+        // its native `datetimeoffset` column and comparisons exactly as before — this branch
+        // only ever runs for the SQLite provider tests use. Checked by provider name, not
+        // Database.IsSqlite(), so Tessera.Data itself doesn't need a package reference to
+        // Microsoft.EntityFrameworkCore.Sqlite — only the test project does.
+        if (Database.ProviderName == "Microsoft.EntityFrameworkCore.Sqlite")
+        {
+            foreach (var entityType in builder.Model.GetEntityTypes())
+            {
+                foreach (var property in entityType.GetProperties())
+                {
+                    if (property.ClrType == typeof(DateTimeOffset) || property.ClrType == typeof(DateTimeOffset?))
+                    {
+                        property.SetValueConverter(new Microsoft.EntityFrameworkCore.Storage.ValueConversion.DateTimeOffsetToBinaryConverter());
+                    }
+                }
+            }
+        }
     }
 }

@@ -1247,9 +1247,9 @@ dichiarati (divisione delle spese, meal planning, turni di casa, sync Alexa) res
   esattamente il modo di introdurre regressioni invisibili.
 - **Fatto quando**: `MessageProcessor` sta sotto le 500 righe e ogni handler ha test propri.
 
-### F4 — Test dei servizi con database
+### F4 — Test dei servizi con database ✅
 
-- [ ] **Dove**: nuovo `tests/Tessera.Data.Tests`
+- [x] **Dove**: nuovo `tests/Tessera.Data.Tests`
 - **Perché**: `Tessera.Data` è la parte più grande della soluzione e non ha test. Il database è
   condiviso fra sviluppo e produzione, quindi nessun test deve toccarlo.
 - **Cosa**: SQLite in memoria per i servizi di dominio; i casi che valgono più degli altri sono
@@ -1257,6 +1257,35 @@ dichiarati (divisione delle spese, meal planning, turni di casa, sync Alexa) res
   `AccountDeletionService` (pseudonimizzazione).
 - **Fatto quando**: `dotnet test` copre la catena di risoluzione dello spazio senza toccare Azure
   SQL.
+- **Fatto**: 34 test nuovi, stesse convenzioni di `Tessera.Core.Tests`/`Tessera.Ai.Tests` (xUnit
+  puro, nessun mock framework, fake scritti a mano). `TestDatabase` (nuovo, nessun precedente in
+  repo) apre una `SqliteConnection` `:memory:` **per test** — xUnit crea un'istanza nuova della
+  classe per ogni `[Fact]`, quindi ogni test parte da un database vuoto — più una `MemoryCache`
+  fresca, per non far leakare la cache dei permessi di 5 minuti di `MembershipRepository` fra
+  test diversi. Copertura: le cinque tappe della catena di `SpaceResolver` (incluso il caso
+  "nessuno spazio accessibile", che deve tornare prima del lookup su `DefaultSpaceId"), incluso
+  che la risoluzione è per risorsa e non per utente; `UndoService` (le tre cause distinte per cui
+  un annulla non è disponibile — nessuna operazione, TTL di 10 minuti scaduto, conflitto — più il
+  secondo TTL più stretto di 2 minuti per l'offerta di correzione, e la sovrascrittura a slot
+  singolo); `UsageService` (limite giornaliero/mensile, confine UTC esatto incluso, isolamento fra
+  `UsageEventKind` e fra spazi); `AccountDeletionService` (spazio personale cancellato del tutto,
+  spazio condiviso pseudonimizzato — contenuto intatto con il GUID ormai orfano, membership e
+  permessi rimossi, riga di archivio con `DisplayNameSnapshot = ""` — trasferimento proprietà al
+  membro più anziano, cancellazione dello spazio condiviso se l'owner ne era l'unico membro).
+  **Due correzioni emerse scrivendo i test, non solo test**: (1) `AccountDeletionService.DeleteAsync`
+  non rimuoveva mai `LastOperation` dell'utente cancellato — una riga chiave sull'UserId ormai
+  orfano, mai più raggiungibile da nessuno, lasciata a occupare spazio indefinitamente; aggiunta
+  la rimozione. (2) `SpaceResolver.ResolveAmongAccessibleAsync` confrontava `ConversationState.ExpiresAt`
+  con `DateTimeOffset.UtcNow` inline nella query invece che con una variabile locale catturata —
+  comportamento identico su SQL Server, ma il provider SQLite non traduceva quella forma
+  specifica (motivo esatto non verificato, working workaround confermato).
+  **Scoperta tecnica non ovvia**: il provider SQLite di EF Core non supporta comparazioni/`OrderBy`
+  su colonne `DateTimeOffset` — blocca `dotnet test` con un errore di traduzione della query, non
+  un risultato silenziosamente sbagliato. Risolto con un `DateTimeOffsetToBinaryConverter`
+  applicato in `TesseraDbContext.OnModelCreating`, ma **solo quando `Database.ProviderName` è
+  Sqlite** (mai per SQL Server, verificato generando una migrazione di prova: diff del modello
+  vuoto). Verificato anche l'unico costrutto SQL-Server-specifico del modello,
+  `ReminderConfiguration`'s `HasFilter("[IsCompleted] = 0")` — crea senza problemi su SQLite.
 
 ---
 
@@ -1352,7 +1381,7 @@ eseguirli.
 | 7 | **C3, C1** ✅ | Aggregazione e poi email: il canale che sostituisce WhatsApp |
 | 8 | **D3** ✅, decisioni aperte 2 ✅ e 3, **D1** ✅, **D4** ✅, **D2** (codice fatto, click-through sandbox annuale da fare a mano), poi **D5** | La telemetria prima del riassetto: si decide su dati, non a memoria |
 | 9 | **E3** ✅**, E2** ✅**, E4** ✅ (digest settimanale a parte)**, E1** (codice fatto, verifica dal vivo da fare) | Export e garanzie sono quasi gratis; la voce merita di stare dopo perché tocca la pipeline |
-| 10 | **B12, B13, B15**, **F3**, **F4** | Manutenibilità e rifiniture, quando i pattern si sono consolidati |
+| 10 | **B12, B13, B15** ✅, **F4** ✅, poi **F3** | Manutenibilità e rifiniture, quando i pattern si sono consolidati |
 | 11 | **C2** ✅ (fatto fuori ordine insieme a C1/C3, su richiesta esplicita — chiude tutto il lotto C), **E5, E6, E7** | Il resto, senza urgenza |
 
 **G1-G7 tutti fatti** ✅ — erano divergenze già accertate fra documentazione e realtà; restavano

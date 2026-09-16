@@ -10,5 +10,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/Tessera.Ai.Tests/Tessera.Ai.Tests.csproj" />
     <Project Path="tests/Tessera.Core.Tests/Tessera.Core.Tests.csproj" />
+    <Project Path="tests/Tessera.Data.Tests/Tessera.Data.Tests.csproj" />
   </Folder>
 </Solution>

@@ -139,6 +139,16 @@ public sealed class AccountDeletionService(TesseraDbContext db, SpaceService spa
             db.ConversationStates.Remove(conversationState);
         }
 
+        // A pending undo slot holds only ids (docs/13-piano-miglioramenti.md, F4), never PII by
+        // itself — but it's keyed by this UserId and nobody can ever authenticate as it again to
+        // consume or expire it, so it would otherwise sit orphaned forever instead of joining
+        // everything else this sweep already cleans up.
+        var lastOperation = await db.LastOperations.FirstOrDefaultAsync(o => o.UserId == userId, ct);
+        if (lastOperation is not null)
+        {
+            db.LastOperations.Remove(lastOperation);
+        }
+
         db.DomainUsers.Remove(user);
         await db.SaveChangesAsync(ct);
     }
