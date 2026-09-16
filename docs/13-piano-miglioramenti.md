@@ -1246,6 +1246,36 @@ dichiarati (divisione delle spese, meal planning, turni di casa, sync Alexa) res
   lotti A e B: una riscrittura in blocco di un file da 3000 righe senza test a copertura è
   esattamente il modo di introdurre regressioni invisibili.
 - **Fatto quando**: `MessageProcessor` sta sotto le 500 righe e ogni handler ha test propri.
+- **In corso — lotto 1 di 5: `ShoppingHandlers` ✅.** `MessageProcessor.cs`: 3214 → 3016 righe
+  (cresciuto da 2952 nel frattempo, per E1/E2 di questa stessa sessione). Nuovo
+  `Services/ShoppingHandlers.cs` (234 righe): `AddAsync`, `ShowAsync`, `CheckAsync`,
+  `RemoveAsync`, `ClearAsync`, `ListListsAsync`, `CorrectAsync`,
+  `HandleCheckCallbackAsync`/`HandleRemoveCallbackAsync`, più `SplitMultipleItems`/
+  `BuildShoppingListView`/`RefreshShoppingListMessageAsync` — spostati verbatim, non riscritti,
+  per tenere il rischio di regressione al minimo. Costruita **per messaggio**, non registrata in
+  DI: `MessageProcessor.channel` è un campo mutabile riassegnato a ogni messaggio (sicuro solo
+  perché la coda si svuota rigorosamente in sequenza), quindi nessun singleton potrebbe catturarlo
+  in sicurezza. `FinalizeUsefulActionReplyAsync` (onboarding/hint, condiviso da tutti e cinque i
+  domini) resta in `MessageProcessor` e passa come delegate al costruttore — estrarlo è lavoro
+  trasversale, non di un singolo dominio, quindi fuori da questo commit.
+  Scelta deliberata: `HandleSuggestRecipesAsync` **non** spostato — legge `ShoppingListService`
+  ma è concettualmente "ricette", non "lista della spesa"; resta in `MessageProcessor`.
+  Nuovo `tests/Tessera.Web.Tests` (prima non esisteva alcun test su questo progetto) — 10 test
+  contro `ShoppingHandlers`, con `ShoppingListService`/`UndoService`/`OnboardingService`/
+  `NotificationService` reali su SQLite in memoria (stesso schema di `TestDatabase` in
+  `Tessera.Data.Tests`, duplicato qui non condiviso — non vale un progetto di infrastruttura di
+  test dedicato per questo primo lotto) e un `FakeChannel` scrivente per asserire cosa è stato
+  davvero inviato. Un vero `IStringLocalizer<Messages>` (via un `ServiceCollection` minimo con
+  `AddLogging`/`AddLocalization`), non una stringa finta — le asserzioni leggono il testo .resx
+  reale. `dotnet build`/`dotnet test` puliti, 276 test in tutto (232 precedenti + 34 di F4 + 10 di
+  questo lotto).
+  **Trovato ma non corretto in questo commit** (per lo stesso principio "un dominio per commit"):
+  `ResourceForCallback` non ha un caso `"shopping.remove"` — un tap di rimozione ricade sul
+  default `(ShoppingList, Read)` invece di `Write` come `"shopping.check"`, un'asimmetria di
+  permessi preesistente. Correggerla cambierebbe silenziosamente su quale spazio risolve un tap
+  di rimozione — va fatto come intervento a sé, con la sua verifica dedicata.
+  **Restano da estrarre**: `ExpenseHandlers`, `CalendarHandlers`, `NoteHandlers`,
+  `ReminderHandlers` — un commit per dominio, come sopra.
 
 ### F4 — Test dei servizi con database ✅
 
@@ -1381,7 +1411,7 @@ eseguirli.
 | 7 | **C3, C1** ✅ | Aggregazione e poi email: il canale che sostituisce WhatsApp |
 | 8 | **D3** ✅, decisioni aperte 2 ✅ e 3, **D1** ✅, **D4** ✅, **D2** (codice fatto, click-through sandbox annuale da fare a mano), poi **D5** | La telemetria prima del riassetto: si decide su dati, non a memoria |
 | 9 | **E3** ✅**, E2** ✅**, E4** ✅ (digest settimanale a parte)**, E1** (codice fatto, verifica dal vivo da fare) | Export e garanzie sono quasi gratis; la voce merita di stare dopo perché tocca la pipeline |
-| 10 | **B12, B13, B15** ✅, **F4** ✅, poi **F3** | Manutenibilità e rifiniture, quando i pattern si sono consolidati |
+| 10 | **B12, B13, B15** ✅, **F4** ✅, **F3** (1/5 lotti: Shopping ✅, restano Expense/Calendar/Note/Reminder) | Manutenibilità e rifiniture, quando i pattern si sono consolidati |
 | 11 | **C2** ✅ (fatto fuori ordine insieme a C1/C3, su richiesta esplicita — chiude tutto il lotto C), **E5, E6, E7** | Il resto, senza urgenza |
 
 **G1-G7 tutti fatti** ✅ — erano divergenze già accertate fra documentazione e realtà; restavano
