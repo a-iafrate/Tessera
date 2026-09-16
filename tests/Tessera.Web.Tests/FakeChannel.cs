@@ -20,6 +20,10 @@ internal sealed class FakeChannel : IChannel
 
     public List<(ChannelAddress To, string MessageId, string Text, IReadOnlyList<IReadOnlyList<Choice>> Rows)> EditedListMessages { get; } = [];
 
+    public List<(ChannelAddress To, string PhotoUrl, string? Caption)> SentPhotos { get; } = [];
+
+    public List<(ChannelAddress To, string FileUrl, string FileName, string? Caption)> SentDocuments { get; } = [];
+
     public Task SendTextAsync(ChannelAddress to, string text, CancellationToken ct)
     {
         SentTexts.Add((to, text));
@@ -44,12 +48,20 @@ internal sealed class FakeChannel : IChannel
         return Task.CompletedTask;
     }
 
-    public Task SendPhotoAsync(ChannelAddress to, string photoUrl, string? caption, CancellationToken ct) =>
-        throw new NotSupportedException("Not used by any shopping handler test.");
+    public Task SendPhotoAsync(ChannelAddress to, string photoUrl, string? caption, CancellationToken ct)
+    {
+        SentPhotos.Add((to, photoUrl, caption));
+        return Task.CompletedTask;
+    }
 
-    public Task SendDocumentAsync(ChannelAddress to, string fileUrl, string fileName, string? caption, CancellationToken ct) =>
-        throw new NotSupportedException("Not used by any shopping handler test.");
+    public Task SendDocumentAsync(ChannelAddress to, string fileUrl, string fileName, string? caption, CancellationToken ct)
+    {
+        SentDocuments.Add((to, fileUrl, fileName, caption));
+        return Task.CompletedTask;
+    }
 
+    // Returns a small fixed stream rather than throwing — NoteHandlers' media-handling tests
+    // (docs/13-piano-miglioramenti.md, F3 lotto 3) need real bytes to hand to AttachmentService.
     public Task<Stream> DownloadMediaAsync(string fileId, CancellationToken ct) =>
-        throw new NotSupportedException("Not used by any shopping handler test.");
+        Task.FromResult<Stream>(new MemoryStream([1, 2, 3]));
 }

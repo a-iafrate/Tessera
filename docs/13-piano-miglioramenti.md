@@ -1306,8 +1306,29 @@ dichiarati (divisione delle spese, meal planning, turni di casa, sync Alexa) res
   Non ri-testati singolarmente: gli alert budget dentro `RecordExpenseAndReplyAsync` e il flusso
   completo di scansione scontrino con item — coperti solo indirettamente. `dotnet build`/`dotnet test`
   puliti, 291 test in tutto (276 precedenti + 15 di questo lotto).
-  **Restano da estrarre**: `CalendarHandlers`, `NoteHandlers`, `ReminderHandlers` — un commit per
-  dominio, come sopra.
+  **Lotto 3 di 5: `NoteHandlers` ✅.** `MessageProcessor.cs`: 2342 → 2173 righe. Nuovo
+  `Services/NoteHandlers.cs` (196 righe) — `HandleNoteCommandAsync`, `HandleShowNotesAsync`,
+  `HandleShowNoteAttachmentCallbackAsync`, `CreateNoteAndReplyAsync`, `HandleLlmDeleteNoteAsync`,
+  `HandleIncomingMediaAsync`. Terzo dominio (dopo Shopping ed Expense) scelto per lo stesso motivo
+  di Shopping: nessun `ConversationState.PendingIntent` di dominio Notes esiste, a differenza dei
+  flussi di conferma data di Reminder/Calendar ancora da estrarre — quindi il rischio resta basso.
+  Spostamento verbatim, stesso pattern di costruzione **per messaggio** degli altri due lotti.
+  `HandleShowNoteAttachmentCallbackAsync` resta intercettato prima della risoluzione dello spazio in
+  `ProcessAsync` (l'allegato porta il proprio `SpaceId`) ma ora passa attraverso `noteHandlers`,
+  costruito comunque prima di quel punto della pipeline. 14 nuovi test in
+  `tests/Tessera.Web.Tests/NoteHandlersTests.cs` — stesso schema dei due lotti precedenti, con
+  l'aggiunta di un `FakeBlobStorage` (per `AttachmentService`, che richiede `IBlobStorage`) e un
+  piccolo `ServiceCollection` DI per costruire l'`AsyncServiceScope` di cui gli handler di allegati
+  hanno bisogno (`scope.ServiceProvider.GetService<AttachmentService>()`) — build sullo stesso
+  `TesseraDbContext` dell'istanza di test, non un secondo database, così un allegato scritto in una
+  chiamata resta visibile alla successiva. `FakeChannel` esteso con `SentPhotos`/`SentDocuments` e
+  un `DownloadMediaAsync` che restituisce byte reali, invece di lanciare `NotSupportedException`
+  come faceva finora (nessun test precedente esercitava quel percorso). `dotnet build`/`dotnet test`
+  puliti, 305 test in tutto (291 precedenti + 14 di questo lotto).
+  **Restano da estrarre**: `CalendarHandlers`, `ReminderHandlers` — un commit per dominio, come
+  sopra. Questi due restano i più rischiosi: portano i flussi di conferma via
+  `ConversationState.PendingIntent` (`reminder.llmConfirm`, `calendarEvent.llmConfirm`,
+  `calendarEvent.deleteConfirm`, `calendarEvent.moveConfirm`) che Shopping/Expense/Notes non hanno.
 
 ### F4 — Test dei servizi con database ✅
 
@@ -1443,7 +1464,7 @@ eseguirli.
 | 7 | **C3, C1** ✅ | Aggregazione e poi email: il canale che sostituisce WhatsApp |
 | 8 | **D3** ✅, decisioni aperte 2 ✅ e 3, **D1** ✅, **D4** ✅, **D2** (codice fatto, click-through sandbox annuale da fare a mano), poi **D5** | La telemetria prima del riassetto: si decide su dati, non a memoria |
 | 9 | **E3** ✅**, E2** ✅**, E4** ✅ (digest settimanale a parte)**, E1** (codice fatto, verifica dal vivo da fare) | Export e garanzie sono quasi gratis; la voce merita di stare dopo perché tocca la pipeline |
-| 10 | **B12, B13, B15** ✅, **F4** ✅, **F3** (2/5 lotti: Shopping ✅, Expense ✅, restano Calendar/Note/Reminder) | Manutenibilità e rifiniture, quando i pattern si sono consolidati |
+| 10 | **B12, B13, B15** ✅, **F4** ✅, **F3** (3/5 lotti: Shopping ✅, Expense ✅, Note ✅, restano Calendar/Reminder) | Manutenibilità e rifiniture, quando i pattern si sono consolidati |
 | 11 | **C2** ✅ (fatto fuori ordine insieme a C1/C3, su richiesta esplicita — chiude tutto il lotto C), **E5, E6, E7** | Il resto, senza urgenza |
 
 **G1-G7 tutti fatti** ✅ — erano divergenze già accertate fra documentazione e realtà; restavano
