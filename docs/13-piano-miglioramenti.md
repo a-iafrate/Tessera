@@ -1235,9 +1235,9 @@ dichiarati (divisione delle spese, meal planning, turni di casa, sync Alexa) res
   ri-derivato dallo switch di produzione — altrimenti un'inversione nel codice si sarebbe
   propagata identica nel test. Due test difensivi su valori enum non definiti (`(ProviderAccessRole)0`).
 
-### F3 — Scomporre `MessageProcessor`
+### F3 — Scomporre `MessageProcessor` ✅ (con riserva sul criterio numerico, vedi "Bilancio finale")
 
-- [ ] **Dove**: `Services/MessageProcessor.cs` — 2952 righe, 69 metodi
+- [x] **Dove**: `Services/MessageProcessor.cs` — partito da 2952 righe, 69 metodi
 - **Perché**: non ha un solo test, e non è un caso: la classe fa ingestione, routing, permessi,
   resa e notifica insieme. È il file che ogni nuova funzione deve toccare.
 - **Cosa**: estrarre gli handler per dominio (`ShoppingHandlers`, `ExpenseHandlers`,
@@ -1246,7 +1246,7 @@ dichiarati (divisione delle spese, meal planning, turni di casa, sync Alexa) res
   lotti A e B: una riscrittura in blocco di un file da 3000 righe senza test a copertura è
   esattamente il modo di introdurre regressioni invisibili.
 - **Fatto quando**: `MessageProcessor` sta sotto le 500 righe e ogni handler ha test propri.
-- **In corso — lotto 1 di 5: `ShoppingHandlers` ✅.** `MessageProcessor.cs`: 3214 → 3016 righe
+- **Lotto 1 di 5: `ShoppingHandlers` ✅.** `MessageProcessor.cs`: 3214 → 3016 righe
   (cresciuto da 2952 nel frattempo, per E1/E2 di questa stessa sessione). Nuovo
   `Services/ShoppingHandlers.cs` (234 righe): `AddAsync`, `ShowAsync`, `CheckAsync`,
   `RemoveAsync`, `ClearAsync`, `ListListsAsync`, `CorrectAsync`,
@@ -1350,10 +1350,51 @@ dichiarati (divisione delle spese, meal planning, turni di casa, sync Alexa) res
   `TesseraDbContext`/`ReminderService`/`UndoService`/`OnboardingService` usate nel resto del test,
   non un secondo set scollegato. `dotnet build`/`dotnet test` puliti, 317 test in tutto (305
   precedenti + 12 di questo lotto).
-  **Restano da estrarre**: `CalendarHandlers` — l'ultimo lotto, e il più grande: cinque
-  `ConversationState.PendingIntent` diversi (`calendarEvent.llmConfirm`,
-  `calendarEvent.deleteConfirm`, `calendarEvent.moveConfirm`, più il flusso read-only di query
-  eventi/disponibilità e il callback di `CalendarToListSuggestionJob`).
+  **Lotto 5 di 5: `CalendarHandlers` ✅.** `MessageProcessor.cs`: 1989 → 1531 righe. Nuovo
+  `Services/CalendarHandlers.cs` (510 righe, il lotto più grande) — `HandleCalendarEventsQueryAsync`,
+  `HandleCalendarFreeBusyQueryAsync`, `HandleLlmCreateCalendarEventAsync`/
+  `HandleLlmCalendarEventConfirmCallbackAsync`, `HandleLlmDeleteCalendarEventAsync`/
+  `HandleLlmCalendarEventDeleteConfirmCallbackAsync`, `HandleLlmMoveCalendarEventAsync`/
+  `HandleLlmCalendarEventMoveConfirmCallbackAsync`, `HandleCalendarSuggestionCallbackAsync`
+  (il callback di `CalendarToListSuggestionJob` — non tocca `CalendarQueryService`, ma il suo
+  namespace di callback, "calendarSuggest.", è di Calendar, non di Shopping), più
+  `ResolveMemberNamesAsync` e `TryParseLocalDateTime` (entrambi usati solo qui). L'ultimo e più
+  rischioso lotto: cinque `ConversationState.PendingIntent` distinti. Stessa correzione SQLite
+  trovata in F4 e nel lotto Reminder applicata anche a `HandleLlmCalendarEventConfirmCallbackAsync`/
+  `DeleteConfirmCallbackAsync`/`MoveConfirmCallbackAsync` (tutti e tre confrontavano `ExpiresAt` con
+  `DateTimeOffset.UtcNow` inline) — corretta preventivamente questa volta, in scrittura, non scoperta
+  da un test rosso. Asimmetria genuina rispetto agli altri quattro domini, lasciata invariata:
+  nessun metodo qui chiama `finalizeReplyAsync` (niente hint onboarding, niente bottone undo sulle
+  mutazioni di calendario — creare/cancellare/spostare su un calendario reale esterno non è comunque
+  annullabile da questa app), eppure il costruttore lo riceve lo stesso, perché
+  `HandleCalendarSuggestionCallbackAsync` costruisce una `ShoppingHandlers` locale che lo richiede.
+  20 nuovi test in `tests/Tessera.Web.Tests/CalendarHandlersTests.cs`. **Copertura volutamente
+  incompleta, dichiarata**: `CalendarQueryService` dipende da `LinkedAccountService`, che aggiorna un
+  token OAuth passando da una entry di cache con chiave `internal` a `Tessera.Data` (nessun
+  `InternalsVisibleTo` nel repo) e, in caso di cache fredda, da una vera chiamata HTTP al provider —
+  nessun varco di test raggiungibile da qui senza toccare produzione. Ogni scenario coperto o lascia
+  lo spazio senza calendari collegati (percorso reale e comune: la ricerca dei calendari accessibili
+  si ferma prima di toccare `LinkedAccountService`) o non ha comunque bisogno dei metodi
+  provider-facing. **Non coperto**: creazione/cancellazione/spostamento riusciti contro un calendario
+  collegato, e il ramo "più corrispondenze trovate" — richiedono tutti un access token valido. Un
+  giro di test dedicato a `CalendarQueryService`, con un proprio varco sulla cache dei token, resta
+  lavoro futuro, fuori da questo commit di sola estrazione. `dotnet build`/`dotnet test` puliti, 337
+  test in tutto (317 precedenti + 20 di questo lotto).
+
+  **Bilancio finale F3**: tutti e cinque i domini estratti, ognuno con i propri test.
+  `MessageProcessor.cs`: 3214 → 1531 righe (-52%, contando la crescita di 2952→3214 avvenuta a metà
+  sessione per E1/E2). Il criterio numerico dichiarato in apertura ("sotto le 500 righe") **non è
+  raggiunto** — divergenza segnalata esplicitamente anziché ignorata (CLAUDE.md). Le 1531 righe
+  rimaste sono la pipeline stessa, non un sesto dominio nascosto: `ProcessAsync` (l'orchestrazione
+  L1/L2/L3, l'intercettazione dei callback con stato pendente, la risoluzione risorsa/permesso),
+  `HandleLlmFallbackAsync` (il dispatch dei tool L3), la disambiguazione spazio e il fallback di
+  permesso, undo, `FinalizeUsefulActionReplyAsync` (l'hint onboarding condiviso da tutti e cinque i
+  domini — estrarlo è lavoro trasversale, non di dominio, esplicitamente fuori scope fin dal lotto
+  1), il ciclo di vita dei gruppi Telegram e `/link`, `HandleSuggestRecipesAsync` (scelta deliberata,
+  vedi lotto 1), `/usage`, `/language`, `/help`. Ridurre ulteriormente richiederebbe scomporre la
+  pipeline stessa — un refactor diverso e più rischioso di "un handler per dominio", non coperto da
+  questo lotto. Ogni handler di dominio ha comunque test propri, il criterio qualitativo del
+  "Fatto quando" è soddisfatto.
 
 ### F4 — Test dei servizi con database ✅
 
@@ -1489,7 +1530,7 @@ eseguirli.
 | 7 | **C3, C1** ✅ | Aggregazione e poi email: il canale che sostituisce WhatsApp |
 | 8 | **D3** ✅, decisioni aperte 2 ✅ e 3, **D1** ✅, **D4** ✅, **D2** (codice fatto, click-through sandbox annuale da fare a mano), poi **D5** | La telemetria prima del riassetto: si decide su dati, non a memoria |
 | 9 | **E3** ✅**, E2** ✅**, E4** ✅ (digest settimanale a parte)**, E1** (codice fatto, verifica dal vivo da fare) | Export e garanzie sono quasi gratis; la voce merita di stare dopo perché tocca la pipeline |
-| 10 | **B12, B13, B15** ✅, **F4** ✅, **F3** (4/5 lotti: Shopping ✅, Expense ✅, Note ✅, Reminder ✅, resta Calendar) | Manutenibilità e rifiniture, quando i pattern si sono consolidati |
+| 10 | **B12, B13, B15** ✅, **F4** ✅, **F3** ✅ (5/5 lotti: Shopping, Expense, Note, Reminder, Calendar) | Manutenibilità e rifiniture, quando i pattern si sono consolidati |
 | 11 | **C2** ✅ (fatto fuori ordine insieme a C1/C3, su richiesta esplicita — chiude tutto il lotto C), **E5, E6, E7** | Il resto, senza urgenza |
 
 **G1-G7 tutti fatti** ✅ — erano divergenze già accertate fra documentazione e realtà; restavano
