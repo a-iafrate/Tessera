@@ -1180,12 +1180,36 @@ dichiarati (divisione delle spese, meal planning, turni di casa, sync Alexa) res
   `HandleHistoryQueryAsync` non avevano mai avuto test propri; non colmato qui, fuori scope per
   questo intervento). `dotnet build`/`dotnet test` puliti, 340 test in tutto (337 precedenti + 3).
 
-### E7 — Previsione di fine mese
+### E7 — Previsione di fine mese ✅
 
-- [ ] **Connette**: spese ricorrenti ↔ budget. **Dove**: `BudgetService`, `RecurringExpenseService`
+- [x] **Connette**: spese ricorrenti ↔ budget. **Dove**: `BudgetService`, `RecurringExpenseService`
 - **Cosa**: proiezione a fine mese dalle ricorrenti non ancora generate più l'andamento corrente,
   esposta nel digest e nella pagina spese.
 - **Fatto quando**: la proiezione compare quando c'è almeno una ricorrente attiva.
+- **Fatto**: nuovo `BudgetService.GetMonthlyForecastAsync` (prende una dipendenza da
+  `RecurringExpenseService`, aggiunta al costruttore) — proiezione deterministica, non una
+  estrapolazione statistica: spesa del mese finora + somma delle ricorrenti attive con
+  `AutoRegister = true` non ancora generate questo mese (`LastGeneratedFor` nullo o di un mese
+  diverso). Le regole solo-promemoria (`AutoRegister = false`) non creano mai una spesa da sole,
+  quindi non contribuiscono mai all'importo.
+  **Scelta interpretativa esplicita sul criterio "Fatto quando"**: il testo dice "quando c'è
+  almeno una ricorrente attiva", ma ho fatto comparire la sezione solo quando c'è almeno una
+  ricorrente **auto-registrante non ancora generata** — con solo regole promemoria attive la
+  "proiezione" coinciderebbe sempre con la spesa già nota (nessuna somma aggiuntiva da mostrare),
+  quindi non sarebbe una previsione ma un duplicato della riga già esistente.
+  `DailyDigest` guadagna un campo `Forecast` (nullable); `DigestService.BuildAsync` lo popola
+  tramite lo stesso pattern try/read-o-niente già usato per gli altri campi (un membro senza
+  permesso Expenses non vede la sezione, non riceve un errore). `DigestFormatter` aggiunge la
+  sezione solo quando il campo non è null. Stessa proiezione esposta anche in `Expenses.razor`
+  (iniettato `BudgetService`, stesso testo `Digest.ForecastLine` riusato fra bot e console — un
+  solo posto dove la frase può disallinearsi, non due). Due nuove chiavi resx (EN + IT).
+  8 nuovi test: 4 in `tests/Tessera.Data.Tests/BudgetServiceTests.cs` (nessuna ricorrente attiva →
+  null, solo promemoria → null, l'unica auto-registrante già generata questo mese → null,
+  proiezione corretta con spesa mista manuale+auto-generata più una ricorrente ancora pendente) —
+  primo test dedicato di `BudgetService`, che prima non ne aveva nessuno (coperto solo
+  indirettamente via `ExpenseHandlersTests`); 1 in `ExpenseHandlersTests.cs` che verifica la
+  sezione compare nel testo del digest completo. `dotnet build`/`dotnet test` puliti, 345 test in
+  tutto (340 precedenti + 4 di `Tessera.Data.Tests` + 1 di `Tessera.Web.Tests`).
 
 ---
 
@@ -1546,7 +1570,7 @@ eseguirli.
 | 8 | **D3** ✅, decisioni aperte 2 ✅ e 3, **D1** ✅, **D4** ✅, **D2** (codice fatto, click-through sandbox annuale da fare a mano), poi **D5** | La telemetria prima del riassetto: si decide su dati, non a memoria |
 | 9 | **E3** ✅**, E2** ✅**, E4** ✅ (digest settimanale a parte)**, E1** (codice fatto, verifica dal vivo da fare) | Export e garanzie sono quasi gratis; la voce merita di stare dopo perché tocca la pipeline |
 | 10 | **B12, B13, B15** ✅, **F4** ✅, **F3** ✅ (5/5 lotti: Shopping, Expense, Note, Reminder, Calendar) | Manutenibilità e rifiniture, quando i pattern si sono consolidati |
-| 11 | **C2** ✅ (fatto fuori ordine insieme a C1/C3, su richiesta esplicita — chiude tutto il lotto C), **E6** ✅, restano **E5, E7** | Il resto, senza urgenza |
+| 11 | **C2** ✅ (fatto fuori ordine insieme a C1/C3, su richiesta esplicita — chiude tutto il lotto C), **E6** ✅, **E7** ✅, resta **E5** | Il resto, senza urgenza |
 
 **G1-G7 tutti fatti** ✅ — erano divergenze già accertate fra documentazione e realtà; restavano
 aperte solo perché nessun lotto le aveva ancora forzate a essere risolte.

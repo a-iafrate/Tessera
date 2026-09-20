@@ -46,8 +46,8 @@ public class ExpenseHandlersTests : IDisposable
     {
         var accessPolicy = new TestWebDatabase.AllowAllAccessPolicy();
         expenses = new ExpenseService(Db, accessPolicy, testDb.Cache);
-        budgets = new BudgetService(Db, accessPolicy, expenses);
         recurringExpenses = new RecurringExpenseService(Db, accessPolicy);
+        budgets = new BudgetService(Db, accessPolicy, expenses, recurringExpenses);
         reminders = new ReminderService(Db, accessPolicy);
         shopping = new ShoppingListService(Db, accessPolicy);
         digest = new DigestService(reminders, shopping, budgets, new ServiceCollection().BuildServiceProvider());
@@ -261,6 +261,18 @@ public class ExpenseHandlersTests : IDisposable
         var result = await handlers.HandleDigestCommandAsync(digest, expenses, spaceId, user, System.Globalization.CultureInfo.InvariantCulture, CancellationToken.None);
 
         Assert.NotNull(result);
+    }
+
+    [Fact]
+    public async Task HandleDigestCommandAsync_IncludesTheMonthlyForecast_WhenARecurringExpenseIsPending()
+    {
+        var handlers = CreateHandlers();
+        await recurringExpenses.CreateAsync(spaceId, userId, 15m, "Rent top-up", Tessera.Core.Reminders.RecurrenceFrequency.Monthly, autoRegister: true, CancellationToken.None);
+
+        var result = await handlers.HandleDigestCommandAsync(digest, expenses, spaceId, user, System.Globalization.CultureInfo.InvariantCulture, CancellationToken.None);
+
+        Assert.Contains("Projected this month", result);
+        Assert.Contains(MoneyFormatter.Format(15m, "EUR", ""), result);
     }
 
     [Fact]

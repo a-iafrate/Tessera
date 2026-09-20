@@ -17,6 +17,7 @@
 
 @inject SpaceService SpaceService
 @inject ExpenseService ExpenseService
+@inject BudgetService BudgetService
 @inject UsageService UsageService
 @inject IAccessPolicy AccessPolicy
 @inject NavigationManager NavigationManager
@@ -38,6 +39,15 @@
         <SpaceResourceHeader SpaceId="SpaceId" UserId="userId" Resource="ResourceKind.Expenses"
                               RouteSegment="expenses" ResourceTitleKey="Expenses.PageTitle" />
         <p class="text-soft">@Localizer["Expenses.ThisMonthTotal", MoneyFormatter.Format(monthlyTotal, currency, CultureInfo.CurrentUICulture.Name)]</p>
+        @if (forecast is { } f)
+        {
+            <p class="text-soft">
+                @Localizer["Digest.ForecastLine",
+                    MoneyFormatter.Format(f.SpentSoFar, f.Currency, CultureInfo.CurrentUICulture.Name),
+                    MoneyFormatter.Format(f.PendingRecurring, f.Currency, CultureInfo.CurrentUICulture.Name),
+                    MoneyFormatter.Format(f.ProjectedTotal, f.Currency, CultureInfo.CurrentUICulture.Name)]
+            </p>
+        }
 
         @if (canWrite)
         {
@@ -146,6 +156,7 @@
     private IReadOnlyList<Category> categories = [];
     private decimal monthlyTotal;
     private string currency = "EUR";
+    private MonthlyForecast? forecast;
     private decimal? newAmount;
     private Guid? newCategoryId;
     private string newMerchant = "";
@@ -188,6 +199,7 @@
         recent = await ExpenseService.GetRecentAsync(SpaceId, userId, 20, CancellationToken.None);
         var now = DateTime.UtcNow;
         (monthlyTotal, currency) = await ExpenseService.GetMonthlyTotalAsync(SpaceId, userId, now.Year, now.Month, CancellationToken.None);
+        forecast = await BudgetService.GetMonthlyForecastAsync(SpaceId, userId, DateOnly.FromDateTime(now), CancellationToken.None);
 
         var attachments = AttachmentServiceOrNull;
         var byExpense = new Dictionary<Guid, IReadOnlyList<Attachment>>();

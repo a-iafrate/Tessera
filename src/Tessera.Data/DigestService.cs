@@ -10,7 +10,8 @@ public sealed record DailyDigest(
     IReadOnlyList<Reminder> RemindersToday,
     IReadOnlyList<CalendarEventInfo> EventsToday,
     IReadOnlyList<ShoppingItem> MissingItems,
-    IReadOnlyList<BudgetStatus> BudgetStatuses);
+    IReadOnlyList<BudgetStatus> BudgetStatuses,
+    MonthlyForecast? Forecast);
 
 // Composes across four domains for the daily digest (docs/06-roadmap.md): today's
 // reminders, today's calendar appointments, what's missing from the shopping list, and
@@ -33,8 +34,9 @@ public sealed class DigestService(
         var eventsToday = await TryReadAsync(() => GetEventsTodayAsync(spaceId, userId, timeZone, today, ct));
         var missingItems = await TryReadAsync(() => GetMissingItemsAsync(spaceId, userId, ct));
         var budgetStatuses = await TryReadAsync(() => budgets.GetStatusAsync(spaceId, userId, today.Year, today.Month, ct));
+        var forecast = await TryReadForecastAsync(() => budgets.GetMonthlyForecastAsync(spaceId, userId, today, ct));
 
-        return new DailyDigest(remindersToday, eventsToday, missingItems, budgetStatuses);
+        return new DailyDigest(remindersToday, eventsToday, missingItems, budgetStatuses, forecast);
     }
 
     private async Task<IReadOnlyList<Reminder>> GetRemindersTodayAsync(
@@ -75,6 +77,18 @@ public sealed class DigestService(
         catch (UnauthorizedAccessException)
         {
             return [];
+        }
+    }
+
+    private static async Task<MonthlyForecast?> TryReadForecastAsync(Func<Task<MonthlyForecast?>> query)
+    {
+        try
+        {
+            return await query();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
         }
     }
 }

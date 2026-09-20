@@ -70,6 +70,15 @@ public static class DigestFormatter
             sections.Add((localizer["Digest.BudgetHeader"].Value, body));
         }
 
+        if (daily.Forecast is { } forecast)
+        {
+            var spentFormatted = MoneyFormatter.Format(forecast.SpentSoFar, forecast.Currency, culture.Name);
+            var pendingFormatted = MoneyFormatter.Format(forecast.PendingRecurring, forecast.Currency, culture.Name);
+            var projectedFormatted = MoneyFormatter.Format(forecast.ProjectedTotal, forecast.Currency, culture.Name);
+            var body = localizer["Digest.ForecastLine", spentFormatted, pendingFormatted, projectedFormatted].Value;
+            sections.Add((localizer["Digest.ForecastHeader"].Value, body));
+        }
+
         return sections;
     }
 

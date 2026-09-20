@@ -5,7 +5,8 @@ using Tessera.Core.Spaces;
 
 namespace Tessera.Data;
 
-public sealed class BudgetService(TesseraDbContext db, IAccessPolicy accessPolicy, ExpenseService expenses)
+public sealed class BudgetService(
+    TesseraDbContext db, IAccessPolicy accessPolicy, ExpenseService expenses, RecurringExpenseService recurringExpenses)
 {
     public async Task<Budget> SetAsync(
         Guid spaceId, Guid userId, Guid? categoryId, decimal monthlyLimit, CancellationToken ct)
@@ -101,6 +102,28 @@ public sealed class BudgetService(TesseraDbContext db, IAccessPolicy accessPolic
 
         return statuses;
     }
+
+    // "Previsione di fine mese" (docs/13-piano-miglioramenti.md, E7) — null when there's
+    // nothing to project (no active, auto-registering recurring expense still pending this
+    // month): current spend alone is not a forecast, it's just the number GetStatusAsync
+    // already reports. Reminder-only recurring rules never auto-create an expense, so they
+    // never contribute an amount here even while "active".
+    public async Task<MonthlyForecast?> GetMonthlyForecastAsync(Guid spaceId, Guid userId, DateOnly today, CancellationToken ct)
+    {
+        var active = await recurringExpenses.GetActiveAsync(spaceId, userId, ct);
+        var pending = active.Where(x => x.AutoRegister && !FiredThisMonth(x, today)).ToList();
+        if (pending.Count == 0)
+        {
+            return null;
+        }
+
+        var (spent, currency) = await expenses.GetMonthlyTotalAsync(spaceId, userId, today.Year, today.Month, ct);
+        var pendingTotal = pending.Sum(x => x.Amount);
+        return new MonthlyForecast(spent, pendingTotal, spent + pendingTotal, currency);
+    }
+
+    private static bool FiredThisMonth(RecurringExpense recurring, DateOnly today) =>
+        recurring.LastGeneratedFor is { } last && last.Year == today.Year && last.Month == today.Month;
 
     private async Task EnsureAccessAsync(Guid spaceId, Guid userId, AccessLevel required, CancellationToken ct)
     {

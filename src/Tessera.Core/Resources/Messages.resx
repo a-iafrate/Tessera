@@ -379,6 +379,12 @@
   <data name="Digest.BudgetLineCategory" xml:space="preserve">
     <value>{0}: {1} of {2}</value>
   </data>
+  <data name="Digest.ForecastHeader" xml:space="preserve">
+    <value>Projected this month</value>
+  </data>
+  <data name="Digest.ForecastLine" xml:space="preserve">
+    <value>{0} spent so far, {1} still expected from recurring charges — projected total {2}</value>
+  </data>
   <data name="Reminders.DueNotification" xml:space="preserve">
     <value>⏰ Reminder!</value>
   </data>
