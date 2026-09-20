@@ -154,6 +154,7 @@ public sealed class MessageProcessor(
         var shoppingHandlers = new ShoppingHandlers(channel, localizer, FinalizeUsefulActionReplyAsync);
         var expenseHandlers = new ExpenseHandlers(channel, localizer, FinalizeUsefulActionReplyAsync);
         var noteHandlers = new NoteHandlers(channel, localizer, FinalizeUsefulActionReplyAsync);
+        var reminderHandlers = new ReminderHandlers(channel, localizer, FinalizeUsefulActionReplyAsync);
 
         // Economic safety net, not a feature (docs/07-compliance.md): a loop bug or a bad-
         // faith user must not translate into unlimited DB/LLM cost. Keyed on the raw channel
@@ -246,7 +247,7 @@ public sealed class MessageProcessor(
         // reasoning as the space.choose interception just above.
         if (message.CallbackData is { } remindConfirmCallback && remindConfirmCallback.StartsWith("remind.llmconfirm:", StringComparison.Ordinal))
         {
-            await HandleLlmReminderConfirmCallbackAsync(scope, address, user, remindConfirmCallback["remind.llmconfirm:".Length..], ct);
+            await reminderHandlers.HandleLlmReminderConfirmCallbackAsync(scope, address, user, remindConfirmCallback["remind.llmconfirm:".Length..], ct);
             return;
         }
 
@@ -537,7 +538,7 @@ public sealed class MessageProcessor(
         {
             // L1 (docs/05-ottimizzazioni.md): an inline-keyboard tap is already a
             // structured action — it never goes through the intent matcher.
-            await HandleCallbackAsync(shoppingHandlers, expenseHandlers, shopping, expenses, reminders, budgets, notifications, undo, onboarding, address, spaceId, user, culture, callbackData, message.CallbackMessageId, ct);
+            await HandleCallbackAsync(shoppingHandlers, expenseHandlers, reminderHandlers, shopping, expenses, reminders, budgets, notifications, undo, onboarding, address, spaceId, user, culture, callbackData, message.CallbackMessageId, ct);
             return;
         }
 
@@ -552,7 +553,7 @@ public sealed class MessageProcessor(
         {
             case NativeCommand.Remind:
             {
-                var remindReply = await HandleRemindCommandAsync(
+                var remindReply = await reminderHandlers.HandleRemindCommandAsync(
                     reminders, undo, onboarding, address, spaceId, user, culture, text["/remind".Length..], ct);
                 if (remindReply is not null)
                 {
@@ -678,7 +679,7 @@ public sealed class MessageProcessor(
             // recognized but its date still needs interpreting — all go to L3
             // (docs/05-ottimizzazioni.md).
             reply = await HandleLlmFallbackAsync(
-                scope, shoppingHandlers, expenseHandlers, noteHandlers, shopping, expenses, reminders, notes, budgets, notifications, undo, onboarding, address, spaceId, user, culture, text, ct);
+                scope, shoppingHandlers, expenseHandlers, noteHandlers, reminderHandlers, shopping, expenses, reminders, notes, budgets, notifications, undo, onboarding, address, spaceId, user, culture, text, ct);
         }
 
         if (reply is not null)
@@ -692,7 +693,7 @@ public sealed class MessageProcessor(
     // same handlers L1/L2 use, so notifications, budget alerts and category assignment stay
     // consistent no matter which router level produced the action.
     private async Task<string?> HandleLlmFallbackAsync(
-        AsyncServiceScope scope, ShoppingHandlers shoppingHandlers, ExpenseHandlers expenseHandlers, NoteHandlers noteHandlers, ShoppingListService shopping, ExpenseService expenses, ReminderService reminders,
+        AsyncServiceScope scope, ShoppingHandlers shoppingHandlers, ExpenseHandlers expenseHandlers, NoteHandlers noteHandlers, ReminderHandlers reminderHandlers, ShoppingListService shopping, ExpenseService expenses, ReminderService reminders,
         NoteService notes, BudgetService budgets, NotificationService notifications, UndoService undo, OnboardingService onboarding,
         ChannelAddress address, Guid spaceId, User user, CultureInfo culture, string? text, CancellationToken ct)
     {
@@ -774,7 +775,7 @@ public sealed class MessageProcessor(
             LlmTools.QueryPriceHistory => await expenseHandlers.HandlePriceHistoryQueryAsync(expenses, spaceId, user, culture, args, ct),
             LlmTools.SuggestRecipes => await HandleSuggestRecipesAsync(
                 scope, shopping, usage, spaceId, user.Id, culture, GetOptionalString(args, "preference"), ct),
-            LlmTools.CreateReminder => await HandleLlmReminderAsync(scope, address, spaceId, user, culture, args, ct),
+            LlmTools.CreateReminder => await reminderHandlers.HandleLlmReminderAsync(scope, address, spaceId, user, culture, args, ct),
             LlmTools.CreateNote => await noteHandlers.CreateNoteAndReplyAsync(
                 notes, undo, onboarding, address, spaceId, user.Id,
                 GetOptionalString(args, "title"), args.GetProperty("body").GetString() ?? "", ct),
@@ -854,93 +855,6 @@ public sealed class MessageProcessor(
 
     internal static string? GetOptionalString(JsonElement args, string propertyName) =>
         args.TryGetProperty(propertyName, out var value) ? value.GetString() : null;
-
-    private sealed record PendingLlmReminder(Guid SpaceId, string Text, DateTimeOffset DueAt, string TimeZoneId);
-
-    // The model's interpreted date is never committed straight away — it's read back to the
-    // user first (docs/05-ottimizzazioni.md: "l'unico modo per intercettare l'interpretazione
-    // sbagliata prima che diventi un promemoria inutile"), the same ConversationState-backed
-    // ask-and-replay mechanism the space disambiguation question uses.
-    private async Task<string?> HandleLlmReminderAsync(
-        AsyncServiceScope scope, ChannelAddress address, Guid spaceId, User user, CultureInfo culture,
-        JsonElement args, CancellationToken ct)
-    {
-        var reminderText = args.GetProperty("text").GetString();
-        var dueAtText = args.GetProperty("due_at").GetString();
-        if (string.IsNullOrWhiteSpace(reminderText) || dueAtText is null
-            || !DateTime.TryParse(dueAtText, CultureInfo.InvariantCulture, DateTimeStyles.None, out var localDateTime))
-        {
-            return localizer["Errors.NotUnderstood"];
-        }
-
-        var timeZoneId = user.TimeZoneId ?? "UTC";
-        var timeZone = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
-        var dueAt = new DateTimeOffset(localDateTime, timeZone.GetUtcOffset(localDateTime));
-
-        var db = scope.ServiceProvider.GetRequiredService<TesseraDbContext>();
-        var payload = new PendingLlmReminder(spaceId, reminderText, dueAt, timeZoneId);
-        var state = await db.ConversationStates.FirstOrDefaultAsync(s => s.UserId == user.Id, ct);
-        if (state is null)
-        {
-            state = new ConversationState { Id = Guid.NewGuid(), UserId = user.Id };
-            db.ConversationStates.Add(state);
-        }
-
-        state.PendingIntent = "reminder.llmConfirm";
-        state.StateJson = JsonSerializer.Serialize(payload);
-        state.UpdatedAt = DateTimeOffset.UtcNow;
-        state.ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(30);
-        await db.SaveChangesAsync(ct);
-
-        var prompt = localizer["Reminders.ConfirmPrompt", reminderText, FormatDueAt(dueAt, timeZone, culture)];
-        var choices = new[]
-        {
-            new Choice(localizer["Reminders.ConfirmYes"].Value, "remind.llmconfirm:yes"),
-            new Choice(localizer["Reminders.ConfirmNo"].Value, "remind.llmconfirm:no"),
-        };
-        await channel.SendChoicesAsync(address, prompt, choices, ct);
-        return null;
-    }
-
-    private async Task HandleLlmReminderConfirmCallbackAsync(
-        AsyncServiceScope scope, ChannelAddress address, User user, string choice, CancellationToken ct)
-    {
-        var db = scope.ServiceProvider.GetRequiredService<TesseraDbContext>();
-        var state = await db.ConversationStates.FirstOrDefaultAsync(
-            s => s.UserId == user.Id && s.PendingIntent == "reminder.llmConfirm" && s.ExpiresAt > DateTimeOffset.UtcNow, ct);
-        if (state is null)
-        {
-            // Expired, or already answered by a previous tap.
-            return;
-        }
-
-        state.PendingIntent = null;
-        await db.SaveChangesAsync(ct);
-
-        if (choice != "yes")
-        {
-            await channel.SendTextAsync(address, localizer["Reminders.ConfirmCancelled"], ct);
-            return;
-        }
-
-        var payload = JsonSerializer.Deserialize<PendingLlmReminder>(state.StateJson);
-        if (payload is null)
-        {
-            return;
-        }
-
-        var reminders = scope.ServiceProvider.GetRequiredService<ReminderService>();
-        var reminder = await reminders.CreateOnceAsync(payload.SpaceId, user.Id, payload.Text, payload.DueAt, payload.TimeZoneId, ct);
-
-        var undo = scope.ServiceProvider.GetRequiredService<UndoService>();
-        await undo.RecordReminderAsync(user.Id, payload.SpaceId, reminder.Id, ct);
-
-        var onboarding = scope.ServiceProvider.GetRequiredService<OnboardingService>();
-        var culture = new CultureInfo(user.PreferredCulture);
-        var timeZone = TimeZoneInfo.FindSystemTimeZoneById(payload.TimeZoneId);
-        var confirmReply = localizer["Reminders.CreatedOnce", FormatDueAt(reminder.DueAt, timeZone, culture)].Value;
-        await FinalizeUsefulActionReplyAsync(onboarding, address, user.Id, "reminders", confirmReply, ct);
-    }
 
     // Read-only, so no confirmation round trip is needed — only creating something from an
     // interpreted date goes through that (hard rule 14).
@@ -1722,7 +1636,7 @@ public sealed class MessageProcessor(
     };
 
     private async Task HandleCallbackAsync(
-        ShoppingHandlers shoppingHandlers, ExpenseHandlers expenseHandlers, ShoppingListService shopping, ExpenseService expenses, ReminderService reminders, BudgetService budgets,
+        ShoppingHandlers shoppingHandlers, ExpenseHandlers expenseHandlers, ReminderHandlers reminderHandlers, ShoppingListService shopping, ExpenseService expenses, ReminderService reminders, BudgetService budgets,
         NotificationService notifications, UndoService undo, OnboardingService onboarding, ChannelAddress address,
         Guid spaceId, User user, CultureInfo culture, string callbackData, string? callbackMessageId, CancellationToken ct)
     {
@@ -1756,7 +1670,7 @@ public sealed class MessageProcessor(
 
         if (parts.Length == 2 && parts[0] == "remind.complete" && Guid.TryParse(parts[1], out var reminderId))
         {
-            await HandleReminderCompleteCallbackAsync(reminders, address, spaceId, user.Id, reminderId, ct);
+            await reminderHandlers.HandleReminderCompleteCallbackAsync(reminders, address, spaceId, user.Id, reminderId, ct);
             return;
         }
 
@@ -1764,19 +1678,6 @@ public sealed class MessageProcessor(
         {
             await expenseHandlers.HandleWarrantyReminderCallbackAsync(expenses, reminders, address, spaceId, user, culture, warrantyLineId, parts[2], ct);
         }
-    }
-
-    private async Task HandleReminderCompleteCallbackAsync(
-        ReminderService reminders, ChannelAddress address, Guid spaceId, Guid userId, Guid reminderId, CancellationToken ct)
-    {
-        var reminder = await reminders.CompleteAsync(spaceId, userId, reminderId, ct);
-        if (reminder is null)
-        {
-            // Already completed by a concurrent tap, or gone — the button is stale.
-            return;
-        }
-
-        await channel.SendTextAsync(address, localizer["Reminders.Completed", reminder.Text], ct);
     }
 
     private async Task HandleLinkAsync(AsyncServiceScope scope, InboundMessage message, string token, CancellationToken ct)
@@ -1936,91 +1837,6 @@ public sealed class MessageProcessor(
 
         var suggestion = await recipes.SuggestAsync(items.Select(i => i.RawText).ToList(), preference, culture.Name, ct);
         return suggestion ?? localizer["Recipes.NotAvailable"];
-    }
-
-    private async Task<string?> HandleRemindCommandAsync(
-        ReminderService reminders, UndoService undo, OnboardingService onboarding, ChannelAddress address,
-        Guid spaceId, User user, CultureInfo culture, string argsText, CancellationToken ct)
-    {
-        var command = RemindCommandParser.Parse(argsText);
-        if (command is null)
-        {
-            // Not one of the trivial forms. /remind is a native L1 command and stays fully
-            // deterministic on purpose (docs/05-ottimizzazioni.md) — natural language belongs
-            // to the "ricordami di/che" intent match instead, which does go to L3.
-            return localizer["Reminders.Usage"];
-        }
-
-        var timeZoneId = user.TimeZoneId ?? "UTC";
-        var timeZone = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
-
-        switch (command)
-        {
-            case RemindCommand.ListPending:
-                return await HandleRemindListAsync(reminders, address, spaceId, user.Id, timeZone, culture, ct);
-
-            case RemindCommand.CreateOnce once:
-            {
-                var localTime = once.Time ?? new TimeOnly(9, 0);
-                var localDateTime = once.Date.ToDateTime(localTime);
-                var dueAt = new DateTimeOffset(localDateTime, timeZone.GetUtcOffset(localDateTime));
-                if (dueAt < DateTimeOffset.UtcNow)
-                {
-                    // No year was given (or it's already past) — assume next year rather
-                    // than creating a reminder that is overdue the instant it's created.
-                    dueAt = dueAt.AddYears(1);
-                }
-
-                var reminder = await reminders.CreateOnceAsync(spaceId, user.Id, once.Text, dueAt, timeZoneId, ct);
-                await undo.RecordReminderAsync(user.Id, spaceId, reminder.Id, ct);
-                var onceReply = localizer["Reminders.CreatedOnce", FormatDueAt(reminder.DueAt, timeZone, culture)].Value;
-                await FinalizeUsefulActionReplyAsync(onboarding, address, user.Id, "reminders", onceReply, ct);
-                return null;
-            }
-
-            case RemindCommand.CreateRecurring recurring:
-            {
-                var todayLocal = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, timeZone).Date;
-                var localDateTime = todayLocal.Add(new TimeOnly(9, 0).ToTimeSpan());
-                var firstDueAt = new DateTimeOffset(localDateTime, timeZone.GetUtcOffset(localDateTime));
-                if (firstDueAt < DateTimeOffset.UtcNow)
-                {
-                    firstDueAt = RecurrenceRule.Advance(firstDueAt, recurring.Frequency);
-                }
-
-                var reminder = await reminders.CreateRecurringAsync(
-                    spaceId, user.Id, recurring.Text, firstDueAt, timeZoneId, recurring.Frequency, ct);
-                await undo.RecordReminderAsync(user.Id, spaceId, reminder.Id, ct);
-                var recurringReply = localizer["Reminders.CreatedRecurring",
-                    GetFrequencyDisplayName(recurring.Frequency, localizer), FormatDueAt(reminder.DueAt, timeZone, culture)].Value;
-                await FinalizeUsefulActionReplyAsync(onboarding, address, user.Id, "reminders", recurringReply, ct);
-                return null;
-            }
-
-            default:
-                return null;
-        }
-    }
-
-    private async Task<string?> HandleRemindListAsync(
-        ReminderService reminders, ChannelAddress address, Guid spaceId, Guid userId,
-        TimeZoneInfo timeZone, CultureInfo culture, CancellationToken ct)
-    {
-        var pending = await reminders.GetPendingAsync(spaceId, userId, ct);
-        if (pending.Count == 0)
-        {
-            return localizer["Reminders.ListEmpty"];
-        }
-
-        var lines = pending.Select(r =>
-            localizer["Reminders.ListItemLine", FormatDueAt(r.DueAt, timeZone, culture), r.Text].Value);
-        var text = string.Join('\n', lines);
-
-        // One "done" button per reminder — a tap is a callback_query, the same L1 pattern
-        // as checking off a shopping list item (docs/05-ottimizzazioni.md).
-        var choices = pending.Select(r => new Choice(r.Text, $"remind.complete:{r.Id}")).ToList();
-        await channel.SendChoicesAsync(address, text, choices, ct);
-        return null;
     }
 
     // A cost limit, not a protocol one — Telegram itself allows voice messages up to ~60

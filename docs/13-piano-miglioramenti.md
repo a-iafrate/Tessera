@@ -1325,10 +1325,35 @@ dichiarati (divisione delle spese, meal planning, turni di casa, sync Alexa) res
   un `DownloadMediaAsync` che restituisce byte reali, invece di lanciare `NotSupportedException`
   come faceva finora (nessun test precedente esercitava quel percorso). `dotnet build`/`dotnet test`
   puliti, 305 test in tutto (291 precedenti + 14 di questo lotto).
-  **Restano da estrarre**: `CalendarHandlers`, `ReminderHandlers` — un commit per dominio, come
-  sopra. Questi due restano i più rischiosi: portano i flussi di conferma via
-  `ConversationState.PendingIntent` (`reminder.llmConfirm`, `calendarEvent.llmConfirm`,
-  `calendarEvent.deleteConfirm`, `calendarEvent.moveConfirm`) che Shopping/Expense/Notes non hanno.
+  **Lotto 4 di 5: `ReminderHandlers` ✅.** `MessageProcessor.cs`: 2173 → 1989 righe (sotto le 2000
+  per la prima volta). Nuovo `Services/ReminderHandlers.cs` (222 righe) — `HandleLlmReminderAsync`,
+  `HandleLlmReminderConfirmCallbackAsync`, `HandleReminderCompleteCallbackAsync`,
+  `HandleRemindCommandAsync`, `HandleRemindListAsync` (privato), più il record
+  `PendingLlmReminder`. Primo dei due lotti più rischiosi: a differenza di Shopping/Expense/Notes,
+  porta un flusso di conferma via `ConversationState.PendingIntent` ("reminder.llmConfirm") — la
+  data interpretata dal modello viene riletta all'utente prima di creare qualsiasi cosa (regola
+  rigida 14), stesso schema ask-and-replay della disambiguazione spazio in `MessageProcessor`.
+  `HandleLlmReminderAsync`/`HandleLlmReminderConfirmCallbackAsync` risolvono da soli i propri
+  servizi da `scope` invece di riceverli come parametri (comportamento lasciato invariato dalla
+  versione originale, per non allargare il diff) — girano da `HandleLlmFallbackAsync` e
+  dall'intercettazione callback iniziale in `ProcessAsync`, dove `reminders`/`undo`/`onboarding`
+  non sono ancora state risolte a quel punto della pipeline.
+  **Correzione emersa scrivendo i test, non solo test**: `HandleLlmReminderConfirmCallbackAsync`
+  confrontava `ConversationState.ExpiresAt` con `DateTimeOffset.UtcNow` inline nella query — stessa
+  identica forma non tradotta dal provider SQLite già trovata in F4 su `SpaceResolver`. Corretta
+  catturando `UtcNow` in una variabile locale prima della query (comportamento identico su SQL
+  Server, verificato indirettamente: stessa forma già confermata equivalente in F4). Senza questa
+  correzione tre test su `HandleLlmReminderConfirmCallbackAsync` fallivano con lo stesso
+  `InvalidOperationException` di traduzione LINQ. 12 nuovi test in
+  `tests/Tessera.Web.Tests/ReminderHandlersTests.cs` — stesso schema degli altri tre lotti, con un
+  `AsyncServiceScope` costruito su un `ServiceCollection` che registra le stesse istanze di
+  `TesseraDbContext`/`ReminderService`/`UndoService`/`OnboardingService` usate nel resto del test,
+  non un secondo set scollegato. `dotnet build`/`dotnet test` puliti, 317 test in tutto (305
+  precedenti + 12 di questo lotto).
+  **Restano da estrarre**: `CalendarHandlers` — l'ultimo lotto, e il più grande: cinque
+  `ConversationState.PendingIntent` diversi (`calendarEvent.llmConfirm`,
+  `calendarEvent.deleteConfirm`, `calendarEvent.moveConfirm`, più il flusso read-only di query
+  eventi/disponibilità e il callback di `CalendarToListSuggestionJob`).
 
 ### F4 — Test dei servizi con database ✅
 
@@ -1464,7 +1489,7 @@ eseguirli.
 | 7 | **C3, C1** ✅ | Aggregazione e poi email: il canale che sostituisce WhatsApp |
 | 8 | **D3** ✅, decisioni aperte 2 ✅ e 3, **D1** ✅, **D4** ✅, **D2** (codice fatto, click-through sandbox annuale da fare a mano), poi **D5** | La telemetria prima del riassetto: si decide su dati, non a memoria |
 | 9 | **E3** ✅**, E2** ✅**, E4** ✅ (digest settimanale a parte)**, E1** (codice fatto, verifica dal vivo da fare) | Export e garanzie sono quasi gratis; la voce merita di stare dopo perché tocca la pipeline |
-| 10 | **B12, B13, B15** ✅, **F4** ✅, **F3** (3/5 lotti: Shopping ✅, Expense ✅, Note ✅, restano Calendar/Reminder) | Manutenibilità e rifiniture, quando i pattern si sono consolidati |
+| 10 | **B12, B13, B15** ✅, **F4** ✅, **F3** (4/5 lotti: Shopping ✅, Expense ✅, Note ✅, Reminder ✅, resta Calendar) | Manutenibilità e rifiniture, quando i pattern si sono consolidati |
 | 11 | **C2** ✅ (fatto fuori ordine insieme a C1/C3, su richiesta esplicita — chiude tutto il lotto C), **E5, E6, E7** | Il resto, senza urgenza |
 
 **G1-G7 tutti fatti** ✅ — erano divergenze già accertate fra documentazione e realtà; restavano
