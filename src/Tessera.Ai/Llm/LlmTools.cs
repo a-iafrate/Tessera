@@ -26,6 +26,7 @@ public static class LlmTools
     public const string QueryMonthlyExpenses = "query_monthly_expenses";
     public const string QueryExpenseHistory = "query_expense_history";
     public const string QueryPriceHistory = "query_price_history";
+    public const string QueryPriceByMerchant = "query_price_by_merchant";
     public const string CreateReminder = "create_reminder";
     public const string CreateNote = "create_note";
     public const string ShowNotes = "show_notes";
@@ -203,6 +204,22 @@ public static class LlmTools
                   "properties": {
                     "product": { "type": "string", "description": "The product name to look up, e.g. \"coffee\", \"olive oil\"." },
                     "compare_to_date": { "type": "string", "description": "An ISO date (YYYY-MM-DD) to compare the current price against, worked out from the current date given in the context (e.g. \"6 months ago\"). Omit to compare against the earliest price on file." }
+                  },
+                  "required": ["product"]
+                }
+                """))),
+        new(QueryPriceByMerchant, ResourceKind.Expenses, AccessLevel.Read, ChatTool.CreateFunctionTool(
+            QueryPriceByMerchant,
+            "Compare a product's price across the different merchants/stores it's been bought " +
+            "from, from products previously extracted from scanned receipts. Use for questions " +
+            "like \"where's coffee cheapest\", \"which store has the best price for olive oil\", " +
+            "\"am I paying more for milk somewhere\". Not for the same merchant's price over " +
+            "time — that's query_price_history.",
+            BinaryData.FromString("""
+                {
+                  "type": "object",
+                  "properties": {
+                    "product": { "type": "string", "description": "The product name to look up, e.g. \"coffee\", \"olive oil\"." }
                   },
                   "required": ["product"]
                 }

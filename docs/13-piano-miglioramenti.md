@@ -1157,13 +1157,28 @@ dichiarati (divisione delle spese, meal planning, turni di casa, sync Alexa) res
   default, riusando il flusso di conferma esistente.
 - **Fatto quando**: da "quando siamo liberi giovedì?" si arriva all'evento creato con due tocchi.
 
-### E6 — Prezzo per negozio
+### E6 — Prezzo per negozio ✅
 
-- [ ] **Connette**: `ExpenseLine` ↔ merchant. **Dove**: `LlmTools` (`query_price_history`),
+- [x] **Connette**: `ExpenseLine` ↔ merchant. **Dove**: `LlmTools` (`query_price_history`),
   `ExpenseService`
 - **Cosa**: estendere il confronto di prezzo esistente con la dimensione merchant ("il caffè costa
   meno da …"), senza modifiche di schema.
 - **Fatto quando**: la domanda "dove conviene comprare X" ha una risposta se ci sono dati.
+- **Fatto**: nuovo tool L3 `query_price_by_merchant`, non un'estensione di `query_price_history` —
+  sono due forme di domanda distinte ("il prezzo è cambiato nel tempo" vs. "dove costa meno adesso"),
+  e il codebase già usa un tool per forma di domanda (vedi `query_expense_history` vs.
+  `query_monthly_expenses`). Nuovo `ExpenseService.QueryPriceByMerchantAsync` (nessuna modifica di
+  schema, come richiesto): raggruppa le `ExpenseLine` già esistenti per merchant, prendendo il
+  prezzo più recente osservato per ciascuno, ordinato dal più economico; le righe senza merchant
+  (una spesa scritta a mano, non uno scontrino scansionato) sono escluse invece di finire
+  raggruppate sotto un nome vuoto. Nuovo `ExpenseHandlers.HandlePriceByMerchantQueryAsync`: nessun
+  dato → riusa `PriceHistory.NotFound`; un solo merchant → frase dedicata; più merchant → riga di
+  confronto ("più economico da X") seguita dall'elenco completo, così chi ha tre negozi vede anche
+  gli altri due prezzi, non solo il vincitore. Tre nuove chiavi resx (`PriceByMerchant.*`, EN +
+  IT). 3 nuovi test in `ExpenseHandlersTests.cs` (nessun dato, un solo merchant, confronto fra
+  due) — colto lì un buco di copertura preesistente dal lotto F3 (`HandlePriceHistoryQueryAsync`/
+  `HandleHistoryQueryAsync` non avevano mai avuto test propri; non colmato qui, fuori scope per
+  questo intervento). `dotnet build`/`dotnet test` puliti, 340 test in tutto (337 precedenti + 3).
 
 ### E7 — Previsione di fine mese
 
@@ -1531,7 +1546,7 @@ eseguirli.
 | 8 | **D3** ✅, decisioni aperte 2 ✅ e 3, **D1** ✅, **D4** ✅, **D2** (codice fatto, click-through sandbox annuale da fare a mano), poi **D5** | La telemetria prima del riassetto: si decide su dati, non a memoria |
 | 9 | **E3** ✅**, E2** ✅**, E4** ✅ (digest settimanale a parte)**, E1** (codice fatto, verifica dal vivo da fare) | Export e garanzie sono quasi gratis; la voce merita di stare dopo perché tocca la pipeline |
 | 10 | **B12, B13, B15** ✅, **F4** ✅, **F3** ✅ (5/5 lotti: Shopping, Expense, Note, Reminder, Calendar) | Manutenibilità e rifiniture, quando i pattern si sono consolidati |
-| 11 | **C2** ✅ (fatto fuori ordine insieme a C1/C3, su richiesta esplicita — chiude tutto il lotto C), **E5, E6, E7** | Il resto, senza urgenza |
+| 11 | **C2** ✅ (fatto fuori ordine insieme a C1/C3, su richiesta esplicita — chiude tutto il lotto C), **E6** ✅, restano **E5, E7** | Il resto, senza urgenza |
 
 **G1-G7 tutti fatti** ✅ — erano divergenze già accertate fra documentazione e realtà; restavano
 aperte solo perché nessun lotto le aveva ancora forzate a essere risolte.

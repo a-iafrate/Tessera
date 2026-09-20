@@ -120,6 +120,33 @@ public sealed class ExpenseService(TesseraDbContext db, IAccessPolicy accessPoli
             observations.Count);
     }
 
+    // "Dove conviene comprare X" (docs/13-piano-miglioramenti.md, E6) — a distinct question
+    // shape from QueryPriceHistoryAsync: that one tracks the same product's price over time;
+    // this compares different merchants against each other, cheapest first, each represented by
+    // its own most recently observed price. Lines with no merchant (a manually typed expense,
+    // not a scanned receipt) can't contribute a merchant comparison, so they're excluded rather
+    // than grouped under an empty name.
+    public async Task<IReadOnlyList<MerchantPriceObservation>> QueryPriceByMerchantAsync(
+        Guid spaceId, Guid userId, string productText, CancellationToken ct)
+    {
+        await EnsureAccessAsync(spaceId, userId, AccessLevel.Read, ct);
+
+        var target = ProductNameNormalizer.Normalize(productText);
+        var observations = await db.ExpenseLines
+            .Where(l => l.NormalizedName.Contains(target))
+            .Join(db.Expenses, l => l.ExpenseId, e => e.Id, (l, e) => new { e.SpaceId, e.Date, e.Merchant, l.Price })
+            .Where(x => x.SpaceId == spaceId && x.Merchant != null)
+            .AsNoTracking()
+            .ToListAsync(ct);
+
+        return observations
+            .GroupBy(x => x.Merchant!)
+            .Select(g => g.OrderByDescending(x => x.Date).First())
+            .Select(x => new MerchantPriceObservation(x.Merchant!, x.Price, x.Date))
+            .OrderBy(x => x.Price)
+            .ToList();
+    }
+
     // Merchant learning (docs/02-modello-dati.md): per space, not global — "Esselunga"
     // can mean groceries for one family and something else for another.
     public async Task<Category?> FindMerchantCategoryAsync(Guid spaceId, string merchant, CancellationToken ct)

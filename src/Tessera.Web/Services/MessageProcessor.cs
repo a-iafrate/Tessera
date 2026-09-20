@@ -774,6 +774,7 @@ public sealed class MessageProcessor(
             LlmTools.QueryMonthlyExpenses => await expenseHandlers.HandleExpensesQueryAsync(expenses, spaceId, user, culture, ct),
             LlmTools.QueryExpenseHistory => await expenseHandlers.HandleHistoryQueryAsync(expenses, spaceId, user, culture, args, ct),
             LlmTools.QueryPriceHistory => await expenseHandlers.HandlePriceHistoryQueryAsync(expenses, spaceId, user, culture, args, ct),
+            LlmTools.QueryPriceByMerchant => await expenseHandlers.HandlePriceByMerchantQueryAsync(expenses, spaceId, user, culture, args, ct),
             LlmTools.SuggestRecipes => await HandleSuggestRecipesAsync(
                 scope, shopping, usage, spaceId, user.Id, culture, GetOptionalString(args, "preference"), ct),
             LlmTools.CreateReminder => await reminderHandlers.HandleLlmReminderAsync(scope, address, spaceId, user, culture, args, ct),

@@ -333,6 +333,32 @@ public sealed class ExpenseHandlers(
         };
     }
 
+    // "Dove conviene comprare X" (docs/13-piano-miglioramenti.md, E6) — a distinct question
+    // shape from HandlePriceHistoryQueryAsync ("has the price changed over time"): this compares
+    // merchants against each other at (roughly) the same point in time, cheapest first.
+    public async Task<string> HandlePriceByMerchantQueryAsync(
+        ExpenseService expenses, Guid spaceId, User user, CultureInfo culture, JsonElement args, CancellationToken ct)
+    {
+        var product = args.GetProperty("product").GetString() ?? "";
+        var observations = await expenses.QueryPriceByMerchantAsync(spaceId, user.Id, product, ct);
+        if (observations.Count == 0)
+        {
+            return localizer["PriceHistory.NotFound", product];
+        }
+
+        var currency = await expenses.GetSpaceCurrencyAsync(spaceId, ct);
+        if (observations.Count == 1)
+        {
+            var only = observations[0];
+            return localizer["PriceByMerchant.SingleMerchant", product, only.Merchant, MoneyFormatter.Format(only.Price, currency, culture.Name)];
+        }
+
+        var cheapest = observations[0];
+        var header = localizer["PriceByMerchant.Comparison", product, cheapest.Merchant, MoneyFormatter.Format(cheapest.Price, currency, culture.Name)].Value;
+        var lines = observations.Select(o => localizer["PriceByMerchant.Line", o.Merchant, MoneyFormatter.Format(o.Price, currency, culture.Name)].Value);
+        return header + "\n\n" + string.Join('\n', lines);
+    }
+
     private static DateOnly? ParseOptionalDate(string? text) =>
         text is not null && DateOnly.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
             ? date

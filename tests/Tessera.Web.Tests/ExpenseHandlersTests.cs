@@ -278,6 +278,51 @@ public class ExpenseHandlersTests : IDisposable
         Assert.Equal("Reading receipts from photos isn't set up yet — you can still record the expense as text.", result);
     }
 
+    [Fact]
+    public async Task HandlePriceByMerchantQueryAsync_ReturnsNotFound_WhenNoDataExists()
+    {
+        var handlers = CreateHandlers();
+
+        var result = await handlers.HandlePriceByMerchantQueryAsync(
+            expenses, spaceId, user, System.Globalization.CultureInfo.InvariantCulture,
+            JsonDocument.Parse("""{"product":"coffee"}""").RootElement, CancellationToken.None);
+
+        Assert.Equal("I haven't seen a price for \"coffee\" in any scanned receipt yet.", result);
+    }
+
+    [Fact]
+    public async Task HandlePriceByMerchantQueryAsync_ReturnsSingleMerchant_WhenOnlyOneHasSoldIt()
+    {
+        var handlers = CreateHandlers();
+        var expense = await expenses.RecordAsync(spaceId, userId, 5m, categoryId: null, "Conad", DateOnly.FromDateTime(DateTime.UtcNow), note: null, CancellationToken.None);
+        await expenses.AddLinesAsync(expense.Id, [("Coffee", 3.50m)], CancellationToken.None);
+
+        var result = await handlers.HandlePriceByMerchantQueryAsync(
+            expenses, spaceId, user, System.Globalization.CultureInfo.InvariantCulture,
+            JsonDocument.Parse("""{"product":"coffee"}""").RootElement, CancellationToken.None);
+
+        Assert.Equal($"The only place I've seen \"coffee\" is Conad, at {MoneyFormatter.Format(3.50m, "EUR", "")}.", result);
+    }
+
+    [Fact]
+    public async Task HandlePriceByMerchantQueryAsync_ComparesMerchants_CheapestFirst_WhenMultipleHaveSoldIt()
+    {
+        var handlers = CreateHandlers();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var expense1 = await expenses.RecordAsync(spaceId, userId, 5m, categoryId: null, "Conad", today, note: null, CancellationToken.None);
+        await expenses.AddLinesAsync(expense1.Id, [("Coffee", 4.00m)], CancellationToken.None);
+        var expense2 = await expenses.RecordAsync(spaceId, userId, 3m, categoryId: null, "Esselunga", today, note: null, CancellationToken.None);
+        await expenses.AddLinesAsync(expense2.Id, [("Coffee", 3.20m)], CancellationToken.None);
+
+        var result = await handlers.HandlePriceByMerchantQueryAsync(
+            expenses, spaceId, user, System.Globalization.CultureInfo.InvariantCulture,
+            JsonDocument.Parse("""{"product":"coffee"}""").RootElement, CancellationToken.None);
+
+        Assert.StartsWith($"\"coffee\" is cheapest at Esselunga ({MoneyFormatter.Format(3.20m, "EUR", "")}).", result);
+        Assert.Contains($"Esselunga: {MoneyFormatter.Format(3.20m, "EUR", "")}", result);
+        Assert.Contains($"Conad: {MoneyFormatter.Format(4.00m, "EUR", "")}", result);
+    }
+
     private sealed class FakeChannelIdentityRepository : IChannelIdentityRepository
     {
         public Task<User?> ResolveUserAsync(string channelName, string externalUserId, CancellationToken ct) =>

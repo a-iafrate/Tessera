@@ -130,6 +130,15 @@
   <data name="PriceHistory.Unchanged" xml:space="preserve">
     <value>"{0}" still costs {1}, same as on {2}.</value>
   </data>
+  <data name="PriceByMerchant.SingleMerchant" xml:space="preserve">
+    <value>The only place I've seen "{0}" is {1}, at {2}.</value>
+  </data>
+  <data name="PriceByMerchant.Comparison" xml:space="preserve">
+    <value>"{0}" is cheapest at {1} ({2}).</value>
+  </data>
+  <data name="PriceByMerchant.Line" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
   <data name="Errors.NotUnderstood" xml:space="preserve">
     <value>I didn't get that. Try /help</value>
   </data>
