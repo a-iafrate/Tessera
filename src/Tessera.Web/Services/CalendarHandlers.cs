@@ -70,8 +70,15 @@ public sealed class CalendarHandlers(
             localizer["Calendars.EventLine", MessageProcessor.FormatDueAt(e.Start, timeZone, culture), e.Title].Value));
     }
 
-    public async Task<string> HandleCalendarFreeBusyQueryAsync(
-        AsyncServiceScope scope, Guid spaceId, User user, CultureInfo culture, JsonElement args, CancellationToken ct)
+    // "Prenota dopo la disponibilità incrociata" (docs/13-piano-miglioramenti.md, E5) — a
+    // fixed one-hour slot at the start of each free gap found within [from, to], offered as
+    // inline buttons alongside the existing busy/free report. Capped at MaxSlotCandidates so a
+    // wide-open week doesn't produce a wall of buttons.
+    private static readonly TimeSpan SlotDuration = TimeSpan.FromHours(1);
+    private const int MaxSlotCandidates = 5;
+
+    public async Task<string?> HandleCalendarFreeBusyQueryAsync(
+        AsyncServiceScope scope, ChannelAddress address, Guid spaceId, User user, CultureInfo culture, JsonElement args, CancellationToken ct)
     {
         var calendarQuery = scope.ServiceProvider.GetService<CalendarQueryService>();
         if (calendarQuery is null)
@@ -109,31 +116,192 @@ public sealed class CalendarHandlers(
             busy = await calendarQuery.GetFreeBusyAsync(spaceId, user.Id, from, to, ct);
         }
 
+        string text;
         if (busy.Count == 0)
         {
-            return localizer["Calendars.FreeBusyAllFree"];
+            text = localizer["Calendars.FreeBusyAllFree"];
+        }
+        else
+        {
+            // Grouped by day rather than one line per interval — the flat version repeated the
+            // date on both ends of every single-day interval ("4 settembre, 09:00 – 4 settembre,
+            // 13:00") and gave two same-day slots no visual relationship to each other. A day
+            // that's asked about but has nothing booked never appears here — this lists busy
+            // time, not a full week's scaffold, so there's nothing to say about a free day.
+            var byDay = busy
+                .Select(b => (
+                    Start: TimeZoneInfo.ConvertTime(b.Start, timeZone),
+                    End: TimeZoneInfo.ConvertTime(b.End, timeZone)))
+                .GroupBy(b => b.Start.Date)
+                .OrderBy(g => g.Key);
+
+            var lines = byDay.Select(day =>
+            {
+                var dayLabel = day.Key.ToString("dddd d MMMM", culture);
+                var ranges = string.Join(", ", day.Select(b => $"{b.Start.ToString("HH:mm", culture)} – {b.End.ToString("HH:mm", culture)}"));
+                return localizer["Calendars.BusyDayLine", dayLabel, ranges].Value;
+            });
+
+            text = string.Join("\n\n", lines);
         }
 
-        // Grouped by day rather than one line per interval — the flat version repeated the
-        // date on both ends of every single-day interval ("4 settembre, 09:00 – 4 settembre,
-        // 13:00") and gave two same-day slots no visual relationship to each other. A day
-        // that's asked about but has nothing booked never appears here — this lists busy time,
-        // not a full week's scaffold, so there's nothing to say about a free day.
-        var byDay = busy
-            .Select(b => (
-                Start: TimeZoneInfo.ConvertTime(b.Start, timeZone),
-                End: TimeZoneInfo.ConvertTime(b.End, timeZone)))
-            .GroupBy(b => b.Start.Date)
-            .OrderBy(g => g.Key);
-
-        var lines = byDay.Select(day =>
+        var candidates = ComputeFreeSlotStarts(busy, from, to, SlotDuration, MaxSlotCandidates);
+        if (candidates.Count == 0)
         {
-            var dayLabel = day.Key.ToString("dddd d MMMM", culture);
-            var ranges = string.Join(", ", day.Select(b => $"{b.Start.ToString("HH:mm", culture)} – {b.End.ToString("HH:mm", culture)}"));
-            return localizer["Calendars.BusyDayLine", dayLabel, ranges].Value;
-        });
+            return text;
+        }
 
-        return string.Join("\n\n", lines);
+        var conversationDb = scope.ServiceProvider.GetRequiredService<TesseraDbContext>();
+        var payload = new PendingCalendarSlotPick(spaceId, candidates);
+        var state = await conversationDb.ConversationStates.FirstOrDefaultAsync(s => s.UserId == user.Id, ct);
+        if (state is null)
+        {
+            state = new ConversationState { Id = Guid.NewGuid(), UserId = user.Id };
+            conversationDb.ConversationStates.Add(state);
+        }
+
+        state.PendingIntent = "calendarEvent.slotPick";
+        state.StateJson = JsonSerializer.Serialize(payload);
+        state.UpdatedAt = DateTimeOffset.UtcNow;
+        state.ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(30);
+        await conversationDb.SaveChangesAsync(ct);
+
+        var choices = candidates
+            .Select((c, index) => new Choice(MessageProcessor.FormatDueAt(c, timeZone, culture), $"calendarSlot.book:{index}"))
+            .ToList();
+        await channel.SendChoicesAsync(address, $"{text}\n\n{localizer["Calendars.BookSlotPrompt"]}", choices, ct);
+        return null;
+    }
+
+    // Free gaps within [from, to] long enough for one SlotDuration-length event, cheapest-first
+    // (i.e. earliest first) — the complement of the merged busy intervals, not a statistical
+    // guess. Only the gap's start is offered, not the whole gap: a free afternoon shouldn't turn
+    // into one giant proposed event.
+    private static IReadOnlyList<DateTimeOffset> ComputeFreeSlotStarts(
+        IReadOnlyList<FreeBusyInterval> busy, DateTimeOffset from, DateTimeOffset to, TimeSpan slotDuration, int maxCandidates)
+    {
+        var candidates = new List<DateTimeOffset>();
+        var cursor = from;
+        foreach (var interval in busy.OrderBy(b => b.Start))
+        {
+            var gapEnd = interval.Start < to ? interval.Start : to;
+            if (gapEnd - cursor >= slotDuration)
+            {
+                candidates.Add(cursor);
+                if (candidates.Count >= maxCandidates)
+                {
+                    return candidates;
+                }
+            }
+
+            if (interval.End > cursor)
+            {
+                cursor = interval.End;
+            }
+
+            if (cursor >= to)
+            {
+                return candidates;
+            }
+        }
+
+        if (to - cursor >= slotDuration)
+        {
+            candidates.Add(cursor);
+        }
+
+        return candidates;
+    }
+
+    private sealed record PendingCalendarSlotPick(Guid SpaceId, IReadOnlyList<DateTimeOffset> Candidates);
+
+    // Step 2 of "book a slot": the tap picked which candidate, but not yet what to call it
+    // (hard rule 14's read-back doesn't apply here in the date sense — the date was already
+    // shown as the button label — but nothing gets created without a title either).
+    public async Task HandleCalendarSlotBookCallbackAsync(
+        AsyncServiceScope scope, ChannelAddress address, User user, int index, CancellationToken ct)
+    {
+        var db = scope.ServiceProvider.GetRequiredService<TesseraDbContext>();
+        var now = DateTimeOffset.UtcNow;
+        var state = await db.ConversationStates.FirstOrDefaultAsync(
+            s => s.UserId == user.Id && s.PendingIntent == "calendarEvent.slotPick" && s.ExpiresAt > now, ct);
+        if (state is null)
+        {
+            // Expired, or already answered by a previous tap — the button is stale.
+            return;
+        }
+
+        var payload = JsonSerializer.Deserialize<PendingCalendarSlotPick>(state.StateJson);
+        if (payload is null || index < 0 || index >= payload.Candidates.Count)
+        {
+            return;
+        }
+
+        var start = payload.Candidates[index];
+        var end = start.Add(SlotDuration);
+
+        state.PendingIntent = "calendarEvent.slotTitle";
+        state.StateJson = JsonSerializer.Serialize(new PendingCalendarSlotTitle(payload.SpaceId, start, end));
+        state.UpdatedAt = now;
+        state.ExpiresAt = now.AddMinutes(30);
+        await db.SaveChangesAsync(ct);
+
+        var timeZone = TimeZoneInfo.FindSystemTimeZoneById(user.TimeZoneId ?? "UTC");
+        var culture = new CultureInfo(user.PreferredCulture);
+        await channel.SendTextAsync(address, localizer["Calendars.AskSlotTitle", MessageProcessor.FormatDueAt(start, timeZone, culture)], ct);
+    }
+
+    private sealed record PendingCalendarSlotTitle(Guid SpaceId, DateTimeOffset Start, DateTimeOffset End);
+
+    // Step 3, and the only ConversationState.PendingIntent flow in this codebase answered by a
+    // plain text reply instead of a button tap (docs/13-piano-miglioramenti.md, E5) — every
+    // other pending-intent flow here is. That's why this is checked on every inbound text
+    // message in MessageProcessor.ProcessAsync, not gated behind a cheap callback-data prefix
+    // match like the rest: there is no prefix to match on free text. Returns false immediately
+    // (no query already run beyond the one FirstOrDefaultAsync below) when there's nothing
+    // pending, so a normal message pays for exactly one indexed lookup and nothing else.
+    public async Task<bool> TryHandlePendingSlotTitleAsync(
+        AsyncServiceScope scope, ChannelAddress address, User user, string text, CancellationToken ct)
+    {
+        var db = scope.ServiceProvider.GetRequiredService<TesseraDbContext>();
+        var now = DateTimeOffset.UtcNow;
+        var state = await db.ConversationStates.FirstOrDefaultAsync(
+            s => s.UserId == user.Id && s.PendingIntent == "calendarEvent.slotTitle" && s.ExpiresAt > now, ct);
+        if (state is null)
+        {
+            return false;
+        }
+
+        state.PendingIntent = null;
+        await db.SaveChangesAsync(ct);
+
+        var payload = JsonSerializer.Deserialize<PendingCalendarSlotTitle>(state.StateJson);
+        var title = text.Trim();
+        if (payload is null || title.Length == 0)
+        {
+            await channel.SendTextAsync(address, localizer["Errors.NotUnderstood"], ct);
+            return true;
+        }
+
+        var calendarQuery = scope.ServiceProvider.GetService<CalendarQueryService>();
+        if (calendarQuery is null)
+        {
+            await channel.SendTextAsync(address, localizer["Calendars.NotConfigured"], ct);
+            return true;
+        }
+
+        var created = await calendarQuery.CreateEventAsync(payload.SpaceId, user.Id, title, payload.Start, payload.End, ct);
+        if (created is null)
+        {
+            await channel.SendTextAsync(address, localizer["Calendars.CreateEventFailed"], ct);
+            return true;
+        }
+
+        var timeZone = TimeZoneInfo.FindSystemTimeZoneById(user.TimeZoneId ?? "UTC");
+        var culture = new CultureInfo(user.PreferredCulture);
+        var confirmReply = localizer["Calendars.EventCreated", created.Title, MessageProcessor.FormatDueAt(created.Start, timeZone, culture)].Value;
+        await channel.SendTextAsync(address, confirmReply, ct);
+        return true;
     }
 
     // No existing "typed name -> space member" resolver anywhere else in the codebase — this is

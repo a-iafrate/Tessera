@@ -2098,6 +2098,12 @@ Try it now:</value>
   <data name="Calendars.BusyDayLine" xml:space="preserve">
     <value>{0}: busy {1}</value>
   </data>
+  <data name="Calendars.BookSlotPrompt" xml:space="preserve">
+    <value>Want me to book one of these?</value>
+  </data>
+  <data name="Calendars.AskSlotTitle" xml:space="preserve">
+    <value>Got it — {0}. What should I call it?</value>
+  </data>
   <data name="Calendars.PersonNotFound" xml:space="preserve">
     <value>I don't see anyone matching "{0}" in this space.</value>
   </data>

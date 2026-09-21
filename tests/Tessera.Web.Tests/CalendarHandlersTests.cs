@@ -127,12 +127,16 @@ public class CalendarHandlersTests : IDisposable
         await using var scope = CreateScope(withCalendar: false);
 
         var result = await handlers.HandleCalendarFreeBusyQueryAsync(
-            scope, spaceId, user, System.Globalization.CultureInfo.InvariantCulture,
+            scope, address, spaceId, user, System.Globalization.CultureInfo.InvariantCulture,
             Args("""{"from":"2099-01-01T00:00:00","to":"2099-01-02T00:00:00"}"""), CancellationToken.None);
 
         Assert.Equal("Calendar linking isn't available yet.", result);
     }
 
+    // A 24-hour open range would also qualify for at least one bookable slot (E5) — narrowed to
+    // 30 minutes here specifically so this test stays about the plain-text "all free" reply, not
+    // the slot-offering behavior, which HandleCalendarFreeBusyQueryAsync_OffersBookableSlots_WhenAGapIsLongEnough
+    // below covers instead.
     [Fact]
     public async Task HandleCalendarFreeBusyQueryAsync_ReturnsAllFree_WhenNoCalendarIsLinked()
     {
@@ -140,10 +144,30 @@ public class CalendarHandlersTests : IDisposable
         await using var scope = CreateScope(withCalendar: true);
 
         var result = await handlers.HandleCalendarFreeBusyQueryAsync(
-            scope, spaceId, user, System.Globalization.CultureInfo.InvariantCulture,
-            Args("""{"from":"2099-01-01T00:00:00","to":"2099-01-02T00:00:00"}"""), CancellationToken.None);
+            scope, address, spaceId, user, System.Globalization.CultureInfo.InvariantCulture,
+            Args("""{"from":"2099-01-01T00:00:00","to":"2099-01-01T00:30:00"}"""), CancellationToken.None);
 
         Assert.Equal("Nobody's busy in that range.", result);
+        Assert.Empty(channel.SentChoices);
+    }
+
+    [Fact]
+    public async Task HandleCalendarFreeBusyQueryAsync_OffersBookableSlots_WhenAGapIsLongEnough()
+    {
+        var handlers = CreateHandlers();
+        await using var scope = CreateScope(withCalendar: true);
+
+        var result = await handlers.HandleCalendarFreeBusyQueryAsync(
+            scope, address, spaceId, user, System.Globalization.CultureInfo.InvariantCulture,
+            Args("""{"from":"2099-01-01T00:00:00","to":"2099-01-02T00:00:00"}"""), CancellationToken.None);
+
+        Assert.Null(result); // already sent as a choice
+        var sent = Assert.Single(channel.SentChoices);
+        Assert.Contains("Want me to book one of these?", sent.Text);
+        var choice = Assert.Single(sent.Choices);
+        Assert.Equal("calendarSlot.book:0", choice.Value);
+        var state = Assert.Single(Db.ConversationStates);
+        Assert.Equal("calendarEvent.slotPick", state.PendingIntent);
     }
 
     [Fact]
@@ -153,10 +177,67 @@ public class CalendarHandlersTests : IDisposable
         await using var scope = CreateScope(withCalendar: true);
 
         var result = await handlers.HandleCalendarFreeBusyQueryAsync(
-            scope, spaceId, user, System.Globalization.CultureInfo.InvariantCulture,
+            scope, address, spaceId, user, System.Globalization.CultureInfo.InvariantCulture,
             Args("""{"from":"2099-01-01T00:00:00","to":"2099-01-02T00:00:00","people":["Nobody Here"]}"""), CancellationToken.None);
 
         Assert.Equal("I don't see anyone matching \"Nobody Here\" in this space.", result);
+    }
+
+    [Fact]
+    public async Task HandleCalendarSlotBookCallbackAsync_AsksForATitle_AndMovesThePendingIntentForward()
+    {
+        var handlers = CreateHandlers();
+        await using var scope = CreateScope(withCalendar: true);
+        await handlers.HandleCalendarFreeBusyQueryAsync(
+            scope, address, spaceId, user, System.Globalization.CultureInfo.InvariantCulture,
+            Args("""{"from":"2099-01-01T00:00:00","to":"2099-01-02T00:00:00"}"""), CancellationToken.None);
+
+        await handlers.HandleCalendarSlotBookCallbackAsync(scope, address, user, 0, CancellationToken.None);
+
+        Assert.Contains("What should I call it?", Assert.Single(channel.SentTexts).Text);
+        var state = Assert.Single(Db.ConversationStates);
+        Assert.Equal("calendarEvent.slotTitle", state.PendingIntent);
+    }
+
+    [Fact]
+    public async Task HandleCalendarSlotBookCallbackAsync_IsStaleTapSafe_WhenNoSlotPickIsPending()
+    {
+        var handlers = CreateHandlers();
+        await using var scope = CreateScope(withCalendar: true);
+
+        await handlers.HandleCalendarSlotBookCallbackAsync(scope, address, user, 0, CancellationToken.None);
+
+        Assert.Empty(channel.SentTexts);
+    }
+
+    [Fact]
+    public async Task TryHandlePendingSlotTitleAsync_ReturnsFalse_WhenNothingIsPending()
+    {
+        var handlers = CreateHandlers();
+        await using var scope = CreateScope(withCalendar: true);
+
+        var handled = await handlers.TryHandlePendingSlotTitleAsync(scope, address, user, "Dentist", CancellationToken.None);
+
+        Assert.False(handled);
+        Assert.Empty(channel.SentTexts);
+    }
+
+    [Fact]
+    public async Task TryHandlePendingSlotTitleAsync_SendsCreateFailed_WhenNoWritableCalendarIsLinked()
+    {
+        var handlers = CreateHandlers();
+        await using var scope = CreateScope(withCalendar: true);
+        await handlers.HandleCalendarFreeBusyQueryAsync(
+            scope, address, spaceId, user, System.Globalization.CultureInfo.InvariantCulture,
+            Args("""{"from":"2099-01-01T00:00:00","to":"2099-01-02T00:00:00"}"""), CancellationToken.None);
+        await handlers.HandleCalendarSlotBookCallbackAsync(scope, address, user, 0, CancellationToken.None);
+
+        var handled = await handlers.TryHandlePendingSlotTitleAsync(scope, address, user, "Dentist", CancellationToken.None);
+
+        Assert.True(handled);
+        Assert.Equal(
+            "I couldn't create that event — check that a calendar is set as the default for creating events in this space.",
+            channel.SentTexts[^1].Text);
     }
 
     [Fact]

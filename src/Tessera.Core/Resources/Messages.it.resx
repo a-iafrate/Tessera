@@ -2098,6 +2098,12 @@ Provami subito:</value>
   <data name="Calendars.BusyDayLine" xml:space="preserve">
     <value>{0}: impegnato {1}</value>
   </data>
+  <data name="Calendars.BookSlotPrompt" xml:space="preserve">
+    <value>Vuoi che ne prenoti uno?</value>
+  </data>
+  <data name="Calendars.AskSlotTitle" xml:space="preserve">
+    <value>Fatto — {0}. Come lo chiamo?</value>
+  </data>
   <data name="Calendars.PersonNotFound" xml:space="preserve">
     <value>Non trovo nessuno che corrisponda a "{0}" in questo spazio.</value>
   </data>

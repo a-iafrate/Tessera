@@ -283,6 +283,25 @@ public sealed class MessageProcessor(
             return;
         }
 
+        // "Prenota" after a free-busy answer (docs/13-piano-miglioramenti.md, E5) — same
+        // reasoning as the calendar-event confirmations above: the space is already fixed in
+        // the pending payload built when the free-busy query ran.
+        if (message.CallbackData is { } calendarSlotCallback && calendarSlotCallback.StartsWith("calendarSlot.book:", StringComparison.Ordinal)
+            && int.TryParse(calendarSlotCallback["calendarSlot.book:".Length..], out var calendarSlotIndex))
+        {
+            await calendarHandlers.HandleCalendarSlotBookCallbackAsync(scope, address, user, calendarSlotIndex, ct);
+            return;
+        }
+
+        // The only ConversationState.PendingIntent flow answered by a plain text reply instead
+        // of a button tap (docs/13-piano-miglioramenti.md, E5) — "what should I call it?" after
+        // a slot was picked above. Runs on every text message (one indexed lookup when there's
+        // nothing pending), not gated behind a callback-data prefix, since free text has none.
+        if (text is not null && await calendarHandlers.TryHandlePendingSlotTitleAsync(scope, address, user, text, ct))
+        {
+            return;
+        }
+
         // A tap on one of the "📎 note title" buttons under a notes list (HandleShowNotesAsync)
         // — the attachment carries its own SpaceId, so no space resolution is needed here.
         if (message.CallbackData is { } noteAttachmentCallback && noteAttachmentCallback.StartsWith("note.showattachment:", StringComparison.Ordinal))
@@ -785,7 +804,7 @@ public sealed class MessageProcessor(
             LlmTools.DeleteNote => await noteHandlers.HandleLlmDeleteNoteAsync(
                 scope, notes, spaceId, user.Id, args.GetProperty("search_text").GetString() ?? "", ct),
             LlmTools.QueryCalendarEvents => await calendarHandlers.HandleCalendarEventsQueryAsync(scope, spaceId, user, culture, args, ct),
-            LlmTools.QueryCalendarFreeBusy => await calendarHandlers.HandleCalendarFreeBusyQueryAsync(scope, spaceId, user, culture, args, ct),
+            LlmTools.QueryCalendarFreeBusy => await calendarHandlers.HandleCalendarFreeBusyQueryAsync(scope, address, spaceId, user, culture, args, ct),
             LlmTools.CreateCalendarEvent => await calendarHandlers.HandleLlmCreateCalendarEventAsync(scope, address, spaceId, user, culture, args, ct),
             LlmTools.DeleteCalendarEvent => await calendarHandlers.HandleLlmDeleteCalendarEventAsync(scope, address, spaceId, user, culture, args, ct),
             LlmTools.MoveCalendarEvent => await calendarHandlers.HandleLlmMoveCalendarEventAsync(scope, address, spaceId, user, culture, args, ct),

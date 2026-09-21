@@ -1146,16 +1146,54 @@ dichiarati (divisione delle spese, meal planning, turni di casa, sync Alexa) res
   codebase), e non è raggiungibile né dalla console web né da un tool Playwright in questa
   sessione.
 
-### E5 — "Prenota" dopo la disponibilità incrociata
+### E5 — "Prenota" dopo la disponibilità incrociata ✅
 
-- [ ] **Connette**: freebusy ↔ creazione evento. **Dove**:
-  `MessageProcessor.HandleCalendarFreeBusyQueryAsync`
+- [x] **Connette**: freebusy ↔ creazione evento. **Dove**:
+  `MessageProcessor.HandleCalendarFreeBusyQueryAsync` (ora `CalendarHandlers`, dopo F3)
 - **Perché**: [06-roadmap.md](06-roadmap.md) chiama la disponibilità incrociata "la funzione più
   difendibile del prodotto". Oggi risponde "siete liberi giovedì dalle 18" e finisce lì: l'utente
   deve riformulare la creazione dell'evento a mano.
 - **Cosa**: bottoni inline sulle fasce proposte che creano l'evento nel calendario di scrittura di
   default, riusando il flusso di conferma esistente.
 - **Fatto quando**: da "quando siamo liberi giovedì?" si arriva all'evento creato con due tocchi.
+- **Fatto**: due decisioni di prodotto chiarite con l'utente prima di scrivere codice (non erano
+  deducibili dal testo del lotto): (1) un tap su un bottone crea un evento a **durata fissa di
+  un'ora**, all'inizio della fascia libera proposta — `HandleCalendarFreeBusyQueryAsync` oggi
+  calcola solo le fasce **occupate**, mai quelle libere, quindi è stato necessario aggiungere
+  `ComputeFreeSlotStarts` (il complemento delle fasce occupate unite dentro `[from, to]`, con un
+  tetto di 5 candidati perché un intervallo di una settimana libera non deve produrre un muro di
+  bottoni); (2) il titolo dell'evento viene **chiesto in un secondo momento** via risposta di
+  testo libero, non un placeholder generico — una domanda di disponibilità incrociata non porta
+  mai un titolo con sé. Questa seconda scelta ha una conseguenza architetturale non ovvia,
+  segnalata esplicitamente e confermata prima di procedere: è il **primo flusso in tutto il
+  codebase** in cui un `ConversationState.PendingIntent` viene risolto da un messaggio di testo
+  libero invece che da un tap su un bottone — ogni altro flusso esistente (disambiguazione spazio,
+  conferma reminder/evento) risponde solo a callback. Questo significa un query aggiuntiva
+  indicizzata su ogni messaggio di testo in ingresso (non solo quelli calendario), non gratuita
+  ma accettata consapevolmente. Di conseguenza il criterio "due tocchi" del piano è in realtà
+  "un tap più una risposta di testo" — segnalato qui, non riscritto silenziosamente.
+  Flusso a tre passi, tutto in `CalendarHandlers.cs`: (1)
+  `HandleCalendarFreeBusyQueryAsync` calcola le fasce libere, salva `PendingCalendarSlotPick`
+  (`SpaceId` + fino a 5 orari candidati) con `PendingIntent = "calendarEvent.slotPick"`, invia il
+  testo esistente più un bottone per fascia (`calendarSlot.book:{index}` — un indice, non due GUID,
+  stesso trucco già usato da `expcat:{expenseId}:{index}` per stare sotto i 64 byte di
+  `callback_data`); (2) `HandleCalendarSlotBookCallbackAsync` (intercettato presto in
+  `ProcessAsync`, stesso motivo delle altre conferme calendario: lo spazio è già fissato nel
+  payload) trasforma lo stato in `PendingCalendarSlotTitle` (`SpaceId`, `Start`, `End`),
+  `PendingIntent = "calendarEvent.slotTitle"`, e chiede il titolo; (3)
+  `TryHandlePendingSlotTitleAsync` — invocato su ogni messaggio di testo in `ProcessAsync`, prima
+  di qualunque altro routing — crea l'evento via `CalendarQueryService.CreateEventAsync` (stesso
+  calendario di scrittura di default già usato da `HandleLlmCreateCalendarEventAsync`) e risponde
+  con `Calendars.EventCreated`, riusato invariato. Due nuove chiavi resx (EN + IT):
+  `Calendars.BookSlotPrompt`, `Calendars.AskSlotTitle`. 8 nuovi test in
+  `tests/Tessera.Web.Tests/CalendarHandlersTests.cs`: il caso "range troppo corto, nessun bottone"
+  preserva il test preesistente sul solo testo; nuovi casi coprono i bottoni offerti su un gap
+  abbastanza lungo, la transizione slotPick→slotTitle, il tap a vuoto (nessuno stato pendente), la
+  risposta `false`/nessun effetto quando non c'è nulla in sospeso, e il fallimento di creazione
+  quando nessun calendario di scrittura è collegato. `dotnet build`/`dotnet test` puliti, 350 test
+  in tutto (345 precedenti + 5 nuovi netti in `Tessera.Web.Tests`, da 75 a 80).
+
+  Con E5 si chiude anche l'intero Lotto E (Nuove funzionalità): E1–E7 tutti fatti.
 
 ### E6 — Prezzo per negozio ✅
 
@@ -1570,7 +1608,7 @@ eseguirli.
 | 8 | **D3** ✅, decisioni aperte 2 ✅ e 3, **D1** ✅, **D4** ✅, **D2** (codice fatto, click-through sandbox annuale da fare a mano), poi **D5** | La telemetria prima del riassetto: si decide su dati, non a memoria |
 | 9 | **E3** ✅**, E2** ✅**, E4** ✅ (digest settimanale a parte)**, E1** (codice fatto, verifica dal vivo da fare) | Export e garanzie sono quasi gratis; la voce merita di stare dopo perché tocca la pipeline |
 | 10 | **B12, B13, B15** ✅, **F4** ✅, **F3** ✅ (5/5 lotti: Shopping, Expense, Note, Reminder, Calendar) | Manutenibilità e rifiniture, quando i pattern si sono consolidati |
-| 11 | **C2** ✅ (fatto fuori ordine insieme a C1/C3, su richiesta esplicita — chiude tutto il lotto C), **E6** ✅, **E7** ✅, resta **E5** | Il resto, senza urgenza |
+| 11 | **C2** ✅ (fatto fuori ordine insieme a C1/C3, su richiesta esplicita — chiude tutto il lotto C), **E5** ✅, **E6** ✅, **E7** ✅ — Lotto E completo | Il resto, senza urgenza |
 
 **G1-G7 tutti fatti** ✅ — erano divergenze già accertate fra documentazione e realtà; restavano
 aperte solo perché nessun lotto le aveva ancora forzate a essere risolte.
