@@ -986,9 +986,9 @@ Ogni voce rispetta il criterio di ammissione di [06-roadmap.md](06-roadmap.md#fa
 è una **connessione fra due funzioni esistenti**, non una voce autonoma in elenco. I non-obiettivi
 dichiarati (divisione delle spese, meal planning, turni di casa, sync Alexa) restano fuori.
 
-### E1 — Input vocale
+### E1 — Input vocale ✅
 
-- [ ] **Connette**: canale ↔ tutto. **Dove**: `MessageProcessor.HandleIncomingMediaAsync`,
+- [x] **Connette**: canale ↔ tutto. **Dove**: `MessageProcessor.HandleIncomingMediaAsync`,
   nuovo client accanto a `ReceiptVisionClient`
 - **Perché**: [03-integrazioni.md](03-integrazioni.md#sostituto-per-il-caso-duso-voce) cerca un
   sostituto per il caso d'uso vocale dopo aver scartato Alexa. Il messaggio vocale di Telegram *è*
@@ -1000,7 +1000,7 @@ dichiarati (divisione delle spese, meal planning, turni di casa, sync Alexa) res
   alla stessa soglia giornaliera di `UsageService`, con un limite sulla durata.
 - **Fatto quando**: un vocale con due voci da aggiungere le aggiunge entrambe e le rilegge in
   conferma.
-- **Fatto (codice; non verificato dal vivo)**: `VoiceTranscriptionClient` (`Tessera.Ai`), stesso
+- **Fatto**: `VoiceTranscriptionClient` (`Tessera.Ai`), stesso
   schema di `ReceiptVisionClient` — deployment Azure OpenAI **separato**
   (`AzureOpenAI:TranscriptionDeployment`, un modello di trascrizione non è il deployment chat
   condiviso da vision/ricette/L3), inghiotte i propri errori e torna `null`. `InboundMedia`
@@ -1028,11 +1028,15 @@ dichiarati (divisione delle spese, meal planning, turni di casa, sync Alexa) res
   aggiungere, con una sola risposta di conferma che elenca tutte le voci — corregge lo stesso
   buco anche per il testo digitato, non solo per i vocali, e vale sia per L2 sia per il tool L3
   che riusa `HandleAddAsync`.
-  **Non verificato dal vivo**: serve un vero messaggio vocale Telegram e un deployment di
-  trascrizione Azure OpenAI provisionato — nessuno dei due disponibile in questa sessione
-  (il provisioning di risorse Azure resta manuale, non fatto da qui). Verificato che l'app si
-  avvia pulita con la nuova configurazione assente (warning di avvio, nessun crash) e che
-  `dotnet build`/`dotnet test` restano puliti (232 test — nessuno copre `MessageProcessor`).
+  Verificato che l'app si avvia pulita con la nuova configurazione assente (warning di avvio,
+  nessun crash) e che `dotnet build`/`dotnet test` restano puliti (232 test — nessuno copre
+  `MessageProcessor`, non ancora scomposto in quel momento — vedi F3).
+  **Verificato dal vivo**: deployment di trascrizione Azure OpenAI provisionato (nota:
+  `AzureOpenAI:TranscriptionDeployment` deve puntare a un modello che espone l'endpoint
+  `/audio/transcriptions` — `whisper`/`gpt-4o-transcribe`/`gpt-4o-mini-transcribe`, mai lo stesso
+  deployment chat di `AzureOpenAI:Deployment` come `gpt-4o-mini`, che non lo supporta e fallisce
+  silenziosamente nel `catch` di `VoiceTranscriptionClient`) e un vero messaggio vocale Telegram
+  trascritto correttamente.
 
 ### E2 — Promemoria di garanzia dallo scontrino ✅
 
@@ -1606,7 +1610,7 @@ eseguirli.
 | 6 | **F2** ✅ | I permessi, prima di aggiungere superficie che li usa — fatto fuori ordine, su richiesta esplicita, prima dei passi 4-5 (lotto B) |
 | 7 | **C3, C1** ✅ | Aggregazione e poi email: il canale che sostituisce WhatsApp |
 | 8 | **D3** ✅, decisioni aperte 2 ✅ e 3, **D1** ✅, **D4** ✅, **D2** (codice fatto, click-through sandbox annuale da fare a mano), poi **D5** | La telemetria prima del riassetto: si decide su dati, non a memoria |
-| 9 | **E3** ✅**, E2** ✅**, E4** ✅ (digest settimanale a parte)**, E1** (codice fatto, verifica dal vivo da fare) | Export e garanzie sono quasi gratis; la voce merita di stare dopo perché tocca la pipeline |
+| 9 | **E3** ✅**, E2** ✅**, E4** ✅ (digest settimanale a parte)**, E1** ✅ | Export e garanzie sono quasi gratis; la voce merita di stare dopo perché tocca la pipeline |
 | 10 | **B12, B13, B15** ✅, **F4** ✅, **F3** ✅ (5/5 lotti: Shopping, Expense, Note, Reminder, Calendar) | Manutenibilità e rifiniture, quando i pattern si sono consolidati |
 | 11 | **C2** ✅ (fatto fuori ordine insieme a C1/C3, su richiesta esplicita — chiude tutto il lotto C), **E5** ✅, **E6** ✅, **E7** ✅ — Lotto E completo | Il resto, senza urgenza |
 
