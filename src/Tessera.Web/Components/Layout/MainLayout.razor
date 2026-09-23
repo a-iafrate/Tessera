@@ -22,6 +22,7 @@
     </button>
     <nav class="@(isMenuOpen ? "nav-open" : "")">
         <NavLink href="/pricing" ActiveClass="nav-active">@Localizer["Nav.Pricing"]</NavLink>
+        <NavLink href="/help" ActiveClass="nav-active">@Localizer["Nav.Help"]</NavLink>
         <NavLink href="/support" ActiveClass="nav-active">@Localizer["Nav.Support"]</NavLink>
         <AuthorizeView>
             <Authorized>
@@ -54,6 +55,7 @@
 
 <footer class="footer">
     <a href="/pricing">@Localizer["Nav.Pricing"]</a>
+    <a href="/help">@Localizer["Nav.Help"]</a>
     <a href="/support">@Localizer["Nav.Support"]</a>
     <a href="/privacy">@Localizer["Nav.Privacy"]</a>
     <a href="/terms">@Localizer["Nav.Terms"]</a>

@@ -442,6 +442,78 @@
   <data name="Commands.Help.Description" xml:space="preserve">
     <value>Help</value>
   </data>
+  <data name="Help.MoreHint" xml:space="preserve">
+    <value>You can also just ask me things like "how do I link a calendar" or "how do I share this space".</value>
+  </data>
+  <data name="Help.ShoppingList.Question" xml:space="preserve">
+    <value>How do I use the shopping list?</value>
+  </data>
+  <data name="Help.ShoppingList.Answer" xml:space="preserve">
+    <value>Just type what you need ("add milk") or tap /list to see it. Tap the check button to mark something bought, or the bin to remove it.</value>
+  </data>
+  <data name="Help.Expenses.Question" xml:space="preserve">
+    <value>How do I track expenses and budgets?</value>
+  </data>
+  <data name="Help.Expenses.Answer" xml:space="preserve">
+    <value>Record one with /expense 12.50 groceries, or just say it naturally. Snap a photo of a receipt captioned /expense to scan it automatically. Set a monthly budget with /budget 500, or a recurring bill with /recurring.</value>
+  </data>
+  <data name="Help.Reminders.Question" xml:space="preserve">
+    <value>How do I set a reminder?</value>
+  </data>
+  <data name="Help.Reminders.Answer" xml:space="preserve">
+    <value>/remind 15/09 18:00 water the plants for a one-time reminder, /remind daily walk the dog for a recurring one, or just ask naturally ("remind me to call mom tomorrow").</value>
+  </data>
+  <data name="Help.Notes.Question" xml:space="preserve">
+    <value>How do I save a note?</value>
+  </data>
+  <data name="Help.Notes.Answer" xml:space="preserve">
+    <value>Send /note followed by your text, or just send a plain message. Attach a photo or document by sending it — it attaches to your most recent note unless captioned to start a new one.</value>
+  </data>
+  <data name="Help.Calendar.Question" xml:space="preserve">
+    <value>How do I link a calendar?</value>
+  </data>
+  <data name="Help.Calendar.Answer" xml:space="preserve">
+    <value>Link your Google or Microsoft calendar from the web console, then ask things like "when am I free Thursday" or "add a dentist appointment tomorrow at 5pm".</value>
+  </data>
+  <data name="Help.Sharing.Question" xml:space="preserve">
+    <value>How do I share a space with someone?</value>
+  </data>
+  <data name="Help.Sharing.Answer" xml:space="preserve">
+    <value>Invite them from the web console — they'll see the same shopping list, expenses, reminders and notes as you.</value>
+  </data>
+  <data name="Help.Digest.Question" xml:space="preserve">
+    <value>How do I get a daily summary?</value>
+  </data>
+  <data name="Help.Digest.Answer" xml:space="preserve">
+    <value>Send /digest any time for today's reminders, appointments, shopping list and budget status — a daily one can also be sent to you automatically.</value>
+  </data>
+  <data name="Help.Voice.Question" xml:space="preserve">
+    <value>Can I send a voice message?</value>
+  </data>
+  <data name="Help.Voice.Answer" xml:space="preserve">
+    <value>Yes — send a voice message instead of typing and it's transcribed and handled exactly like text.</value>
+  </data>
+  <data name="Help.Undo.Question" xml:space="preserve">
+    <value>How do I undo something?</value>
+  </data>
+  <data name="Help.Undo.Answer" xml:space="preserve">
+    <value>Tap the Undo button on the confirmation, or send /undo — it reverses the last thing you did.</value>
+  </data>
+  <data name="Help.TopicNotUnderstood" xml:space="preserve">
+    <value>I'm not sure which feature you mean — try /help to see the full command list.</value>
+  </data>
+  <data name="Help.PageTitle" xml:space="preserve">
+    <value>Help</value>
+  </data>
+  <data name="Help.PageIntro" xml:space="preserve">
+    <value>Everything the bot can do, and where to go to set it up.</value>
+  </data>
+  <data name="Help.GoToPageButton" xml:space="preserve">
+    <value>Go to page</value>
+  </data>
+  <data name="Help.ChooseSpaceButton" xml:space="preserve">
+    <value>Choose a space</value>
+  </data>
   <data name="Notification.ShoppingItemAdded" xml:space="preserve">
     <value>{0} added {1}</value>
   </data>
@@ -1006,6 +1078,9 @@ Note: I only read messages that start with / or mention me.</value>
   </data>
   <data name="Nav.Support" xml:space="preserve">
     <value>Support</value>
+  </data>
+  <data name="Nav.Help" xml:space="preserve">
+    <value>Help</value>
   </data>
   <data name="Nav.YourSpaces" xml:space="preserve">
     <value>Your spaces</value>

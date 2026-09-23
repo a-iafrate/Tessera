@@ -1,0 +1,61 @@
+@page "/help"
+
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.Extensions.Localization
+@using Tessera.Core.Help
+@using Tessera.Core.Resources
+@using Tessera.Data
+@using Tessera.Web.Services
+
+@inject UserProvisioningService UserProvisioningService
+@inject IStringLocalizer<Messages> Localizer
+
+<PageTitle>@Localizer["Help.PageTitle"]</PageTitle>
+
+<div class="container">
+    <h1>@Localizer["Help.PageTitle"]</h1>
+    <p class="text-soft">@Localizer["Help.PageIntro"]</p>
+
+    <div class="faq-body max-w-40 mt-6">
+        @foreach (var topic in HelpTopics.All)
+        {
+            <div class="mb-6">
+                <h3 class="faq-question">@HelpTopics.GetQuestion(topic, Localizer)</h3>
+                <p class="text-soft">@HelpTopics.GetAnswer(topic, Localizer)</p>
+                @if (HelpTopics.GetRoutePattern(topic) is { } routePattern)
+                {
+                    <a class="btn btn-secondary" href="@LinkFor(routePattern)">
+                        @(defaultSpaceId is null ? Localizer["Help.ChooseSpaceButton"] : Localizer["Help.GoToPageButton"])
+                    </a>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private Guid? defaultSpaceId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateTask!;
+        if (authState.User.Identity?.IsAuthenticated != true)
+        {
+            return;
+        }
+
+        var userId = Guid.Parse(authState.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var user = await UserProvisioningService.GetAsync(userId, CancellationToken.None);
+        defaultSpaceId = user.DefaultSpaceId;
+    }
+
+    // Without a resolved space (signed out, or signed in with no default space yet) the
+    // per-topic route can't be filled in — /spaces is the next best link: pick a space there,
+    // same fallback Help.ChooseSpaceButton's own label promises.
+    private string LinkFor(string routePattern) =>
+        defaultSpaceId is { } spaceId ? string.Format(routePattern, spaceId) : "/spaces";
+}

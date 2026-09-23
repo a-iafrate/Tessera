@@ -38,6 +38,7 @@ public static class LlmTools
     public const string MoveCalendarEvent = "move_calendar_event";
     public const string CorrectLastShoppingItem = "correct_last_shopping_item";
     public const string SuggestRecipes = "suggest_recipes";
+    public const string GetHelp = "get_help";
 
     // Tools filtered per context (docs/05-ottimizzazioni.md):
     // - accessByResource: the calling member's effective AccessLevel per ResourceKind in the
@@ -363,6 +364,30 @@ public static class LlmTools
                     "new_start": { "type": "string", "description": "The new start date-time as ISO 8601, worked out from the current date and time zone given in the context. The event keeps its original duration — do not compute a new end time." }
                   },
                   "required": ["search_text", "from", "to", "new_start"]
+                }
+                """))),
+        // ShoppingList/Read is an arbitrary but reasonable anchor (docs/02-modello-dati.md
+        // doesn't cover a resource-less tool) — same reasoning as /digest's own anchor in
+        // MessageProcessor.ResourceForNativeCommand. Help touches no resource of its own, so
+        // this is filtered in for essentially every member of every space, which is the point.
+        new(GetHelp, ResourceKind.ShoppingList, AccessLevel.Read, ChatTool.CreateFunctionTool(
+            GetHelp,
+            "Explain how to use a feature of the app, and point to where in the web console to " +
+            "do it. Use for \"how do I...\" questions about the product itself (\"how do I link a " +
+            "calendar\", \"come aggiungo una spesa ricorrente\"), never to actually perform the " +
+            "action the user asked about — this only explains, it never adds/creates/changes " +
+            "anything.",
+            BinaryData.FromString("""
+                {
+                  "type": "object",
+                  "properties": {
+                    "topic": {
+                      "type": "string",
+                      "enum": ["shopping_list", "expenses", "reminders", "notes", "calendar", "sharing", "digest", "voice", "undo"],
+                      "description": "Which feature the user is asking how to use."
+                    }
+                  },
+                  "required": ["topic"]
                 }
                 """))),
         // Kept last so it's appended after every base tool that qualifies, matching the

@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using System.Threading.RateLimiting;
 using Microsoft.ApplicationInsights;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Localization;
 using Tessera.Ai.Commands;
 using Tessera.Ai.Llm;
@@ -14,6 +15,7 @@ using Tessera.Core.Calendars;
 using Tessera.Core.Channels;
 using Tessera.Core.Conversations;
 using Tessera.Core.Expenses;
+using Tessera.Core.Help;
 using Tessera.Core.Notes;
 using Tessera.Core.Notifications;
 using Tessera.Core.Reminders;
@@ -810,6 +812,7 @@ public sealed class MessageProcessor(
             LlmTools.MoveCalendarEvent => await calendarHandlers.HandleLlmMoveCalendarEventAsync(scope, address, spaceId, user, culture, args, ct),
             LlmTools.CorrectLastShoppingItem when recentAction is not null => await shoppingHandlers.CorrectAsync(
                 shopping, address, spaceId, user.Id, recentAction.ItemId, args.GetProperty("corrected_text").GetString() ?? "", ct),
+            LlmTools.GetHelp => await HandleGetHelpAsync(scope, spaceId, args, ct),
             _ => await SendNotUnderstoodAsync(address, text, culture, ct),
         };
     }
@@ -1401,6 +1404,37 @@ public sealed class MessageProcessor(
         return suggestion ?? localizer["Recipes.NotAvailable"];
     }
 
+    // "How do I..." questions about the product itself, answered by static per-topic text
+    // (HelpTopics — shared with the web console's /help page) rather than a free-form LLM
+    // answer, so the wording never drifts and never invents a feature that doesn't exist.
+    // Never a dead end (docs/10-conversazione.md): an unrecognized topic still gets a helpful
+    // reply, not a bare "I didn't understand".
+    private async Task<string> HandleGetHelpAsync(AsyncServiceScope scope, Guid spaceId, JsonElement args, CancellationToken ct)
+    {
+        if (HelpTopicCodes.FromCode(GetOptionalString(args, "topic")) is not { } topic)
+        {
+            return localizer["Help.TopicNotUnderstood"];
+        }
+
+        var answer = HelpTopics.GetAnswer(topic, localizer);
+        if (HelpTopics.GetRoutePattern(topic) is not { } routePattern)
+        {
+            return answer;
+        }
+
+        // App:BaseUrl is the same config key DailyDigestJob already uses to build absolute
+        // links (unsubscribe) — no IUrlHelper/route-name helper exists in backend code, so this
+        // is the second use of that same ad hoc pattern, not a new one.
+        var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+        if (configuration["App:BaseUrl"]?.TrimEnd('/') is not { } baseUrl)
+        {
+            return answer;
+        }
+
+        var link = baseUrl + string.Format(CultureInfo.InvariantCulture, routePattern, spaceId);
+        return $"{answer}\n\n{link}";
+    }
+
     // A cost limit, not a protocol one — Telegram itself allows voice messages up to ~60
     // minutes; this is about not paying to transcribe someone's pocket-recorded meeting
     // (docs/13-piano-miglioramenti.md, E1).
@@ -1535,7 +1569,9 @@ public sealed class MessageProcessor(
     }
 
     // Same descriptions registered with Telegram's setMyCommands (Program.cs) — one source
-    // of truth, so the menu and /help can't drift apart (docs/09-localizzazione.md).
+    // of truth, so the menu and /help can't drift apart (docs/09-localizzazione.md). The final
+    // line points at get_help (HandleGetHelpAsync) — the command list alone doesn't surface
+    // that natural-language "how do I..." questions work too.
     private string HandleHelpCommand() => string.Join('\n', [
         $"/list — {localizer["Commands.List.Description"]}",
         $"/expense — {localizer["Commands.Expense.Description"]}",
@@ -1547,5 +1583,7 @@ public sealed class MessageProcessor(
         $"/link — {localizer["Commands.Link.Description"]}",
         $"/language — {localizer["Commands.Language.Description"]}",
         $"/help — {localizer["Commands.Help.Description"]}",
+        "",
+        localizer["Help.MoreHint"].Value,
     ]);
 }

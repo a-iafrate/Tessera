@@ -1253,6 +1253,65 @@ dichiarati (divisione delle spese, meal planning, turni di casa, sync Alexa) res
   sezione compare nel testo del digest completo. `dotnet build`/`dotnet test` puliti, 345 test in
   tutto (340 precedenti + 4 di `Tessera.Data.Tests` + 1 di `Tessera.Web.Tests`).
 
+### E8 — Aiuto conversazionale + pagina `/help` ✅
+
+- [x] **Connette**: canale ↔ console web. **Dove**: nuovo tool L3 `get_help` (`LlmTools.cs`,
+  `MessageProcessor.HandleGetHelpAsync`), nuova `Components/Pages/Help.razor`
+- **Perché**: richiesta esplicita dell'utente, non nel piano originale. `/help` esisteva già ma
+  era solo l'elenco statico dei comandi slash — non rispondeva a "come aggiungo un calendario",
+  e non esisteva nessuna pagina web equivalente (solo `/support`, FAQ commerciali generiche tipo
+  "è gratis?", non specifiche per funzionalità).
+- **Cosa**: domande in linguaggio naturale del tipo "come faccio a…" rispondono con una spiegazione
+  breve più, quando pertinente, il link diretto alla pagina della console dove farlo. Stessa
+  copertura lato bot e lato sito, da un'unica fonte di verità condivisa.
+- **Fatto quando**: una domanda come "come aggiungo un calendario" ritorna sia la spiegazione sia
+  il link alla pagina giusta, e la stessa informazione è consultabile anche sul sito.
+- **Fatto**: due decisioni di prodotto chiarite con l'utente prima di scrivere codice — pagina
+  `/help` **nuova e dedicata** (non un'estensione di `/support`, che resta per le FAQ commerciali),
+  e perimetro **ampio fin da subito** ("un po' di tutto", non solo il calendario dell'esempio):
+  lista della spesa, spese/budget/scontrini/ricorrenti, promemoria, note, calendario, condivisione
+  spazio, digest, vocale, undo — nove argomenti (`Tessera.Core.Help.HelpTopic`).
+  Fonte di verità unica: `Tessera.Core.Help.HelpTopic` (l'enum, nessuna dipendenza infrastrutturale,
+  condiviso sia da `Tessera.Ai` per lo schema del tool sia da `Tessera.Web` per contenuto e pagina)
+  e `Tessera.Core.Help.HelpTopicCodes` (mappatura esplicita enum ↔ stringa snake_case per lo
+  schema JSON del tool, es. `ShoppingList` ↔ `"shopping_list"`) — deliberatamente non
+  `Enum.TryParse(text, ignoreCase: true, ...)` sui nomi C# diretti come fa già (con un bug latente
+  non toccato) `HistoryAggregation` altrove nel codebase: quel pattern fallisce silenziosamente sui
+  valori multi-parola, perché maiuscolo/minuscolo e PascalCase-vs-snake_case non sono la stessa
+  differenza. `Tessera.Web.Services.HelpTopics` (statico) mappa ogni `HelpTopic` a domanda/risposta
+  via chiave resx `Help.{Topic}.Question`/`Help.{Topic}.Answer` e, quando pertinente, al pattern di
+  route della pagina console che risponde (es. `Calendar` → `/spaces/{0}/calendars`) — null per i
+  tre argomenti che vivono solo in chat (digest, vocale, undo: nessuna pagina web equivalente).
+  Lato bot: nuovo tool `get_help` (`ResourceKind.ShoppingList`/`Read` come ancora arbitraria, stessa
+  scelta già fatta per `/digest` — l'aiuto non tocca nessuna risorsa propria) —
+  `HandleGetHelpAsync` in `MessageProcessor` (non un nuovo `HelpHandlers`: l'aiuto non ha un
+  `ResourceKind` proprio, stesso trattamento già riservato a `/language`/`/usage`). Il link, quando
+  presente, si costruisce con `App:BaseUrl` (stessa chiave di configurazione, stesso pattern ad hoc
+  a stringa interpolata, già usato — e finora unico altro punto del codice backend a costruire un
+  URL assoluto — da `DailyDigestJob` per il link di disiscrizione email) più lo `spaceId` già
+  risolto dalla pipeline per quel turno. `/help` nativo guadagna una riga finale
+  (`Help.MoreHint`) che segnala la nuova capacità, altrimenti invisibile dal solo elenco comandi.
+  Lato sito: nuova `Help.razor` a `/help`, pubblica (nessun `[Authorize]`, stesso trattamento di
+  `/support`), aggiunta alla navbar e al footer di `MainLayout.razor`. Non essendo legata a uno
+  spazio specifico, risolve lo spazio di default dell'utente autenticato (se presente) per linkare
+  direttamente alle pagine per-spazio; altrimenti (utente anonimo, o senza spazio di default) il
+  pulsante porta a `/spaces` a scegliere. 5 nuovi test in `tests/Tessera.Core.Tests/Help/`
+  (round-trip `ToCode`/`FromCode` per ogni `HelpTopic` via `TheoryData`, valori sconosciuti/null,
+  forma snake_case) e in `tests/Tessera.Web.Tests/HelpTopicsTests.cs` (ogni argomento produce testo
+  resx reale, non la chiave grezza in caso di refuso; la route del calendario si formatta
+  correttamente; i tre argomenti solo-chat non hanno route). `HandleGetHelpAsync` stesso non ha
+  test diretti — resta non testato per lo stesso motivo di `/language`/`/usage`: `MessageProcessor`
+  non ha un progetto di test dedicato (F3 ha estratto solo i cinque domini con `ResourceKind`
+  proprio), e qui la logica di business reale (mappatura argomento, formattazione URL) vive già,
+  testata, in `HelpTopics`/`HelpTopicCodes`. **Verificato dal vivo**: `dotnet run` con il database
+  condiviso, fetch diretto di `/help` in EN e IT (nessun tool Playwright/browser disponibile in
+  questa sessione) — tutti e nove gli argomenti si vedono nella lingua giusta, nessuna chiave resx
+  grezza esposta, sei bottoni "Choose a space"/"Scegli uno spazio" (i sei argomenti con una pagina
+  console), `/support` e la home restano invariate, il link "Help"/"Aiuto" compare in navbar.
+  `dotnet build`/`dotnet test` puliti, 384 test in tutto — 12 nuovi in
+  `tests/Tessera.Core.Tests/Help/HelpTopicCodesTests.cs`, 22 nuovi in
+  `tests/Tessera.Web.Tests/HelpTopicsTests.cs`.
+
 ---
 
 ## Lotto F — Test e manutenibilità
